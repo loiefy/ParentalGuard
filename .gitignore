@@ -1,0 +1,25 @@
+# .NET / WinUI 3 (DEV-003)
+bin/
+obj/
+.vs/
+*.user
+*.suo
+publish/
+AppPackages/
+BundleArtifacts/
+
+# Secret file patterns (DEV-011) — never commit these
+*.pfx
+*.p12
+*.snk
+*.cer
+.env
+appsettings.*.local.json
+secrets.json
+*secret*
+*credential*
+*key*.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db

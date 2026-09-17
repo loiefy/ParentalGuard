@@ -1,0 +1,46 @@
+# .editorconfig — chuẩn Microsoft C# Coding Conventions (DEV-020)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{cs,csx}]
+indent_size = 4
+
+# Naming (DEV-021)
+dotnet_naming_rule.types_pascal_case.severity = warning
+dotnet_naming_rule.types_pascal_case.symbols = types
+dotnet_naming_rule.types_pascal_case.style = pascal_case
+dotnet_naming_symbols.types.applicable_kinds = class, struct, enum, delegate
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
+dotnet_naming_rule.interfaces_i_prefix.severity = warning
+dotnet_naming_rule.interfaces_i_prefix.symbols = interfaces
+dotnet_naming_rule.interfaces_i_prefix.style = i_pascal_case
+dotnet_naming_symbols.interfaces.applicable_kinds = interface
+dotnet_naming_style.i_pascal_case.capitalization = pascal_case
+dotnet_naming_style.i_pascal_case.required_prefix = I
+
+dotnet_naming_rule.private_fields_underscore_camel.severity = warning
+dotnet_naming_rule.private_fields_underscore_camel.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore_camel.style = underscore_camel_case
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel_case.capitalization = camel_case
+dotnet_naming_style.underscore_camel_case.required_prefix = _
+
+# Nullable (DEV-022) — enforced per-project via <Nullable>enable</Nullable>, not here.
+
+# Security analyzers (DEV-023) — Microsoft.CodeAnalysis.NetAnalyzers, category Security = error, others default warning.
+dotnet_analyzer_diagnostic.category-Security.severity = error
+
+[*.{json,xml,csproj,props,targets}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
