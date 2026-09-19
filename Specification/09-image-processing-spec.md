@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.5.1 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.5.2 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -88,6 +88,7 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.5.2 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` (câu hỏi mở về phương pháp/dataset benchmark ngưỡng risk score ở mục 8 vẫn giữ nguyên, không tính là requirement chưa duyệt) |
 | v0.5.1 | 2026-09-17 | Cập nhật tham chiếu .NET 8 → .NET 10 tại `IMG-014`, khớp `GEN-003a` (supersedes `GEN-003`) ở `00-INDEX.md` |
 | v0.5.0 | 2026-09-17 | **Chốt model AI cụ thể**: `IMG-014` — dùng trọng số `GantMan/nsfw_model` (MobileNetV2, MIT), convert sang ONNX, không đóng gói runtime Python. `IMG-015` — an toàn network đảm bảo bởi 2 lớp độc lập (model là dữ liệu tĩnh + chặn network tầng OS đã có ở `SEC-016`-`018`), thêm hardening tắt telemetry ONNX Runtime. Section 3 mới, renumber các section 3-8 cũ thành 4-9 |
 | v0.4.0 | 2026-09-17 | **Chốt 2/3 câu hỏi mở**: `IMG-001a` — không có ngoại lệ thumbnail trong audit log, `IMG-001`/`GEN-031` giữ nguyên tuyệt đối. `IMG-013` — làm rõ tường minh chiều risk score (càng cao càng chắc chắn vi phạm), không đổi hành vi. Hoãn quyết định dataset video sang giai đoạn triển khai hệ thống (ghi chú ở mục 5). Câu hỏi về phương pháp benchmark chọn ngưỡng risk score cụ thể vẫn còn mở |

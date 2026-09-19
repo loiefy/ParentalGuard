@@ -1,6 +1,6 @@
 # 05 — Anti-Uninstall & Tamper Protection Spec
 
-> Version: v0.3.1 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.3.2 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục tiêu
 
@@ -95,6 +95,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.2 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.1 | 2026-09-17 | Cập nhật dòng A8: app giờ hoàn toàn zero-network (`GEN-034`), không còn điều kiện "nếu có update mechanism" vì `MISC-020` đã bị REJECTED |
 | v0.3.0 | 2026-09-17 | **Chốt cả 3 câu hỏi mở**: `ANTI-061` — không bổ sung cảnh báo chủ động cho sự kiện kill-restart, chỉ log thụ động (khác biệt có lý do với `ANTI-070b`). Ghi nhận Phase 1 không đầu tư chống Safe Mode with Networking bypass (mục 6). `ANTI-070a`/`ANTI-070b` — sau khi fallback, Service tự động ghi đè `config.db` bằng bản mặc định + gửi Windows Toast Notification chủ động cảnh báo phụ huynh (liên kết `BE-061a`/`BE-061b` ở `02-backend-spec.md`). File này không còn câu hỏi mở |
 | v0.2.0 | 2026-09-17 | **Chốt**: thêm `ANTI-070` — fail-secure khi `config.db` bị hỏng/không đọc được, Service tự động fallback dùng bộ cấu hình mặc định hard-code trong code (giám sát luôn BẬT), không dừng hoạt động. Thêm attack vector A9 vào bảng mục 2. Section 8 mới, renumber section Câu hỏi mở/Changelog |

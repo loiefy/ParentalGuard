@@ -1,0 +1,318 @@
+syntax = "proto3";
+package parentalguard.ipc.v1;
+
+option csharp_namespace = "ParentalGuard.Ipc.Protocol";
+
+// Nguồn: Architecture/03-ipc-communication.md mục 3 (Approved).
+// Envelope + message schema Đợt 0 (handshake/heartbeat/lifecycle/control) và khung Đợt 1
+// (inference result/overlay/force-close) đã chốt sẵn field number theo khối 20 số/domain
+// để mở rộng không phá vỡ tương thích ngược (ADR-16). Không sửa field number/ý nghĩa field
+// đã có — chỉ được thêm field/case mới hoặc "reserved".
+
+message IpcPayload {
+  uint64 message_id = 1;
+  uint64 correlation_id = 2;
+  int64 timestamp_unix_ms = 3;
+  ProcessType sender = 4;
+  uint32 schema_version = 5;
+
+  oneof body {
+    // --- Handshake (10-19) ---
+    Hello hello = 10;
+    HelloAck hello_ack = 11;
+
+    // --- Heartbeat (20-29) ---
+    HeartbeatPing heartbeat_ping = 20;
+    HeartbeatAck heartbeat_ack = 21;
+
+    // --- Lifecycle (30-39) ---
+    GracefulStopCommand graceful_stop = 30;
+
+    // --- Kênh Vision (40-59, dành 42-59 cho Đợt 5 Pause / Đợt 7 Perf adaptive) ---
+    ControlVisionCommand control_vision = 40;
+    VisionInferenceResult vision_result = 41;
+
+    // --- Kênh Overlay (60-79, dành 66-79 cho nhu cầu tương lai) ---
+    OverlayRectListCommand overlay_rects = 60;
+    ForceCloseRequest force_close = 61;
+    ShowToastCommand show_toast = 62; // dùng từ Đợt 0 (BE-061b) — tổng quát cho mọi cảnh báo Overlay-channel
+    MonitoringStatusUpdate monitoring_status = 63; // Đợt 2, Service → Overlay — trạng thái icon (FE-021)
+    IconPositionUpdate icon_position_update = 64; // Đợt 2, Overlay → Service — kết quả kéo-thả icon (FE-020a)
+    IconLayoutSync icon_layout_sync = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
+
+    // --- Kênh UI (80-99) ---
+    // Password & Authentication (80-91, Đợt 3) — Architecture/08-password-authentication-architecture.md mục 7
+    SetInitialPasswordRequest set_initial_password_req = 80;
+    SetInitialPasswordResponse set_initial_password_resp = 81;
+    ConfirmRecoveryKeySavedRequest confirm_recovery_req = 82;
+    ConfirmRecoveryKeySavedResponse confirm_recovery_resp = 83;
+    AuthVerifyRequest auth_verify_req = 84;
+    AuthVerifyResponse auth_verify_resp = 85;
+    ChangePasswordRequest change_password_req = 86;
+    ChangePasswordResponse change_password_resp = 87;
+    RecoveryResetRequest recovery_reset_req = 88;
+    RecoveryResetResponse recovery_reset_resp = 89;
+    AuthStatusQuery auth_status_query = 90;
+    AuthStatusResponse auth_status_resp = 91;
+    // 92-99 dành cho Đợt 6 (Dashboard query khác), chi tiết hoá khi thiết kế 10-ui-architecture.md
+  }
+}
+
+enum ProcessType {
+  PROCESS_TYPE_UNSPECIFIED = 0;
+  VISION = 1;
+  OVERLAY = 2;
+  UI = 3;
+  WATCHDOG = 4; // reserved — giao thức ở Architecture/07, không dùng ở Đợt 0
+  SERVICE = 5; // Service tự khai báo là sender khi chủ động gửi (HelloAck/HeartbeatPing/
+               // GracefulStopCommand/ControlVisionCommand/OverlayRectListCommand/ShowToastCommand...)
+}
+
+message Hello {
+  ProcessType process_type = 1;
+  uint32 pid = 2;
+  string executable_path = 3;
+  uint32 protocol_version = 4;
+}
+
+message HelloAck {
+  bool accepted = 1;
+  bytes session_key = 2; // rỗng cho Vision/Overlay (khoá persistent bootstrap qua anonymous pipe)
+  int64 server_time_unix_ms = 3;
+}
+
+message HeartbeatPing {
+  uint64 sequence = 1;
+  int64 sent_at_unix_ms = 2;
+}
+
+message HeartbeatAck {
+  uint64 sequence = 1;
+  string diagnostic_state = 2;
+}
+
+message GracefulStopCommand {
+  uint32 deadline_ms = 1;
+  string reason = 2;
+}
+
+message ControlVisionCommand {
+  bool monitoring_enabled = 1;
+  uint32 capture_interval_ms = 2;
+  float risk_threshold = 3;
+  repeated string exclude_process_names = 4;
+
+  reserved 20 to 29; // Đợt 5 (PAUSE-*)
+  reserved 30 to 39; // Đợt 7 (PERF-*)
+}
+
+message Rect {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+message VisionInferenceResult {
+  uint64 frame_id = 1;
+  fixed64 window_handle = 2;
+  uint32 monitor_id = 3;
+  float risk_score = 4;
+  Rect bbox = 5;
+  int64 captured_at_unix_ms = 6;
+
+  reserved 10 to 19; // dành cho IMG-031 nếu mở lại phạm vi
+}
+
+message OverlayRectListCommand {
+  repeated OverlayRect rects = 1;
+  int64 generated_at_unix_ms = 2;
+
+  reserved 10 to 19; // Đợt 2: BE-088/089
+}
+
+message OverlayRect {
+  fixed64 window_handle = 1;
+  Rect rect = 2; // BỎ QUA nếu is_merged=true — Overlay tự resolve bounds toàn màn hình cục bộ
+  uint32 monitor_id = 3;
+  uint32 overlay_id = 4;
+  OverlayReason reason = 5; // chỉ log/debug phía Service — Overlay không rẽ nhánh theo field này
+
+  // --- Đợt 2, BE-088/089: chế độ overlay gộp khi vượt quá 10 overlay đồng thời ---
+  bool is_merged = 6; // true = overlay này che TOÀN màn hình chứa window_handle (degraded mode, BE-088)
+  repeated fixed64 merged_window_handles = 7; // chỉ set khi is_merged=true — TOÀN BỘ handle vi phạm trên HỆ THỐNG (BE-089)
+}
+
+enum OverlayReason {
+  OVERLAY_REASON_UNSPECIFIED = 0;
+  CONTENT_VIOLATION = 1;
+  reserved 2 to 9;
+}
+
+message ForceCloseRequest {
+  fixed64 window_handle = 1;
+  uint32 overlay_id = 2;
+  int64 clicked_at_unix_ms = 3;
+  CloseSource source = 4; // bổ sung Đợt 2 (BE-089b) — Overlay LUÔN set tường minh, không để mặc định UNSPECIFIED
+}
+
+enum CloseSource {
+  CLOSE_SOURCE_UNSPECIFIED = 0;
+  MANUAL = 1;
+  AUTO_TIMEOUT = 2;
+}
+
+// --- Đợt 2, FE-020/021/022: icon trạng thái multi-monitor (07-overlay-architecture.md mục 4.1) ---
+
+message MonitoringStatusUpdate {
+  IconState state = 1;
+  int64 pause_expires_at_unix_ms = 2; // chỉ có ý nghĩa khi state == PAUSED, 0 nếu không áp dụng
+  int64 generated_at_unix_ms = 3;
+}
+
+enum IconState {
+  ICON_STATE_UNSPECIFIED = 0;
+  ACTIVE = 1; // Running·Monitoring (kể cả Degraded·FailSecure, ADR-14)
+  PAUSED = 2; // Running·Paused
+  ERROR = 3; // Starting, hoặc đang respawn Vision/Overlay sau mất heartbeat (BE-023)
+}
+
+message IconPositionUpdate {
+  string device_name = 1; // MONITORINFOEX.szDevice, vd "\\.\DISPLAY1" — KHÔNG phải monitor_id (OverlayRect field 3)
+  int32 x = 2; // toạ độ tuyệt đối góc trên-trái icon form sau khi thả
+  int32 y = 3;
+}
+
+message IconLayoutSync {
+  repeated IconPositionUpdate positions = 1; // toàn bộ vị trí đã lưu, push ngay sau handshake
+}
+
+message ShowToastCommand {
+  uint32 toast_id = 1; // định danh tăng dần theo Service, dùng đối chiếu log/debug — không phải khoá nghiệp vụ
+  string text = 2; // nội dung hiển thị SẴN, Service dựng đầy đủ — Overlay KHÔNG tự dịch/suy luận lại
+  ToastSeverity severity = 3;
+  string reason_code = 4; // mã lý do machine-readable, vd "CONFIG_FALLBACK_TRIGGERED" — chỉ phục vụ audit log/test
+  int64 generated_at_unix_ms = 5;
+
+  reserved 10 to 19; // để ngỏ (vd duration_ms, action button, icon) — không phát minh trước ở đây
+}
+
+enum ToastSeverity {
+  TOAST_SEVERITY_UNSPECIFIED = 0;
+  INFO = 1;
+  WARNING = 2;
+}
+
+// --- Đợt 3, PWD-0xx: Password & Authentication (field 80-91 của khối UI 80-99) ---
+// Nguồn: Architecture/08-password-authentication-architecture.md mục 7 (Approved).
+// Mọi field mang plaintext credential dùng `bytes` (UTF-8), không dùng `string` (ADR-73,
+// memory hygiene PWD-050/051) — KHÔNG CÒN NGOẠI LỆ (v0.3.0): `recovery_key_plaintext`/
+// `new_recovery_key_plaintext` trước đây giữ `string` không có phân tích rủi ro nào biện minh
+// cho ngoại lệ — đã sửa sang `bytes` sau audit bảo mật (FAIL 1, security-privacy-auditor Đợt 3),
+// xem Architecture/08 mục 5.2/5.5 + ADR-83 cho thời điểm zero cụ thể (khác thời điểm zero của
+// credential nội bộ thông thường vì đây là giá trị PHẢI hiển thị 1 lần cho người dùng qua UI).
+
+message AuthStatusQuery {}
+
+message AuthStatusResponse {
+  bool password_configured = 1;
+}
+
+message SetInitialPasswordRequest {
+  bytes password = 1;
+  reserved 10 to 15; // Phase 2 (PWD-034), 08 mục 7.6
+}
+
+message SetInitialPasswordResponse {
+  SetupResult result = 1;
+  bytes recovery_key_plaintext = 2; // UTF-8; chỉ set khi result=SUCCESS, hiển thị đúng 1 lần (ADR-83)
+  bytes setup_token = 3;
+}
+
+// Giá trị enum đặt tiền tố tên type (khác quy ước rút gọn ToastSeverity/OverlayReason/IconState ở
+// trên) vì proto3 dùng C++ enum scoping — các giá trị chung như SUCCESS/LOCKED_OUT trùng tên giữa
+// nhiều enum *Result bên dưới sẽ xung đột nếu để bare (đã xác nhận qua lỗi build thật lúc implement,
+// không đổi field number/ý nghĩa so với Architecture/08 mục 7 — thuần đổi tên định danh enum).
+enum SetupResult {
+  SETUP_RESULT_UNSPECIFIED = 0;
+  SETUP_RESULT_SUCCESS = 1;
+  SETUP_RESULT_PASSWORD_TOO_LONG = 2;
+  SETUP_RESULT_ALREADY_CONFIGURED = 3;
+}
+
+message ConfirmRecoveryKeySavedRequest {
+  bytes setup_token = 1;
+  bool confirmed = 2;
+}
+
+message ConfirmRecoveryKeySavedResponse {
+  ConfirmResult result = 1;
+}
+
+enum ConfirmResult {
+  CONFIRM_RESULT_UNSPECIFIED = 0;
+  CONFIRM_RESULT_PERSISTED = 1;
+  CONFIRM_RESULT_TOKEN_EXPIRED = 2;
+  CONFIRM_RESULT_TOKEN_NOT_FOUND = 3;
+}
+
+message AuthVerifyRequest {
+  bytes password = 1;
+  string action_context = 2; // hằng số quy ước, 08 mục 7.2
+  reserved 10 to 15; // Phase 2 (PWD-034)
+}
+
+message AuthVerifyResponse {
+  AuthResult result = 1;
+  bytes action_token = 2; // chỉ set khi result=SUCCESS
+  int64 action_token_expires_at_unix_ms = 3;
+  int64 lockout_until_unix_ms = 4;
+  uint32 consecutive_failures = 5;
+}
+
+enum AuthResult {
+  AUTH_RESULT_UNSPECIFIED = 0;
+  AUTH_RESULT_SUCCESS = 1;
+  AUTH_RESULT_WRONG_PASSWORD = 2;
+  AUTH_RESULT_LOCKED_OUT = 3;
+}
+
+message ChangePasswordRequest {
+  bytes old_password = 1;
+  bytes new_password = 2;
+  bool regenerate_recovery_key = 3;
+  reserved 10 to 15; // Phase 2 (PWD-034)
+}
+
+message ChangePasswordResponse {
+  ChangeResult result = 1;
+  bytes new_recovery_key_plaintext = 2; // UTF-8; chỉ set nếu regenerate_recovery_key=true và result=SUCCESS (ADR-83)
+}
+
+enum ChangeResult {
+  CHANGE_RESULT_UNSPECIFIED = 0;
+  CHANGE_RESULT_SUCCESS = 1;
+  CHANGE_RESULT_WRONG_OLD_PASSWORD = 2;
+  CHANGE_RESULT_LOCKED_OUT = 3;
+  CHANGE_RESULT_NEW_PASSWORD_TOO_LONG = 4;
+}
+
+message RecoveryResetRequest {
+  bytes recovery_key = 1;
+  bytes new_password = 2;
+  reserved 10 to 15; // Phase 2 (PWD-034)
+}
+
+message RecoveryResetResponse {
+  RecoveryResetResult result = 1;
+  bytes new_recovery_key_plaintext = 2; // UTF-8; chỉ set nếu result=SUCCESS (PWD-032: luôn sinh key mới; ADR-83)
+  int64 lockout_until_unix_ms = 3;
+}
+
+enum RecoveryResetResult {
+  RECOVERY_RESET_RESULT_UNSPECIFIED = 0;
+  RECOVERY_RESET_RESULT_SUCCESS = 1;
+  RECOVERY_RESET_RESULT_WRONG_RECOVERY_KEY = 2;
+  RECOVERY_RESET_RESULT_LOCKED_OUT = 3;
+  RECOVERY_RESET_RESULT_NEW_PASSWORD_TOO_LONG = 4;
+}

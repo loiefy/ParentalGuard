@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <!-- FE-022: tooltip icon trạng thái — resource-based, không hardcode chuỗi (Architecture/07-overlay-architecture.md mục 4.1.3). -->
+  <data name="IconTooltipActive" xml:space="preserve">
+    <value>Đang hoạt động</value>
+  </data>
+  <data name="IconTooltipPausedCountdownFormat" xml:space="preserve">
+    <value>Tạm dừng — còn {0}</value>
+  </data>
+  <data name="IconTooltipError" xml:space="preserve">
+    <value>Đang khôi phục...</value>
+  </data>
+  <!-- FE-016g (v0.9.1)/BE-089b: đếm ngược trực quan bắt buộc trên overlay full-screen lock — resource-based, không hardcode (Architecture/07-overlay-architecture.md mục 3.4.3). -->
+  <data name="AutoTimeoutCountdownFormat" xml:space="preserve">
+    <value>Tự động đóng sau: 00:{0:D2}</value>
+  </data>
+</root>

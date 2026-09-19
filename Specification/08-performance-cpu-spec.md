@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.5.2 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.5.3 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục tiêu hiệu năng
 
@@ -69,6 +69,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.5.3 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.5.2 | 2026-09-17 | Liên kết `PERF-032` tới model cụ thể đã chốt (`IMG-014` mới ở `09-image-processing-spec.md`: `GantMan/nsfw_model`, MobileNetV2, MIT) |
 | v0.5.1 | 2026-09-17 | Thêm liên kết chéo tại `PERF-021` tới `IMG-012` mới ở `09-image-processing-spec.md` (crop GPU-side về đúng cửa sổ, khác cấp với việc chọn màn hình ở `PERF-021`), tránh nhầm lẫn 2 khái niệm |
 | v0.5.0 | 2026-09-17 | **Chốt cả 3 câu hỏi mở còn lại**: `PERF-061` — xác nhận toàn bộ ngưỡng ở mục 7 là đề xuất ban đầu, bắt buộc benchmark lại thực tế trên nhiều cấu hình máy sau khi có bản build đầu tiên. `PERF-062` — không đo riêng benchmark hao hụt pin. `PERF-063` — không cần policy tần suất riêng cho video player, dùng chung bucket "nội dung thay đổi liên tục" đã chốt ở `PERF-010`. File này không còn câu hỏi mở |

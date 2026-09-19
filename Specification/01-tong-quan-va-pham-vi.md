@@ -1,6 +1,6 @@
 # 01 — Tổng quan & Phạm vi
 
-> Version: v0.3.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.3.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Bài toán
 
@@ -84,6 +84,7 @@ Các giải pháp chặn nội dung khiêu dâm truyền thống (DNS blocklist,
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.0 | 2026-09-17 | Thêm `GEN-034` — mở rộng nguyên tắc zero-network từ phạm vi pipeline (`GEN-030`) sang **toàn bộ ứng dụng**, không ngoại lệ auto-update. Đồng bộ với việc `MISC-020` bị REJECTED ở `10-additional-mechanisms-spec.md` |
 | v0.2.0 | 2026-09-17 | Mở rộng phạm vi giám sát từ "chỉ browser" sang "mọi ứng dụng hiển thị nội dung trực quan" (GEN-010); thêm yêu cầu GEN-016 đảm bảo overlay không che nút đóng cửa sổ |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

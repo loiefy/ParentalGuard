@@ -1,6 +1,6 @@
 # 01 — Tổng quan Kiến trúc Hệ thống
 
-> Version: v0.3.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.3.0 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục tiêu hệ thống (nhắc lại từ spec, góc nhìn kiến trúc)
 

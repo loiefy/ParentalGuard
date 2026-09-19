@@ -1,6 +1,6 @@
 # 11 — Testing & QA Process Spec
 
-> Version: v0.2.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.2.2 | Trạng thái: Approved | Cập nhật: 2026-09-18
 
 ## 1. Nguyên tắc quy trình dev từng giai đoạn (Feature Gate Process)
 
@@ -63,7 +63,7 @@
 ### 3.4 Khi code xong Overlay/Force-close
 - [ ] Overlay hiện đúng vị trí/kích thước cửa sổ browser test, theo dõi đúng khi resize/di chuyển cửa sổ.
 - [ ] Bấm nút "Tắt nội dung" → browser bị đóng đúng như thiết kế, sự kiện được ghi log.
-- [ ] Overlay không thể bị click-through hoặc tắt bằng phím tắt hệ thống thông thường (Alt+F4 trên overlay window cần được xử lý có chủ đích — quyết định xem có cho phép hay chặn).
+- [ ] Overlay không thể bị click-through. **ĐÃ CHỐT (2026-09-18, xem `FE-016e` ở `03-frontend-ui-spec.md`, supersedes `FE-016d`)**: Alt+F4 (và các đường tắt hệ thống tương đương: Alt+Space → Close, taskbar → Close) trên cửa sổ overlay bị **chặn hoàn toàn** — test xác nhận overlay không bị đóng bởi bất kỳ phím tắt/đường tắt hệ thống nào, chỉ đóng được qua đúng luồng nút "Tắt nội dung" (có audit log, force-close đúng cửa sổ vi phạm — `BE-032`).
 
 ### 3.5 Khi code xong Performance Optimization
 - [ ] Đo CPU trung bình theo kịch bản sử dụng thực tế (duyệt web bình thường 1 giờ) — đối chiếu ngưỡng ở `08-performance-cpu-spec.md`.
@@ -90,5 +90,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.2 | 2026-09-18 | **PATCH — chốt quyết định trong checklist mục 3.4**: chủ dự án chốt **chặn hoàn toàn Alt+F4** (và đường tắt hệ thống tương đương) trên cửa sổ overlay — không còn ở trạng thái "cần xử lý có chủ đích, chưa quyết định". Đồng bộ với `FE-016e` (supersedes `FE-016d`) ở `03-frontend-ui-spec.md`. Archive bản cũ ở `Specification/Outdated/11-testing-qa-process__v0.2.1__2026-09-18.md` |
+| v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt cả 2 câu hỏi mở**: `TEST-002` — tự động hoá quy trình Dev/Test/Debug/Report bằng Claude Code Agent thay vì CI script truyền thống, chi tiết cấu hình để ở System Design. `TEST-003` — chủ dự án là người Approve duy nhất, không có người thứ 2. File này không còn câu hỏi mở |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

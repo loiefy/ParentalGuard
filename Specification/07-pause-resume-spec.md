@@ -1,6 +1,6 @@
 # 07 — Pause / Resume Mechanism Spec
 
-> Version: v0.2.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.2.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục đích
 
@@ -39,5 +39,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt 2 câu hỏi mở**: `PAUSE-002a` — mốc "Hết ngày hôm nay" dùng cứng 23:59 theo giờ hệ thống, không cấu hình "giờ đi ngủ" riêng ở Phase 1. `PAUSE-002b` — Phase 1 chỉ hỗ trợ tạm dừng toàn bộ giám sát, không phân biệt theo app/browser cụ thể (cùng lý do đã bỏ whitelist app ở `BE-072`/`BE-073`). Không còn câu hỏi mở |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

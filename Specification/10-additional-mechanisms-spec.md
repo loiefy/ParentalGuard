@@ -1,6 +1,6 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.2.0 | Trạng thái: Draft — bảng ưu tiên ở mục 10 đã **ĐÃ CHỐT** (chủ dự án duyệt), từng mục con vẫn giữ trạng thái `PROPOSED` cho tới khi triển khai chi tiết ở System Design
+> Version: v0.2.1 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
 > Cập nhật: 2026-09-17
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
@@ -72,5 +72,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ mục trong file này (không chỉ bảng ưu tiên mục 10, mà cả từng mục con) — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt cả 2 câu hỏi mở**: duyệt bảng ưu tiên mục 10, ngoại trừ 2 điều chỉnh — `MISC-020` REJECTED (loại bỏ auto-update, app tuyệt đối zero internet, cập nhật chỉ thủ công); `MISC-080` REJECTED (loại hẳn khỏi roadmap, không chỉ đẩy Phase 2 — nhu cầu đã được `07-pause-resume-spec.md` giải quyết). Đồng bộ thay đổi sang `02-backend-spec.md`, `04-security-spec.md`, `01-tong-quan-va-pham-vi.md`, `05-anti-uninstall-tamper-spec.md`. File này không còn câu hỏi mở |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

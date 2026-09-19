@@ -1,6 +1,6 @@
 # 12 — Dev Process & Code Management Standards
 
-> Version: v0.4.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.4.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục đích & phạm vi
 
@@ -73,6 +73,7 @@ Bối cảnh quan trọng ảnh hưởng toàn bộ tài liệu này:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.4.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.4.0 | 2026-09-17 | **Thêm nguyên tắc viết code mới**: `DEV-026` — code tinh gọn, không viết thừa, không comment rườm rà (mục 4). `DEV-040`–`DEV-043` (mục 6 mới) — bắt buộc đánh giá fail case/exception trước khi code, cập nhật spec tương ứng cho exception mới trước khi code xử lý; bắt buộc duy trì Dependency Map (hàm ↔ file ↔ caller/callee) để hỗ trợ impact analysis, cập nhật map mỗi lần thêm/sửa/xoá hàm hoặc quan hệ gọi. Thêm câu hỏi mở về định dạng Dependency Map |
 | v0.3.0 | 2026-09-17 | Chốt câu hỏi mở: dùng chung 1 repo GitHub cho code + tài liệu (`DEV-001a` mới, thay thế phần "tuỳ chọn" cũ ở `DEV-001`). Đồng bộ với `ADR-11` mới ở `Architecture/01-tong-quan-kien-truc.md` |
 | v0.2.0 | 2026-09-17 | **Chốt**: dự án chuyển hẳn sang free/open-source, bỏ kế hoạch bán thương mại. Sửa `DEV-012`: bỏ EV Code Signing Certificate tự mua, thay bằng chứng chỉ OV miễn phí qua SignPath Foundation (private key SignPath tự giữ, không phải dự án quản lý). Đồng bộ `SEC-030` ở `04-security-spec.md`. Trả lời 1/3 câu hỏi mở (nhà cung cấp EV cert không còn liên quan), phát sinh câu hỏi mở mới về bản release đầu tiên trước khi đủ điều kiện SignPath |

@@ -1,6 +1,6 @@
 # 06 — Password Management Spec
 
-> Version: v0.3.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.3.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Phạm vi
 
@@ -80,6 +80,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.0 | 2026-09-17 | **Chốt nốt câu hỏi mở cuối**: `PWD-035` bổ sung định nghĩa tường minh "ký tự đặc biệt" — liệt kê rõ danh sách symbol bị cấm, xác nhận chữ cái tiếng Việt có dấu (ă, â, ê, ô, ơ, ư, đ...) là chữ cái hợp lệ, không phải ký tự đặc biệt. Không còn câu hỏi mở |
 | v0.2.0 | 2026-09-17 | **Chốt 3 câu hỏi mở**: `PWD-002a` giới hạn mật khẩu tối đa 50 ký tự; `PWD-030a` bắt buộc tick xác nhận "Tôi đã lưu lại Recovery Key" trước khi hoàn tất thiết lập mật khẩu (không xác nhận = thiết lập không thành công); `PWD-034` chốt triển khai câu hỏi bảo mật ở Phase 2 + thêm `PWD-035` quy tắc chuẩn hoá câu trả lời (không phân biệt hoa/thường, cấm ký tự đặc biệt/chữ số, tự lược bỏ khoảng trắng/dấu phẩy/dấu chấm trước khi hash). Phát sinh câu hỏi mở mới về xử lý dấu tiếng Việt trong câu trả lời |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

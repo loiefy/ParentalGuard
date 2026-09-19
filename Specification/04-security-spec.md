@@ -1,6 +1,6 @@
 # 04 — Security Spec
 
-> Version: v0.6.0 | Trạng thái: Draft | Cập nhật: 2026-09-17
+> Version: v0.6.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Nguyên tắc bảo mật cốt lõi
 
@@ -100,6 +100,7 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.6.0 | 2026-09-17 | Sửa `SEC-030`: bỏ yêu cầu tự mua EV Code Signing Certificate (không còn ngân sách vì dự án chuyển hẳn sang free/open-source, không bán nữa), thay bằng chứng chỉ OV miễn phí qua chương trình SignPath Foundation cho dự án open-source — đồng thời đơn giản hoá `DEV-012` vì SignPath tự giữ private key trên HSM của họ |
 | v0.5.0 | 2026-09-17 | Thêm `SEC-001a` — mở rộng nguyên tắc local-first sang **toàn bộ app** (không chỉ pipeline ảnh), tuyệt đối zero internet, không ngoại lệ. Loại bỏ `SEC-050` (update security) do `MISC-020` bị REJECTED — không còn cơ chế auto-update, chỉ cài lại thủ công |
 | v0.4.2 | 2026-09-17 | Thêm `SEC-040a` — liên kết chéo hành vi fail-secure khi DPAPI giải mã `config.db` thất bại (fallback cấu hình mặc định hard-code, giám sát luôn BẬT), nội dung gốc đặt ở `BE-061` (`02-backend-spec.md`) và `ANTI-070` (`05-anti-uninstall-tamper-spec.md`) |
