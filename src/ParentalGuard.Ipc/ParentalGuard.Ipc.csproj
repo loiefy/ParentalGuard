@@ -1,13 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Đợt 4: đổi từ net10.0 sang net10.0-windows — Tamper/* (RegistryTamperInterop, PeerServiceRecovery
+         qua System.ServiceProcess.ServiceController) là Win32-only, và mọi consumer thực tế của project
+         này (Service/Vision/Overlay + test) vốn đã net10.0-windows, nên không mất khả năng tái dùng nào. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>ParentalGuard.Ipc</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.32.1" />
     <PackageReference Include="Grpc.Tools" Version="2.71.0" PrivateAssets="All" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>

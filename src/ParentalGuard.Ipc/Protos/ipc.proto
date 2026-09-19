@@ -55,6 +55,16 @@ message IpcPayload {
     AuthStatusQuery auth_status_query = 90;
     AuthStatusResponse auth_status_resp = 91;
     // 92-99 dành cho Đợt 6 (Dashboard query khác), chi tiết hoá khi thiết kế 10-ui-architecture.md
+
+    // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
+    WatchdogReportEvent watchdog_report_event = 100;
+    WatchdogReportEventAck watchdog_report_event_ack = 101;
+
+    // --- Kênh Uninstaller (120-139), Đợt 4 — 09-anti-tamper-architecture.md mục 5 ---
+    // Lưu ý: pipe Uninstaller CÒN dùng lại AuthVerifyRequest/AuthVerifyResponse (field 84/85,
+    // khối UI 80-99) qua whitelist message theo pipe (mục 3.1a của 03) — KHÔNG định nghĩa lại.
+    UninstallExecuteRequest uninstall_execute_req = 120;
+    UninstallExecuteResponse uninstall_execute_resp = 121;
   }
 }
 
@@ -63,9 +73,10 @@ enum ProcessType {
   VISION = 1;
   OVERLAY = 2;
   UI = 3;
-  WATCHDOG = 4; // reserved — giao thức ở Architecture/07, không dùng ở Đợt 0
+  WATCHDOG = 4; // Đợt 4 — Architecture/09-anti-tamper-architecture.md mục 3
   SERVICE = 5; // Service tự khai báo là sender khi chủ động gửi (HelloAck/HeartbeatPing/
                // GracefulStopCommand/ControlVisionCommand/OverlayRectListCommand/ShowToastCommand...)
+  UNINSTALLER = 6; // Đợt 4 — ParentalGuard.Uninstaller.exe, Architecture/09 mục 5
 }
 
 message Hello {
@@ -315,4 +326,45 @@ enum RecoveryResetResult {
   RECOVERY_RESET_RESULT_WRONG_RECOVERY_KEY = 2;
   RECOVERY_RESET_RESULT_LOCKED_OUT = 3;
   RECOVERY_RESET_RESULT_NEW_PASSWORD_TOO_LONG = 4;
+}
+
+// --- Đợt 4, ANTI-0xx: Dual Watchdog + Custom Uninstaller ---
+// Nguồn: Architecture/09-anti-tamper-architecture.md mục 8.3 (Approved).
+
+message WatchdogReportEvent {                                  // field 100
+  WatchdogEventType event_type          = 1;
+  string             target_process      = 2; // "Service" | "Watchdog" — bên vừa được xử lý
+  int64              detected_at_unix_ms = 3;
+  string             action_taken        = 4; // vd "scm_start", "recreated_registration_then_start" — chỉ để audit log
+
+  reserved 10 to 19; // để ngỏ nếu cần thêm chi tiết chẩn đoán sau này
+}
+
+message WatchdogReportEventAck {                                // field 101
+  bool received = 1;
+}
+
+enum WatchdogEventType {
+  WATCHDOG_EVENT_TYPE_UNSPECIFIED       = 0;
+  PEER_MISSED_HEARTBEAT_RESTARTED       = 1; // mục 3.4
+  PEER_REGISTRATION_MISSING_RECREATED   = 2; // mục 3.4 bước 4
+  PEER_REGISTRY_TAMPER_DETECTED_RESTORED = 3; // mục 4.2, khi Watchdog là bên phát hiện
+  PEER_RESTART_THRESHOLD_EXCEEDED       = 4; // mục 6.1 — Watchdog-side counter vượt ngưỡng N/T
+}
+
+message UninstallExecuteRequest {                               // field 120
+  bytes action_token   = 1;
+  bool  keep_audit_log = 2;
+}
+
+message UninstallExecuteResponse {                              // field 121
+  UninstallResult result               = 1;
+  string          audit_log_copy_path  = 2; // chỉ set nếu keep_audit_log=true và copy thành công
+}
+
+enum UninstallResult {
+  UNINSTALL_RESULT_UNSPECIFIED = 0;
+  SUCCESS         = 1;
+  INVALID_TOKEN   = 2; // hết hạn / sai action_context / đã dùng / không tồn tại
+  PARTIAL_FAILURE = 3; // 1+ bước dọn dẹp lỗi — best-effort, KHÔNG rollback (mục 5.5 file 09)
 }

@@ -43,6 +43,46 @@ public sealed class WfpVisionBlocker(ILogger<WfpVisionBlocker> logger)
         }
     }
 
+    /// <summary>
+    /// Đảo ngược <see cref="Apply"/> (ANTI-020, Architecture/09-anti-tamper-architecture.md mục 5.5
+    /// bước 3) — best-effort, idempotent: lỗi "not found" bỏ qua, không throw để không chặn các bước
+    /// dọn dẹp còn lại của luồng uninstall.
+    /// </summary>
+    public void Remove()
+    {
+        if (WfpInterop.FwpmEngineOpen0(null, WfpInterop.RpcCAuthnWinnt, IntPtr.Zero, IntPtr.Zero, out IntPtr engine) != 0)
+        {
+            logger.LogWarning("FwpmEngineOpen0 failed while removing WFP filters — continuing best-effort.");
+            return;
+        }
+
+        try
+        {
+            DeleteFilterBestEffort(engine, WfpInterop.FilterKeyAuthConnectV4);
+            DeleteFilterBestEffort(engine, WfpInterop.FilterKeyAuthConnectV6);
+            DeleteFilterBestEffort(engine, WfpInterop.FilterKeyRecvAcceptV4);
+            DeleteFilterBestEffort(engine, WfpInterop.FilterKeyRecvAcceptV6);
+
+            Guid subLayerKey = WfpInterop.SubLayerKey;
+            WfpInterop.FwpmSubLayerDeleteByKey0(engine, ref subLayerKey);
+
+            Guid providerKey = WfpInterop.ProviderKey;
+            WfpInterop.FwpmProviderDeleteByKey0(engine, ref providerKey);
+
+            logger.LogInformation("WFP filters/sublayer/provider removed (uninstall).");
+        }
+        finally
+        {
+            WfpInterop.FwpmEngineClose0(engine);
+        }
+    }
+
+    private static void DeleteFilterBestEffort(IntPtr engine, Guid filterKey)
+    {
+        Guid key = filterKey;
+        WfpInterop.FwpmFilterDeleteByKey0(engine, ref key); // "not found" (0x80320003) coi như đã xoá — idempotent.
+    }
+
     private static void EnsureProvider(IntPtr engine)
     {
         Guid key = WfpInterop.ProviderKey;

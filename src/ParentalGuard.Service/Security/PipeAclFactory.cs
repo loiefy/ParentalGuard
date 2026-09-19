@@ -64,6 +64,31 @@ public static class PipeAclFactory
             pipeSecurity);
     }
 
+    /// <summary>
+    /// Pipe <c>Watchdog</c> (Architecture/09-anti-tamper-architecture.md mục 3.2) — cả 2 process đều
+    /// <c>LocalSystem</c>: chỉ Allow <c>NT AUTHORITY\SYSTEM</c>, Deny tường minh mọi SID khác kể cả
+    /// <c>INTERACTIVE</c> (khác pipe UI/Uninstaller — không có phụ huynh Administrator nào được phép).
+    /// </summary>
+    public static NamedPipeServerStream CreateWatchdogServerInstance(string pipeName)
+    {
+        var pipeSecurity = new PipeSecurity();
+        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AnonymousSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinGuestsSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.InteractiveSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
+
+        return NamedPipeServerStreamAcl.Create(
+            pipeName,
+            PipeDirection.InOut,
+            maxNumberOfServerInstances: 1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous,
+            inBufferSize: 0,
+            outBufferSize: 0,
+            pipeSecurity);
+    }
+
     private static void ApplyLowIntegrityMandatoryLabel(NamedPipeServerStream pipe)
     {
         const string lowNoWriteUpSddl = "S:(ML;;NW;;;LW)";

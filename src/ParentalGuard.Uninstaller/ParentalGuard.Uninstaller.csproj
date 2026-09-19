@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ParentalGuard.Uninstaller</RootNamespace>
+    <AssemblyName>ParentalGuard.Uninstaller</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- ANTI-020 (Architecture/09 mục 5.1) — lớp gate #1: UAC prompt trước khi code chạy. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParentalGuard.Ipc\ParentalGuard.Ipc.csproj" />
+  </ItemGroup>
+
+</Project>

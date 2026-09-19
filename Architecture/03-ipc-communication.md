@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.5.1 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-09-19
 
 ## 1. Mục đích
 
@@ -19,8 +19,10 @@ Nguyên tắc xuyên suốt file này (bám `ROADMAP.md` mục 2, thoả thuận
 | `ParentalGuard.Svc.Vision` | `Service` | `Vision` | 1 giây (`BE-040`, `02-process-architecture.md` mục 4) |
 | `ParentalGuard.Svc.Overlay` | `Service` | `Overlay` | 2 giây (`BE-040`) |
 | `ParentalGuard.Svc.UI` | `Service` | `UI` (0..N phiên phụ huynh mở Dashboard) | không có heartbeat định kỳ — request/response theo nhu cầu |
+| `ParentalGuard.Svc.Watchdog` | `Service` | `Watchdog` | 3 giây (`09-anti-tamper-architecture.md` mục 3.3, Đợt 4) |
+| `ParentalGuard.Svc.Uninstaller` | `Service` | `ParentalGuard.Uninstaller.exe` | không định kỳ, ephemeral — giống `UI` (`09-anti-tamper-architecture.md` mục 5.2, Đợt 4) |
 
-`Service ↔ Watchdog` **không** nằm trong phạm vi file này — giao thức cụ thể (Named Pipe riêng hay Service Control Manager query) để ở `09-anti-tamper-architecture.md`, đúng câu hỏi mở đã ghi ở `02-process-architecture.md` mục 8. Tên pipe (nếu chọn Named Pipe) cũng quyết định ở đó, không đặt trước ở đây để tránh phải đổi lại.
+**Bổ sung Đợt 4** (đóng câu hỏi mở trước đó ở đây và ở `02-process-architecture.md` mục 8): `Service ↔ Watchdog` dùng Named Pipe riêng (không phải Service Control Manager query thuần) — thiết kế đầy đủ (ACL, handshake, heartbeat, hành động khôi phục) ở `09-anti-tamper-architecture.md` mục 3. 2 pipe mới ở bảng trên (`Watchdog`, `Uninstaller`) dùng chung transport/framing/HMAC đã chốt ở file này (mục 2.3, mục 5) — chỉ khác ACL (mục 2.2) và tập message được whitelist (mục 3.1).
 
 Mỗi pipe chỉ chấp nhận đúng nhóm message type thuộc kênh đó (xem mục 3.3) — server từ chối bất kỳ message nào không thuộc whitelist của pipe đang nhận, kể cả khi HMAC hợp lệ. Đây là lớp least-privilege bổ sung ở tầng IPC (liên hệ `SEC-002`): `Overlay` dù có bị compromise cũng không thể gửi lệnh có dạng `ControlVisionCommand` vì pipe `ParentalGuard.Svc.Overlay` không bao giờ định tuyến message đó tới logic xử lý tương ứng.
 
@@ -32,6 +34,8 @@ Vấn đề cần giải quyết: `Vision`, `Overlay`, và `UI` (khi phụ huynh
   - `PipeSecurity` DACL: **Deny** tường minh `Everyone`/`ANONYMOUS LOGON`/`Guests` (đặt trước, để loại trừ rõ ràng thay vì chỉ dựa vào việc không cấp Allow); **Allow** `NT AUTHORITY\SYSTEM` (Full Control); **Allow** đúng SID của user đang ở session tương tác hiện tại (tra qua `WTSQueryUserToken`/`LookupAccountSid`, cùng nguồn xác định session mà `Service` dùng để spawn `Vision`/`Overlay` — `BE-023a`) — chỉ Read + Write, không đổi được ACL của pipe.
   - **Hệ quả cần lưu ý với đổi session (`02-process-architecture.md` mục 2.3)**: khi active console session đổi (khoá màn hình, Fast User Switching, RDP), `Service` không chỉ dừng/spawn lại `Vision`/`Overlay` — còn phải **tái tạo pipe instance với ACL trỏ đúng SID user mới**, nếu không SID của user cũ vẫn còn quyền connect dù không còn là session đang giám sát (lỗ hổng residual access). Recreate pipe đồng thời với recreate process, không tách rời hai thao tác này.
 - **Pipe `UI`**: khác với `Vision`/`Overlay`, `UI` do phụ huynh **tự mở**, và phụ huynh có thể dùng 1 tài khoản Windows Administrator **riêng biệt** với tài khoản trẻ đang bị giám sát (khuyến nghị đã chốt ở `SEC-006`) — nghĩa là SID mở `UI` **không nhất thiết trùng** SID của session đang chạy `Vision`/`Overlay`. Do đó ACL pipe `UI` dùng **Allow `NT AUTHORITY\INTERACTIVE`** (bất kỳ user nào đang đăng nhập tương tác cục bộ trên máy) + `SYSTEM`, thay vì khoá cứng 1 SID cụ thể. Việc phân biệt "đúng là phụ huynh" **không phải việc của IPC ACL** — đó là trách nhiệm của cơ chế xác thực mật khẩu (`PWD-0xx`, Đợt 3) ở tầng nghiệp vụ, không thiết kế ở file này.
+- **Pipe `Watchdog`** (Đợt 4, `09-anti-tamper-architecture.md` mục 3.2): cả `Service` lẫn `Watchdog` đều chạy `LocalSystem` — ACL **chỉ Allow `NT AUTHORITY\SYSTEM`** (Full Control), **Deny** tường minh `Everyone`/`ANONYMOUS LOGON`/`Guests`/`INTERACTIVE` — khác hẳn 3 pipe trên, không có SID người dùng nào (kể cả phụ huynh Administrator) được phép connect vào pipe này.
+- **Pipe `Uninstaller`** (Đợt 4, `09-anti-tamper-architecture.md` mục 5.2): ACL **giống hệt policy pipe `UI`** (`INTERACTIVE` + `SYSTEM`) — `ParentalGuard.Uninstaller.exe` chạy elevated (Administrator) nhưng vẫn trong cùng session tương tác (UAC không đổi session, chỉ đổi token), nên vẫn thuộc nhóm `INTERACTIVE`. Giới hạn 1 kết nối đồng thời, đúng mẫu hình pipe `UI` (mục 6).
 
 ### 2.3 Framing (length-prefixed)
 
@@ -103,22 +107,48 @@ message IpcPayload {
     AuthStatusResponse               auth_status_resp          = 91;
     // 92-99 dành cho Đợt 6 (Dashboard query khác — audit log history, config query...),
     // chi tiết hoá khi thiết kế 10-ui-architecture.md
+
+    // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
+    WatchdogReportEvent    watchdog_report_event     = 100;
+    WatchdogReportEventAck watchdog_report_event_ack = 101;
+
+    // --- Kênh Uninstaller (120-139), Đợt 4 — 09-anti-tamper-architecture.md mục 5 ---
+    // Lưu ý: pipe Uninstaller CÒN whitelist AuthVerifyRequest/AuthVerifyResponse (field 84/85,
+    // định nghĩa gốc ở khối UI trên) qua cơ chế whitelist message theo pipe (mục 3.1a) —
+    // KHÔNG định nghĩa lại message đó ở khối 120-139 này.
+    UninstallExecuteRequest  uninstall_execute_req  = 120;
+    UninstallExecuteResponse uninstall_execute_resp = 121;
   }
 }
 
 enum ProcessType {
   PROCESS_TYPE_UNSPECIFIED = 0;
-  VISION   = 1;
-  OVERLAY  = 2;
-  UI       = 3;
-  WATCHDOG = 4;  // reserved — chi tiết giao thức ở Architecture/07, không dùng ở file này
-  SERVICE  = 5;  // bổ sung v0.2.0 — Service là sender khi tự chủ động gửi (HelloAck/HeartbeatPing/
-                 // GracefulStopCommand/ControlVisionCommand/OverlayRectListCommand/ShowToastCommand...);
-                 // trước đó thiếu case này, code Đợt 0 phải tạm lách bằng PROCESS_TYPE_UNSPECIFIED (mục 9)
+  VISION      = 1;
+  OVERLAY     = 2;
+  UI          = 3;
+  WATCHDOG    = 4;  // dùng thật từ Đợt 4 — 09-anti-tamper-architecture.md mục 3
+  SERVICE     = 5;  // bổ sung v0.2.0 — Service là sender khi tự chủ động gửi (HelloAck/HeartbeatPing/
+                     // GracefulStopCommand/ControlVisionCommand/OverlayRectListCommand/ShowToastCommand...);
+                     // trước đó thiếu case này, code Đợt 0 phải tạm lách bằng PROCESS_TYPE_UNSPECIFIED (mục 9)
+  UNINSTALLER = 6;  // bổ sung Đợt 4 — ParentalGuard.Uninstaller.exe, 09-anti-tamper-architecture.md mục 5
 }
 ```
 
 Quy ước đánh field number: mỗi nhóm nghiệp vụ có 1 khối 20 số, chừa khoảng trống ở cuối khối cho các message chưa biết trước nhưng đã có thể dự đoán domain sẽ thêm ở Đợt sau (Pause, Perf, Overlay gộp, UI query) — đúng yêu cầu "message type dạng có version/field mở rộng được ngay từ đầu, không hard-code cấu trúc chỉ đủ cho use-case hiện tại" ở `ROADMAP.md` mục 2. Quy tắc bổ sung bắt buộc khi sửa `.proto` sau này: **không bao giờ đổi ý nghĩa hoặc xoá 1 field/oneof case đã dùng** — chỉ được `reserved` field number đó và thêm field/case mới; nếu cần đổi ý nghĩa (breaking change thật sự), bump `schema_version` và giữ cả 2 message type song song trong 1 khoảng thời gian chuyển tiếp.
+
+### 3.1a Whitelist message theo pipe (bổ sung Đợt 4, cụ thể hoá nguyên tắc mục 2.1)
+
+Mục 2.1 đã nêu nguyên tắc "mỗi pipe chỉ chấp nhận đúng nhóm message type thuộc kênh đó" từ Đợt 0 — bảng dưới đây cụ thể hoá lần đầu tiên đầy đủ cho cả 5 pipe (bổ sung khi thiết kế 2 pipe mới ở `09-anti-tamper-architecture.md`, đồng thời hệ thống hoá lại cho 3 pipe cũ):
+
+| Pipe | `Hello.process_type` bắt buộc | Message field-block được whitelist |
+|---|---|---|
+| `ParentalGuard.Svc.Vision` | `VISION` | Handshake (10-19), Heartbeat (20-29), Lifecycle (30-39), Vision (40-59) |
+| `ParentalGuard.Svc.Overlay` | `OVERLAY` | Handshake, Heartbeat, Lifecycle, Overlay (60-79) |
+| `ParentalGuard.Svc.UI` | `UI` | Handshake, Heartbeat, UI (80-99) |
+| `ParentalGuard.Svc.Watchdog` | `WATCHDOG` | Handshake, Heartbeat, Lifecycle, Watchdog (100-119) |
+| `ParentalGuard.Svc.Uninstaller` | `UNINSTALLER` | Handshake, `AuthVerifyRequest`/`AuthVerifyResponse` (field 84/85 — tái dùng từ khối UI, không whitelist các message Password/Auth khác), Uninstaller (120-139) |
+
+Server (`Service`) từ chối (đóng kết nối, ghi audit log, không phản hồi — đúng ADR-22) bất kỳ message nào ngoài whitelist của pipe đang nhận, kể cả khi HMAC hợp lệ và `Hello.process_type` đã đúng.
 
 ### 3.2 Message con — Đợt 0 (handshake, heartbeat, lifecycle, control)
 
@@ -132,7 +162,7 @@ message Hello {
 
 message HelloAck {
   bool   accepted            = 1;
-  bytes  session_key         = 2; // chỉ set khi kênh dùng ephemeral key (UI, mục 5.3) — rỗng với Vision/Overlay
+  bytes  session_key         = 2; // chỉ set khi kênh dùng ephemeral key (UI/Watchdog/Uninstaller, mục 5.3) — rỗng với Vision/Overlay
   int64  server_time_unix_ms = 3;
 }
 
@@ -304,7 +334,7 @@ message SetInitialPasswordRequest {
 
 message SetInitialPasswordResponse {
   SetupResult result                 = 1;
-  string      recovery_key_plaintext = 2; // chỉ set khi result=SUCCESS, hiển thị đúng 1 lần
+  bytes       recovery_key_plaintext = 2; // UTF-8; chỉ set khi result=SUCCESS, hiển thị đúng 1 lần; zero theo 08 ADR-83/mục 5.5
   bytes       setup_token            = 3;
 }
 
@@ -361,7 +391,7 @@ message ChangePasswordRequest {
 
 message ChangePasswordResponse {
   ChangeResult result                     = 1;
-  string       new_recovery_key_plaintext = 2; // chỉ set nếu regenerate_recovery_key=true và result=SUCCESS
+  bytes        new_recovery_key_plaintext = 2; // UTF-8; chỉ set nếu regenerate_recovery_key=true và result=SUCCESS; zero theo 08 ADR-83/mục 5.5
 }
 
 enum ChangeResult {
@@ -380,7 +410,7 @@ message RecoveryResetRequest {
 
 message RecoveryResetResponse {
   RecoveryResetResult result                     = 1;
-  string              new_recovery_key_plaintext = 2; // chỉ set nếu result=SUCCESS (PWD-032: luôn sinh key mới)
+  bytes               new_recovery_key_plaintext = 2; // UTF-8; chỉ set nếu result=SUCCESS (PWD-032: luôn sinh key mới); zero theo 08 ADR-83/mục 5.5
   int64               lockout_until_unix_ms       = 3;
 }
 
@@ -395,6 +425,59 @@ enum RecoveryResetResult {
 
 Ghi chú traceability: toàn bộ message trên hiện thực hoá `PWD-001`–`004`/`020`–`023`/`030`–`033`/`040`/`041`. Field 92-99 (khối UI) vẫn để trống cho Đợt 6 (`10-ui-architecture.md`).
 
+**Sửa v0.6.0 (phát hiện khi viết `09-anti-tamper-architecture.md`, Đợt 4)**: 3 field `recovery_key_plaintext`/`new_recovery_key_plaintext` (×2) ở trên đổi từ `string` sang `bytes` — `08-password-authentication-architecture.md` v0.3.0 (2026-09-20, FAIL 1/ADR-83) đã quyết định đổi kiểu này nhưng bản sao `.proto` ở file này (v0.5.1 tại thời điểm đó) chưa được đồng bộ, dù changelog `08` v0.3.0 có ghi "đồng bộ `ipc.proto`" — gap thuần đồng bộ giữa 2 tài liệu, không phải quyết định mới, sửa lại cho khớp đúng bản `08` hiện hành, không đổi ý nghĩa field nào khác.
+
+### 3.5 Message con — Đợt 4 (Watchdog report, Uninstaller execute)
+
+Thiết kế nghiệp vụ đầy đủ ở `09-anti-tamper-architecture.md` mục 3 (Watchdog) và mục 5 (Uninstaller) — file này chỉ định nghĩa schema on-the-wire.
+
+```protobuf
+// --- Kênh Watchdog (100-119) ---
+message WatchdogReportEvent {
+  WatchdogEventType event_type          = 1;
+  string            target_process      = 2; // "Service" | "Watchdog" — bên vừa được xử lý
+  int64             detected_at_unix_ms = 3;
+  string            action_taken        = 4; // vd "scm_start", "recreated_registration_then_start" — chỉ để audit log
+
+  reserved 10 to 19; // để ngỏ nếu cần thêm chi tiết chẩn đoán sau này
+}
+
+message WatchdogReportEventAck {
+  bool received = 1;
+}
+
+enum WatchdogEventType {
+  WATCHDOG_EVENT_TYPE_UNSPECIFIED        = 0;
+  PEER_MISSED_HEARTBEAT_RESTARTED        = 1; // 09 mục 3.4
+  PEER_REGISTRATION_MISSING_RECREATED    = 2; // 09 mục 3.4 bước 4
+  PEER_REGISTRY_TAMPER_DETECTED_RESTORED = 3; // 09 mục 4.2, khi Watchdog là bên phát hiện
+  PEER_RESTART_THRESHOLD_EXCEEDED        = 4; // 09 mục 6.1 — Watchdog-side counter vượt ngưỡng N/T
+}
+
+// --- Kênh Uninstaller (120-139) ---
+// Lưu ý: pipe Uninstaller CÒN whitelist AuthVerifyRequest/AuthVerifyResponse (field 84/85,
+// định nghĩa ở mục 3.4) qua cơ chế whitelist message theo pipe (mục 3.1a) — KHÔNG định
+// nghĩa lại ở đây.
+message UninstallExecuteRequest {
+  bytes action_token   = 1;
+  bool  keep_audit_log = 2; // true = copy audit.log ra Desktop của user hiện tại trước khi xoá %ProgramData%
+}
+
+message UninstallExecuteResponse {
+  UninstallResult result              = 1;
+  string          audit_log_copy_path = 2; // chỉ set nếu keep_audit_log=true và copy thành công
+}
+
+enum UninstallResult {
+  UNINSTALL_RESULT_UNSPECIFIED = 0;
+  SUCCESS         = 1;
+  INVALID_TOKEN   = 2; // hết hạn / sai action_context / đã dùng / không tồn tại
+  PARTIAL_FAILURE = 3; // 1+ bước dọn dẹp lỗi — best-effort, KHÔNG rollback (09 mục 5.5)
+}
+```
+
+Ghi chú traceability: `WatchdogReportEvent`/`Ack` hiện thực hoá `ANTI-010` (mục 3.6 file `09`). `UninstallExecuteRequest`/`Response` hiện thực hoá `ANTI-020` (mục 5.3-5.5 file `09`).
+
 ## 4. Thứ tự gọi / handshake khi connect
 
 ### 4.1 Thời điểm connect
@@ -404,17 +487,19 @@ Theo trình tự khởi động đã chốt ở `02-process-architecture.md` m�
 - `Vision`/`Overlay` thử connect ngay khi khởi động (sau khi đọc xong dữ liệu bootstrap, mục 5.2); nếu thất bại (timeout hoặc "All pipe instances are busy"), retry với backoff **200ms → 400ms → 800ms → 1600ms → 3200ms (giữ nguyên từ lần thứ 5 trở đi)**, lặp vô hạn — vì không có `Service` để báo cáo thì tiến trình con vô nghĩa, không có lý do dừng hẳn việc thử lại.
 - Ngân sách thời gian: `Service` kỳ vọng 1 tiến trình vừa spawn connect + hoàn tất `Hello`/`HelloAck` (mục 4.2) trong vòng **2 giây** kể từ lúc spawn — nằm trong ngân sách `≤ 3 giây` phục hồi crash đã chốt ở `BE-023`/`02-process-architecture.md` mục 4 (chừa ~1 giây cho thời gian khởi động process + JIT/warm-up runtime). Quá hạn mà chưa thấy `Hello` hợp lệ → `Service` coi lần spawn đó thất bại, kill tiến trình (nếu còn treo) và spawn lại, ghi audit log nếu thất bại liên tiếp (liên hệ mẫu hình `ANTI-060` rate-limit sự kiện bất thường).
 - `UI` không nằm trong ngân sách 3 giây này (không được `Service` spawn, không có deadline phục hồi crash — user tự mở lại khi cần).
+- **Bổ sung Đợt 4**: `Watchdog` khởi động song song `Service` qua SCM (không phụ thuộc thứ tự, `02-process-architecture.md` mục 6) — áp dụng đúng cơ chế retry backoff giống `Vision`/`Overlay` ở trên (lặp vô hạn), nhưng **không** tính vào ngân sách `≤3 giây` (khác bản chất — không phải "vừa được spawn lại sau crash" mà là "khởi động độc lập lúc boot", `09-anti-tamper-architecture.md` mục 3.2). `Uninstaller.exe` là ephemeral như `UI` — không có deadline phục hồi crash, nhưng có timeout UX riêng (10 giây hiển thị lỗi nếu không connect được, 30 giây chờ `UninstallExecuteResponse` — `09` mục 5.3/5.5) vì đây là hành động người dùng đang chủ động chờ kết quả, không phải tiến trình nền.
 
 ### 4.2 Xác thực danh tính tại thời điểm connect (trước khi đọc bất kỳ message nghiệp vụ nào)
 
-Áp dụng đồng nhất cho cả 3 pipe, thực hiện **ngay sau khi OS accept connection, trước khi đọc byte đầu tiên của `Hello`**:
+Áp dụng đồng nhất cho cả 5 pipe, thực hiện **ngay sau khi OS accept connection, trước khi đọc byte đầu tiên của `Hello`**:
 
 1. `Service` gọi `GetNamedPipeClientProcessId` lấy PID của tiến trình vừa connect.
 2. Mở process bằng PID đó (`OpenProcess` quyền tối thiểu `PROCESS_QUERY_LIMITED_INFORMATION`), lấy đường dẫn executable đầy đủ.
 3. Kiểm tra: (a) đường dẫn nằm trong thư mục cài đặt hợp lệ (`%ProgramFiles%\ParentalGuard\`), và (b) chữ ký Authenticode của file đó khớp thumbprint chứng chỉ ký code của dự án (SignPath, `SEC-030`) đã pin sẵn trong `Service`.
 4. Nếu (3) thất bại ở bất kỳ điều kiện nào → `Service` đóng kết nối ngay lập tức, **không đọc/xử lý bất kỳ byte nào đã hoặc sẽ gửi**, ghi audit log (loại sự kiện Spoofing, metadata: PID, đường dẫn phát hiện được, tên pipe, timestamp — không log nội dung message vì chưa từng đọc nó).
+5. **Bổ sung Đợt 4 (ADR-94)**: sau khi bước 1-4 hợp lệ, `Service` đọc `Hello.process_type` (message đầu tiên, đã đến lúc này mới thực sự đọc byte) và đối chiếu đúng giá trị mong đợi của pipe đang nhận (bảng mục 3.1a — vd pipe `ParentalGuard.Svc.Watchdog` chỉ chấp nhận `WATCHDOG`). Sai loại → xử lý giống hệt bước 4 (đóng kết nối, ghi audit log Spoofing, không phản hồi). Áp dụng hồi tố cho cả 3 pipe Đợt 0 (`Vision`/`Overlay`/`UI`) — trước đó chỉ kiểm tra đường dẫn/chữ ký (bước 1-4), chưa đối chiếu `process_type` khai báo trong `Hello`; bổ sung này không đổi hành vi của bất kỳ luồng hợp lệ hiện tại nào (client hợp lệ vốn luôn set đúng `process_type` của chính nó).
 
-Đây là cách hiện thực hoá đúng nghĩa đen `SEC-011`: ACL (mục 2.2) là lớp lọc theo lớp người dùng (thô), còn bước 1-4 ở đây mới là "xác định qua chữ ký code-signing, không chỉ tên process" mà `SEC-011` yêu cầu.
+Đây là cách hiện thực hoá đúng nghĩa đen `SEC-011`: ACL (mục 2.2) là lớp lọc theo lớp người dùng (thô), còn bước 1-5 ở đây mới là "xác định qua chữ ký code-signing, không chỉ tên process" mà `SEC-011` yêu cầu.
 
 ### 4.3 Trình tự sau khi xác thực danh tính thành công
 
@@ -474,6 +559,8 @@ Toàn bộ `N` byte của `IpcPayload` đã serialize (đúng phần nằm giữ
 
 Lý do chọn cách này thay vì thêm 1 chế độ framing riêng: `IpcFrameTransport` giữ nguyên **đúng 1 định dạng frame duy nhất** (length-prefix + payload + 32-byte HMAC trailer) cho mọi message ở mọi kênh/mọi giai đoạn kết nối — không cần dạy transport code hiểu 2 "hình dạng" frame khác nhau (có HMAC/không có HMAC) chỉ để phục vụ đúng 2 message của riêng kênh `UI` lúc mới connect. Đủ an toàn dù khoá là hằng số công khai (biết trước, không bí mật): bước xác thực danh tính thật của `UI` đã hoàn tất **trước khi** `Service` đọc byte đầu tiên của `Hello` (mục 4.2 — `GetNamedPipeClientProcessId` + đối chiếu đường dẫn cài đặt + chữ ký code-signing), nên chữ ký HMAC trên đúng 2 frame chưa có khoá phiên **chưa từng đóng vai trò security boundary** — chỉ là giá trị placeholder để khung dữ liệu tuân thủ đúng 1 format framing thống nhất, đúng nghĩa "ephemeral, thương lượng trong chính phiên kết nối" đã chốt ở ADR-19 (không đổi ý nghĩa ADR-19, chỉ cụ thể hoá bit-level).
 
+**Mở rộng phạm vi ADR-19 sang pipe `Watchdog`/`Uninstaller` (Đợt 4)**: cả `Watchdog` lẫn `Uninstaller.exe` **không** có quan hệ cha-con với `Service` (giống hệt tình huống của `UI` mà ADR-19 đã giải quyết — `Watchdog` tự khởi động qua SCM song song `Service`, `Uninstaller.exe` do user/Windows invoke) nên không thể dùng bootstrap khoá bền vững qua anonymous pipe kế thừa handle (mục 5.2, chỉ khả thi cho tiến trình con spawn qua `CreateProcessAsUser`). Áp dụng **nguyên xi** cơ chế ephemeral session key + khoá hằng số 32-byte-zero cho `Hello`/`HelloAck` đầu tiên (mục 5.3 ở trên) cho cả 2 pipe mới này — không cần thiết kế cơ chế bootstrap thứ 3. `HelloAck.session_key` (mục 3.2) từ nay set cho **3 kênh** (`UI`, `Watchdog`, `Uninstaller`), rỗng chỉ với `Vision`/`Overlay` (2 kênh duy nhất có quan hệ cha-con thật, dùng khoá persistent DPAPI ở mục 5.2).
+
 ### 5.4 Xử lý khi verify fail
 
 - Verify dùng so sánh **constant-time** (tránh timing attack dò khoá qua độ trễ so sánh).
@@ -513,16 +600,19 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-69 (v0.4.0) | 3 message mới cho icon trạng thái (`MonitoringStatusUpdate`/`IconPositionUpdate`/`IconLayoutSync`) đặt field 63-65, dùng field number rời thay vì gộp chung 1 message tổng hợp | Mỗi message có chiều gửi và tần suất khác nhau (`MonitoringStatusUpdate`/`IconLayoutSync`: Service→Overlay, theo sự kiện; `IconPositionUpdate`: Overlay→Service, theo hành động kéo-thả) — tách riêng giữ đúng nguyên tắc 1 message = 1 sự kiện nghiệp vụ, nhất quán với các message khác trong kênh Overlay |
 | ADR-80 (v0.5.0) | Password/Auth (Đợt 3) chiếm field 80-91 trong khối UI 80-99 đã dành sẵn, để 92-99 cho Đợt 6 | Định nghĩa đầy đủ + lý do ở `08-password-authentication-architecture.md` mục 8 — amendment tối thiểu, không cần khối field number mới |
 | ADR-82 (v0.5.1) | Cụ thể hoá "chữ ký rỗng" (ADR-19) của khung `Hello`/`HelloAck` đầu tiên kênh `UI` bằng 1 khoá HMAC hằng số 32-byte-zero biết trước cả 2 phía, thay vì thêm 1 chế độ framing "không HMAC" riêng vào `IpcFrameTransport` | Giữ `IpcFrameTransport` chỉ hiểu đúng 1 định dạng frame cho mọi kênh/mọi giai đoạn; an toàn vì xác thực danh tính thật của `UI` đã xảy ra ở mục 4.2 trước khi đọc `Hello`, HMAC trên 2 frame này chưa từng là security boundary |
+| ADR-85 (v0.6.0) | 2 pipe mới `ParentalGuard.Svc.Watchdog`/`ParentalGuard.Svc.Uninstaller`, field block mới 100-119/120-139, `ProcessType.UNINSTALLER=6` | Thiết kế đầy đủ + lý do ở `09-anti-tamper-architecture.md` mục 3/5/8.3 (ADR-85/91/92/93 ở file đó) |
+| ADR-94 (v0.6.0) | Thêm bước 5 vào mục 4.2 — đối chiếu `Hello.process_type` khớp đúng loại tiến trình dự kiến của từng pipe, áp dụng hồi tố cho cả 3 pipe Đợt 0 | Defense-in-depth bổ sung khi thiết kế 2 pipe mới cho `Watchdog`/`Uninstaller` (`09-anti-tamper-architecture.md` ADR-94) — không đổi hành vi luồng hợp lệ hiện tại |
 
 ## 8. Câu hỏi mở
 
-- [ ] Giao thức `Watchdog ↔ Service` (Named Pipe riêng hay SCM query) — đã ghi nhận là thuộc `09-anti-tamper-architecture.md`, không lặp lại ở đây (kế thừa từ câu hỏi mở ở `02-process-architecture.md` mục 8).
+- [x] ~~Giao thức `Watchdog ↔ Service` (Named Pipe riêng hay SCM query) — đã ghi nhận là thuộc `09-anti-tamper-architecture.md`, không lặp lại ở đây (kế thừa từ câu hỏi mở ở `02-process-architecture.md` mục 8).~~ — **Đã xong** (`09` v0.1.0, Đợt 4: Named Pipe riêng, xem mục 2.1/3.1a/5.2).
 - [ ] Message type cụ thể cho phần còn lại của kênh `Service ↔ UI` (field 92-99 — query cấu hình, lịch sử audit log, trạng thái pause...) — Password/Auth (80-91) đã thiết kế xong ở Đợt 3 (`08-password-authentication-architecture.md`), phần còn lại quyết định khi thiết kế `10-ui-architecture.md` ở Đợt 6, không phải thiếu sót của file này (transport/handshake/security đã đủ điều kiện dùng chung ngay khi cần).
 
 ## 9. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.0 | 2026-09-19 | MINOR — Đợt 4 (`ROADMAP.md`), amendment cùng lượt viết `09-anti-tamper-architecture.md`. Thêm 2 pipe mới (`ParentalGuard.Svc.Watchdog`, `ParentalGuard.Svc.Uninstaller` — mục 2.1/2.2), field block mới 100-119 (Watchdog: `WatchdogReportEvent`/`Ack`)/120-139 (Uninstaller: `UninstallExecuteRequest`/`Response` — mục 3.5 mới), `ProcessType.UNINSTALLER=6` (`WATCHDOG=4` từ "reserved" chuyển sang dùng thật). Thêm mục 3.1a (bảng whitelist message theo pipe, hệ thống hoá lần đầu đầy đủ cho cả 5 pipe — trước đó chỉ có nguyên tắc chung ở mục 2.1). Thêm bước 5 vào mục 4.2 (đối chiếu `Hello.process_type` khớp đúng pipe, ADR-94, áp dụng hồi tố 3 pipe cũ). Mở rộng phạm vi ADR-19 (session key ephemeral) sang pipe `Watchdog`/`Uninstaller` (mục 5.3) — không cần bootstrap thứ 3. Sửa lỗi đồng bộ phát hiện khi viết `09`: 3 field `recovery_key_plaintext`/`new_recovery_key_plaintext`×2 (mục 3.4) đổi `string`→`bytes` cho khớp đúng `08-password-authentication-architecture.md` v0.3.0 (ADR-83, FAIL 1) — bản sao `.proto` ở file này trước đó chưa được đồng bộ dù changelog `08` có ghi đã đồng bộ. Đóng câu hỏi mở giao thức `Watchdog↔Service` (mục 8). 2 ADR mới (85, 94 — chi tiết đầy đủ ở `09`). Theo chỉ đạo — không dừng chờ review |
 | v0.5.1 | 2026-09-20 | PATCH — cụ thể hoá mục 5.3 (ADR-82): "chữ ký rỗng" của khung `Hello`/`HelloAck` đầu tiên kênh `UI` (trước khi có session key) nay đặc tả rõ bit-level = khoá HMAC hằng số 32-byte-zero biết trước cả 2 phía, không phải bỏ hẳn trailer HMAC hay thêm 1 chế độ framing riêng cho `IpcFrameTransport`. Gap `feature-dev` báo cáo lại sau khi implement `UiSessionServer` Đợt 3 (`docs/dependency-map.md` mục "Khoảng trống đã biết — Đợt 3") — xác nhận cách `UiSessionServer._unsignedHelloKey` đã tự chọn là lựa chọn kỹ thuật hợp lý (transport giữ đúng 1 định dạng frame duy nhất; an toàn vì xác thực danh tính thật của `UI` đã xảy ra ở mục 4.2 trước khi đọc `Hello`). Không đổi ý nghĩa ADR-19, không đổi hành vi/code, chỉ chính thức hoá quy ước để `ParentalGuard.UI` (Đợt 6) implement đúng khớp. Không kéo theo sửa `Specification/` hay file `Architecture/` khác |
 | v0.5.0 | 2026-09-19 | MINOR — Đợt 3 (`ROADMAP.md`), viết `08-password-authentication-architecture.md`: thêm 12 message mới (field 80-91, khối UI 80-99) cho Password & Authentication (`SetInitialPasswordRequest/Response`, `ConfirmRecoveryKeySavedRequest/Response`, `AuthVerifyRequest/Response`, `ChangePasswordRequest/Response`, `RecoveryResetRequest/Response`, `AuthStatusQuery/Response` — mục 3.4 mới), additive, không đổi field/message cũ (đúng ADR-16). Sửa 1 comment field-number sót lại từ trước ("khối UI... Đợt 6 (Architecture/08)" — tham chiếu số cũ trước renumbering Đợt 2, chưa từng được cập nhật — nay sửa đúng + tách rõ 80-91 đã dùng/92-99 còn trống). Đổi 2 tham chiếu `08-anti-tamper-architecture.md`/`09-ui-architecture.md` thành `09-anti-tamper-architecture.md`/`10-ui-architecture.md` theo renumbering ở `00-INDEX.md` khi chèn `08-password-authentication-architecture.md` mới. 1 ADR mới (80, định nghĩa đầy đủ ở `08`) |
 | v0.4.0 | 2026-09-19 | MINOR — amendment cùng lượt viết lại `07-overlay-architecture.md` v0.2.0 (2 quyết định sản phẩm mới chốt: `BE-088a`/`BE-089a`/`BE-089b`, `FE-016f`/`FE-016g`). Thêm field `source`/enum `CloseSource` (field 4) vào `ForceCloseRequest` — phân biệt "manual"/"auto-timeout" cho audit log (`BE-089b`, ADR-68). Thêm 3 message mới cho UX icon trạng thái multi-monitor mở rộng đầy đủ trong Đợt 2 (`FE-020`–`022`): `MonitoringStatusUpdate` (field 63, Service→Overlay, `IconState` 3 trạng thái), `IconPositionUpdate` (field 64, Overlay→Service, kết quả kéo-thả), `IconLayoutSync` (field 65, Service→Overlay, đẩy lại toàn bộ vị trí đã lưu lúc connect) — ADR-69. Cập nhật diagram handshake mục 4.3 (push thêm `MonitoringStatusUpdate`/`IconLayoutSync` ngay sau `OverlayRectListCommand`). Toàn bộ additive, không đổi field/message cũ (đúng ADR-16) |

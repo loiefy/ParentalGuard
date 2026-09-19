@@ -67,6 +67,31 @@ public sealed class AuthCoordinator
         }
     }
 
+    /// <summary>
+    /// Đợt 4 (ANTI-020, Architecture/09-anti-tamper-architecture.md mục 5.3): xác thực + tiêu thụ
+    /// (dùng 1 lần, xoá khỏi <c>PendingActionTokens</c> ngay — mục 7.2 đã chốt ở Architecture/08) 1
+    /// <c>action_token</c> đã phát hành qua <see cref="HandleAuthVerifyAsync"/>. Dùng chung khoá
+    /// <see cref="_gate"/> với các luồng khác — không có 2 lượt tiêu thụ chồng lấp trên cùng token.
+    /// </summary>
+    public async Task<bool> TryConsumeActionTokenAsync(byte[] token, string expectedActionContext, CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            string key = Convert.ToHexString(token);
+            if (!_state.PendingActionTokens.Remove(key, out PendingActionToken? pending))
+            {
+                return false;
+            }
+
+            return pending.ActionContext == expectedActionContext && _clock.UtcNowUnixMs < pending.ExpiresAtUnixMs;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     /// <summary>Định tuyến theo <see cref="IpcPayload.BodyOneofCase"/> — pipe UI chỉ gọi đúng 1 hàm này (mục 3, kênh UI chỉ nhận message domain Password/Auth).</summary>
     public Task<IpcPayload> HandleAsync(IpcPayload request, CancellationToken cancellationToken)
     {

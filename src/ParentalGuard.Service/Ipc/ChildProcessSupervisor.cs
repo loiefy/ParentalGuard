@@ -34,7 +34,8 @@ public sealed class ChildProcessSupervisor(
     Func<bool>? resolveLowIntegrityLevel = null,
     Action? onCaptureInitAccessDeniedExitCode = null,
     Action? onSessionConnected = null,
-    Action? onSessionEnded = null)
+    Action? onSessionEnded = null,
+    Action? onChildRestarted = null)
 {
     /// <summary>Architecture/05-image-pipeline-architecture.md mục 8.2: exit code 17 (CaptureInitAccessDenied).</summary>
     private const int _captureInitAccessDeniedExitCode = 17;
@@ -203,6 +204,7 @@ public sealed class ChildProcessSupervisor(
                 onSessionEnded?.Invoke(); // ADR-65 (Architecture/07 mục 4.1.2): respawn đang diễn ra → icon ERROR
                 await auditLog.AppendAsync(
                     "ProcessRestarted", new { process = processType.ToString() }, CancellationToken.None).ConfigureAwait(false);
+                onChildRestarted?.Invoke(); // ANTI-060 (Architecture/09 mục 6.1) — chỉ Vision/Overlay, không tính Service/Watchdog.
             }
             finally
             {

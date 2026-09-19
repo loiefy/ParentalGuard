@@ -1,6 +1,6 @@
 # 02 — Process Architecture
 
-> Version: v0.1.3 | Trạng thái: Approved | Cập nhật: 2026-09-19
+> Version: v0.1.4 | Trạng thái: Approved | Cập nhật: 2026-09-19
 
 ## 1. Mục đích
 
@@ -90,7 +90,7 @@ Nguyên tắc xuyên suốt file này (bám `ROADMAP.md` mục 2, đã thống n
 |---|---|---|---|
 | `Service` ↔ `Vision` | 1 giây (giảm tần suất khi `Running·Paused`, xem `PAUSE-031`) | mất 3 heartbeat liên tiếp | `Service` kill (nếu còn treo) + spawn lại `Vision` trong ≤ 3s (`BE-023`), ghi audit log |
 | `Service` ↔ `Overlay` | 2 giây | mất 3 heartbeat liên tiếp | tương tự, restart `Overlay` |
-| `Watchdog` ↔ `Service` | để ở `Architecture/09-anti-tamper-architecture.md` | — | — |
+| `Watchdog` ↔ `Service` | 3 giây (`09-anti-tamper-architecture.md` mục 3.3) | mất 3 heartbeat liên tiếp (9s), hoặc pipe vỡ ngay lập tức | Stop graceful→force-kill nếu treo→Start (kèm re-register qua `sc.exe create` nếu registry service bị xoá) — chi tiết đầy đủ `09-anti-tamper-architecture.md` mục 3.4 |
 
 Heartbeat mang theo state hiện tại (ví dụ `Vision` báo "đang xử lý frame thứ N") chỉ để chẩn đoán/log — không phải cơ chế truyền lệnh nghiệp vụ (lệnh nghiệp vụ đi qua message IPC riêng, xem `03-ipc-communication.md`).
 
@@ -143,12 +143,13 @@ Heartbeat mang theo state hiện tại (ví dụ `Vision` báo "đang xử lý f
 ## 8. Câu hỏi mở
 
 - [ ] Cơ chế suspend cụ thể cho `Vision` lúc Pause (`PAUSE-031`) — `SuspendThread`, Job Object, hay tín hiệu IPC tự nguyện dừng vòng lặp — quyết định cụ thể để ở `05-image-pipeline-architecture.md` khi thiết kế threading model.
-- [ ] Giao thức `Watchdog` ↔ `Service` cụ thể (Named Pipe riêng hay Service Control Manager query) — để ở `09-anti-tamper-architecture.md`.
+- [x] ~~Giao thức `Watchdog` ↔ `Service` cụ thể (Named Pipe riêng hay Service Control Manager query) — để ở `09-anti-tamper-architecture.md`.~~ — **Đã xong** (`09` v0.1.0, Đợt 4: Named Pipe riêng `ParentalGuard.Svc.Watchdog`, heartbeat 3s/3-miss, xem mục 4 bảng trên).
 
 ## 9. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.1.4 | 2026-09-19 | PATCH — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Điền dòng heartbeat `Watchdog ↔ Service` ở bảng mục 4 (trước để trống "để ở `09`") = 3 giây/3-miss/hành động khôi phục, trích dẫn `09` mục 3.3/3.4. Đóng câu hỏi mở mục 8 về giao thức `Watchdog↔Service` (đã quyết định: Named Pipe riêng, không phải SCM query thuần). Không đổi nội dung lifecycle/state machine đã chốt |
 | v0.1.3 | 2026-09-19 | PATCH — cụ thể hoá con trỏ `AuthState` (mục 5, trước là placeholder rỗng) trỏ sang `08-password-authentication-architecture.md` mục 7 (Đợt 3 vừa thiết kế xong); đổi 2 tham chiếu `08-anti-tamper-architecture.md` thành `09-anti-tamper-architecture.md` (mục 4, mục 8), theo renumbering ở `00-INDEX.md` khi chèn `08-password-authentication-architecture.md` mới cho Đợt 3. Không đổi nội dung quyết định state machine |
 | v0.1.2 | 2026-09-19 | PATCH — đổi 2 tham chiếu `07-anti-tamper-architecture.md` thành `08-anti-tamper-architecture.md` (mục 4, mục 8), theo renumbering ở `00-INDEX.md` (chèn `07-overlay-architecture.md` mới cho Đợt 2, dồn `07`→`08`/`08`→`09`/`09`→`10`/`10`→`11` — không có file nào trong các số cũ từng được viết thật, xem lý do đầy đủ ở changelog `00-INDEX.md`). Không đổi nội dung quyết định |
 | v0.1.0 | 2026-09-17 | Khởi tạo — lifecycle 5 process, state machine trung tâm `Service` (Starting/Running·Monitoring/Running·Paused/Degraded·FailSecure/Stopping), heartbeat, nguyên tắc thiết kế đảm bảo mở rộng linh hoạt (Overlay declarative, Vision stateless, Service domain-state), trình tự khởi động lúc boot |

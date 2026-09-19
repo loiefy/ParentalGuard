@@ -378,6 +378,85 @@ giữ nguyên chữ ký/callee, TRỪ các hàm dưới đây (đã đổi).
   lại trên máy Windows thật cấu hình thấp trước khi coi ngân sách UX đã được xác nhận đầy đủ (cùng
   tinh thần khoảng trống `IMG-040`/`041` đã ghi ở Đợt 1/2 — sandbox không thay thế được máy thật).
 
+## Đợt 4 (Architecture/09-anti-tamper-architecture.md) — Dual Watchdog, Custom Uninstaller, Anti-Tamper
+
+### `src/ParentalGuard.Ipc/` (schema + hạ tầng dùng chung Service ↔ Watchdog ↔ Uninstaller)
+
+| Thay đổi | File | Ghi chú |
+|---|---|---|
+| `ProcessType.UNINSTALLER=6` (bỏ ghi chú "reserved" trên `WATCHDOG=4`), `WatchdogReportEvent`(100)/`Ack`(101) + `WatchdogEventType`, `UninstallExecuteRequest`(120)/`Response`(121) + `UninstallResult` | `Protos/ipc.proto` | ANTI-010/020, Architecture/09 mục 8.3 |
+| `IpcProtocol.WatchdogPipeKey` (**mới** — khoá HMAC hằng số 32-byte-zero, dùng SUỐT kết nối, không ephemeral) | `IpcProtocol.cs` | `WatchdogSessionServer.*` (Service), `WatchdogPeerConnection.*` (Watchdog) — mục 3.2: ACL SYSTEM-only + `Hello.process_type` đã đủ, không cần lớp HMAC ephemeral |
+| `SlidingWindowCounter.RecordEventAndCheckThreshold` (pure, unit test được) | `Tamper/SlidingWindowCounter.cs` | `AttackPatternCoordinator.RecordServiceSideEvent` (Service), `WatchdogPeerConnection.RecoverServiceAsync` (Watchdog) — 2 instance ĐỘC LẬP | — |
+| `ScProcessRunner.RunAsync` | `Tamper/ScProcessRunner.cs` | `ScFailureConfigurator.ConfigureAsync`, `PeerServiceRecovery.RecoverAsync`, `UninstallCoordinator.TryDeleteServiceRegistrationAsync` | `Process` (BCL, spawn `sc.exe`) |
+| `ScFailureConfigurator.ConfigureAsync` (ANTI-011) | `Tamper/ScFailureConfigurator.cs` | `Worker.ApplyScRecoveryOptionsBestEffortAsync` (Service), `Watchdog.Worker.ApplyScRecoveryOptionsBestEffortAsync` | `ScProcessRunner.RunAsync` |
+| `PeerServiceRecovery.RecoverAsync`/`.ResolvePeerBinaryPath` (unit test được)/`.BuildCreateArguments` (unit test được) (ADR-88) | `Tamper/PeerServiceRecovery.cs` | `WatchdogSessionServer.RecoverWatchdogAsync` (Service), `WatchdogPeerConnection.RecoverServiceAsync` (Watchdog) | `ServiceController` (BCL), `Process.GetProcessesByName`, `ScProcessRunner.RunAsync` |
+| `RegistryTamperInterop.*` (P/Invoke `advapi32`) | `Tamper/RegistryTamperInterop.cs` | `RegistryStartValueWatcher.*` | Win32 `RegOpenKeyEx`/`RegNotifyChangeKeyValue`/`RegQueryValueEx`/`RegSetValueEx`/`RegCloseKey` |
+| `RegistryStartValueWatcher.Start`/`.Run`/`.CheckAndSelfHeal` (ANTI-031, integration-test được qua overload root-hive-tuỳ-ý) | `Tamper/RegistryStartValueWatcher.cs` | `Worker.StartRegistryTamperWatchersBestEffort` (Service, 2 instance: key Service + key Watchdog), `Watchdog.Worker.StartRegistryTamperWatchersBestEffort` (2 instance tương tự) | `RegistryTamperInterop.*` |
+| `RestartedByWatchdogDetector.WasRestartedByWatchdog` (pure, unit test được) | `Tamper/RestartedByWatchdogDetector.cs` | `Worker.LogSelfRestartedByWatchdogBestEffortAsync` (Service), `Watchdog.Worker.ExecuteAsync` | — |
+| `ParentalGuard.Ipc.csproj` đổi `TargetFramework` `net10.0`→`net10.0-windows` (**sửa**) + `System.ServiceProcess.ServiceController` package mới | `ParentalGuard.Ipc.csproj` | — | `Tamper/*` cần Win32-only API (registry P/Invoke, `ServiceController`) — mọi consumer thật vốn đã `-windows` |
+
+### `src/ParentalGuard.Service/` — pipe mới, uninstaller, rate-limit/banner
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `PipeAclFactory.CreateWatchdogServerInstance` (**mới** — Allow SYSTEM only, Deny cả INTERACTIVE) | `Security/PipeAclFactory.cs` | `WatchdogSessionServer.RunLoopAsync` | `NamedPipeServerStreamAcl.Create` |
+| `WfpInterop.FwpmFilterDeleteByKey0`/`.FwpmSubLayerDeleteByKey0`/`.FwpmProviderDeleteByKey0` (**mới**) | `Security/WfpInterop.cs` | `WfpVisionBlocker.Remove` | `fwpuclnt.dll` |
+| `WfpVisionBlocker.Remove` (**mới**, best-effort/idempotent) | `Security/WfpVisionBlocker.cs` | `UninstallCoordinator.ExecuteAsync` (bước 3, mục 5.5) | `WfpInterop.*DeleteByKey0` |
+| `KnownFolderInterop.SHGetKnownFolderPath` (**mới**) | `Security/KnownFolderInterop.cs` | `DesktopAuditLogExporter.TryExport` | `shell32.dll` |
+| `DesktopAuditLogExporter.TryExport` (ADR-97) | `Tamper/DesktopAuditLogExporter.cs` | `UninstallCoordinator.ExecuteAsync` (bước 2) | `SessionInterop.WTSQueryUserToken`, `KnownFolderInterop.SHGetKnownFolderPath` |
+| `AuthCoordinator.TryConsumeActionTokenAsync` (**mới** — dùng 1 lần, xoá khỏi `PendingActionTokens`) | `Auth/AuthCoordinator.cs` | `UninstallCoordinator.HandleAsync` | `AuthState.PendingActionTokens` (qua `_gate`) |
+| `UninstallCoordinator.HandleAsync`/`.ExecuteAsync`/`.ConsumeShutdownRequested` (mục 5.5, bất biến an toàn ADR-98 thực thi Ở PHÍA SERVICE: chỉ trả `SUCCESS` sau khi đã thực thi xong) | `Tamper/UninstallCoordinator.cs` | `UninstallerSessionServer.RunConnectionAsync` | `AuthCoordinator.TryConsumeActionTokenAsync`, `WatchdogSessionServer.SuppressRecovery` (**mới** — gọi ĐẦU TIÊN trong `ExecuteAsync`, chặn race ADR-95 chiều Service→Watchdog: nếu không, pipe vỡ do chính bước dừng Watchdog dưới đây sẽ khiến `WatchdogSessionServer` hiểu nhầm "Watchdog mất tích" và tự khởi động lại nó giữa uninstall), `AuditLogWriter.AppendAsync`, `DesktopAuditLogExporter.TryExport`, `WfpVisionBlocker.Remove`, `ServiceController` (dừng Watchdog, ADR-95 — TRƯỚC bước tự thoát), `ScProcessRunner` (`sc delete` ×2), xoá file `%ProgramData%` |
+| `WatchdogSessionServer.SuppressRecovery` (**mới**) | `Ipc/WatchdogSessionServer.cs` | `UninstallCoordinator.ExecuteAsync` | set `_recoverySuppressed` — `RunLoopAsync` catch-block đọc cờ này, bỏ qua `RecoverWatchdogAsync` + thoát loop nếu đang uninstall |
+| `UninstallerSessionServer.Start`/`.RunLoopAsync`/`.HandshakeAsync`/`.RunConnectionAsync` (whitelist CHỈ `AuthVerifyReq`/`UninstallExecuteReq`) | `Ipc/UninstallerSessionServer.cs` | `Worker.StartUninstallerSessionServer`/`.StopAllAsync` | `PipeAclFactory.CreateUiServerInstance` (tái dùng — ACL giống hệt UI), `AuthCoordinator.HandleAsync`, `UninstallCoordinator.HandleAsync`/`.ConsumeShutdownRequested`, `IHostApplicationLifetime.StopApplication` (qua `requestServiceShutdown` delegate, bước 9 ADR-95) |
+| `WatchdogSessionServer.Start`/`.RunLoopAsync`/`.HandshakeAsync`/`.RunConnectionAsync`/`.HeartbeatPingLoopAsync`/`.RecoverWatchdogAsync`/`.HandleWatchdogReportEventAsync` (heartbeat 3s/3-miss, ADR-87/88) | `Ipc/WatchdogSessionServer.cs` | `Worker.StartWatchdogSessionServer`/`.StopAllAsync` | `PipeAclFactory.CreateWatchdogServerInstance`, `PeerServiceRecovery.RecoverAsync`, `AuditLogWriter.AppendAsync`, `AttackPatternCoordinator.RecordWatchdogSideThresholdExceeded` |
+| `AttackPatternCoordinator.RecordServiceSideEvent`/`.RecordWatchdogSideThresholdExceeded` (ANTI-060, N=5/T=30 phút) | `Tamper/AttackPatternCoordinator.cs` | `Worker` (hook `ChildProcessSupervisor.onChildRestarted`, `HandleVisionNetworkBlockedAsync`, `OnRegistryTamperDetectedAndRestored`), `WatchdogSessionServer.HandleWatchdogReportEventAsync` | `SlidingWindowCounter.RecordEventAndCheckThreshold`, `AttackBannerTimer.Arm`, `AuditLogWriter.AppendAsync` |
+| `AttackBannerTimer.Arm` (unit test được — edge-triggered, trả `true` đúng 1 lần/đợt) | `Tamper/AttackBannerTimer.cs` | `AttackPatternCoordinator.*` | `Timer` (BCL), callback → `IconStatusCoordinator.SetAttackBannerActive` |
+| `IconStatusCoordinator.SetAttackBannerActive` (**mới**, ANTI-061/ADR-100 — giữ ERROR, không tạo state/message IPC mới) | `Ipc/IconStatusCoordinator.cs` | `AttackBannerTimer` callback (qua `Worker`) | `ChildProcessSupervisor.TryEnqueueBusinessMessage` |
+| `ChildProcessSupervisor` tham số `onChildRestarted` (**mới**) | `Ipc/ChildProcessSupervisor.cs` | `Worker` (Vision + Overlay supervisor ctor) | gọi ngay sau ghi audit `ProcessRestarted` |
+| `Worker.ApplyScRecoveryOptionsBestEffortAsync`/`.LogSelfRestartedByWatchdogBestEffortAsync`/`.StartWatchdogSessionServer`/`.StartUninstallerSessionServer`/`.StartRegistryTamperWatchersBestEffort`/`.OnRegistryTamperDetectedAndRestored` (**mới**), ctor nhận thêm `IHostApplicationLifetime`/`StartupArgs` | `Worker.cs` | `Worker.ExecuteAsync` | như liệt kê ở trên |
+| `StartupArgs` (record, **mới**) | `Worker.cs` | `Program.cs` (đăng ký DI từ `Main(args)`) | — |
+| `InstallPaths.WatchdogExecutablePath`/`.UninstallerExecutablePath`/`.ServiceRegistryKeyPath`/`.WatchdogRegistryKeyPath`/`.ServiceName`/`.WatchdogServiceName`/`.ServiceDisplayName`/`.WatchdogDisplayName` (**mới**) | `Configuration/InstallPaths.cs` | `Worker.*`, `WatchdogSessionServer.*` | — |
+
+### `src/ParentalGuard.Watchdog/` (mới — Windows Service #2, ADR-86 tối giản)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| top-level `Program` | `Program.cs` | entry point (SCM) | `AddWindowsService`, `Worker` (DI) |
+| `Worker.ExecuteAsync`/`.ApplyScRecoveryOptionsBestEffortAsync`/`.StartRegistryTamperWatchersBestEffort` | `Worker.cs` | Generic Host (`IHostedService`) | `ScFailureConfigurator.ConfigureAsync`, `RegistryStartValueWatcher` ×2, `WatchdogPeerConnection.RunForeverAsync`, `RestartedByWatchdogDetector.WasRestartedByWatchdog` |
+| `WatchdogPeerConnection.RunForeverAsync`/`.ConnectWithRetryAsync`/`.HandshakeAsync`/`.RunConnectionAsync`/`.ReaderLoopAsync`/`.HangMonitorAsync`/`.RecoverServiceAsync` (mục 3.3 — CẢ 2 hướng phát hiện: pipe vỡ NGAY LẬP TỨC qua exception, HOẶC hết 9s không có `HeartbeatPing` mới qua `HangMonitorAsync`) | `WatchdogPeerConnection.cs` | `Worker.ExecuteAsync` | `IpcFrameTransport.*`, `PeerServiceRecovery.RecoverAsync`, `SlidingWindowCounter.RecordEventAndCheckThreshold` |
+| `WatchdogPaths.*` (hằng số — CỐ Ý không tham chiếu `ParentalGuard.Service.Configuration.InstallPaths`, ADR-86) | `WatchdogPaths.cs` | `Worker.*`, `WatchdogPeerConnection.RecoverServiceAsync` | — |
+
+### `src/ParentalGuard.Uninstaller/` (mới — 7th executable, `requireAdministrator`)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| top-level `Program.Main` ([STAThread]) | `Program.cs` | entry point (OS, sau UAC — lớp gate #1) | `UninstallPipeClient`/`LocalCleanup`/`UninstallFlow` ctor, `Application.Run` |
+| `UninstallFlow.RunAsync` (BẤT BIẾN AN TOÀN CỐT LÕI ADR-98, unit test được đầy đủ qua fake — `UninstallFlowTests`) | `UninstallFlow.cs` | `Program.RunFlowAsync` | `IUninstallServiceConnection.*` (qua `UninstallPipeClient` production), `ILocalCleanup.CleanupAsync` (qua `LocalCleanup` production — CHỈ gọi khi `UninstallResult.Success`) |
+| `UninstallPipeClient.ConnectAsync`/`.VerifyPasswordAsync`/`.ExecuteUninstallAsync` (implements `IUninstallServiceConnection`) | `UninstallPipeClient.cs` | `UninstallFlow.RunAsync` | `IpcFrameTransport.*` (khoá phiên ephemeral qua `Hello` chưa ký, giống UI) |
+| `LocalCleanup.CleanupAsync` (mục 5.5 bước 10-13, implements `ILocalCleanup`) | `LocalCleanup.cs` | `UninstallFlow.RunAsync` (CHỈ sau `SUCCESS`) | `Process.GetProcessesByName` (chờ Service thoát), `RegistryDeleteInterop.RegDeleteTree`, `MoveFileExInterop.MoveFileEx` (self-delete `DELAY_UNTIL_REBOOT`) |
+| `PasswordPromptForm`/`ConfirmUninstallForm` (WinForms, code-only — cùng convention `ContentBlurOverlayForm`) | `Forms/*.cs` | `Program.PromptPasswordAsync`/`.ConfirmProceedAsync` | — |
+
+### Khoảng trống đã biết — Đợt 4 (báo cáo lại, không tự quyết định)
+
+- **`WatchdogSessionServer`/`UninstallerSessionServer.VerifyClientIdentity`** chỉ implement điều kiện 3a
+  (đường dẫn cài đặt) của Architecture/03 mục 4.2 — điều kiện 3b (chữ ký code-signing) chưa có, cùng gap
+  đã ghi nhận ở `ChildProcessSupervisor`/`UiSessionServer` (Đợt 9, `SEC-030`/`DEV-012`).
+- **Chưa có test tích hợp qua Named Pipe/SCM thật** cho `WatchdogSessionServer`↔`WatchdogPeerConnection`
+  và `UninstallerSessionServer`↔`UninstallPipeClient` (chỉ unit test business logic qua fake/HKCU) — lý
+  do: sandbox dev không chạy dưới SYSTEM, không có `ParentalGuard.Service`/`Watchdog` cài đặt thật dưới
+  SCM để test round-trip đầy đủ (mục tiêu thật cần máy Windows thật, cùng tinh thần khoảng trống
+  `IMG-040`/`041`/benchmark Argon2id đã ghi ở Đợt 1-3).
+- **Mục 3.6 (`--restarted-by-watchdog` self-detection qua SCM start-args)**: `Worker`/`Watchdog.Worker`
+  đọc `startupArgs` (từ `Main(args)`) làm nguồn PHỤ (best-effort) — GHI CHÚ TRIỂN KHAI (không phải gap
+  WHAT): `ServiceController.Start(string[] args)`/SCM start-args KHÔNG được `Microsoft.Extensions.Hosting.WindowsServices`
+  (`WindowsServiceLifetime : ServiceBase`) phơi ra `Main(string[] args)`/DI một cách đáng tin cậy trong
+  .NET Generic Host — nguồn sự thật CHÍNH cho việc ghi `ProcessRestarted` 2 chiều là bước 5 mục 3.4 (bên
+  THỰC HIỆN khôi phục tự báo cáo, đã implement đầy đủ ở `WatchdogSessionServer.RecoverWatchdogAsync` +
+  `WatchdogPeerConnection.RecoverServiceAsync`) — không phụ thuộc plumbing SCM args chưa chắc hoạt động.
+- **Recovery Options thật (`sc failure`) và `RegistryStartValueWatcher` dưới `HKLM`** chưa verify được
+  trên máy Windows thật với quyền SYSTEM (sandbox dev không có) — best-effort try/catch đã có (giống
+  `AclProvisioner`/`WfpVisionBlocker` Đợt 0), nhưng hành vi thật cần xác nhận lại ngoài sandbox.
+
 ## Ghi chú khoảng trống đã biết (xem báo cáo bàn giao)
 
 - `ChildProcessSupervisor.VerifyClientIdentity` chỉ implement điều kiện 3a (đường dẫn cài đặt) của

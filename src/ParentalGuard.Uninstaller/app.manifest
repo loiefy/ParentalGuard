@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Architecture/09-anti-tamper-architecture.md mục 5.1: requireAdministrator = lớp gate #1 (OS),
+     Windows tự hiện UAC prompt TRƯỚC KHI bất kỳ dòng code nào của app chạy. -->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="ParentalGuard.Uninstaller"/>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+  <!-- DPI awareness cấu hình qua ApplicationHighDpiMode (csproj) theo khuyến nghị WinForms hiện đại
+       (WFO0003) — KHÔNG khai báo trùng ở đây để tránh cảnh báo build. -->
+</assembly>

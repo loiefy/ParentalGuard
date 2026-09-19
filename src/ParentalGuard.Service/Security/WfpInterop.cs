@@ -154,4 +154,14 @@ internal static class WfpInterop
 
     [DllImport("fwpuclnt.dll", CharSet = CharSet.Unicode)]
     internal static extern uint FwpmGetAppIdFromFileName0(string fileName, out IntPtr appId);
+
+    // Đợt 4 (ANTI-020, Architecture/09 mục 5.5 bước 3) — gỡ ngược lại provider/sublayer/filter lúc uninstall.
+    [DllImport("fwpuclnt.dll")]
+    internal static extern uint FwpmFilterDeleteByKey0(IntPtr engineHandle, ref Guid key);
+
+    [DllImport("fwpuclnt.dll")]
+    internal static extern uint FwpmSubLayerDeleteByKey0(IntPtr engineHandle, ref Guid key);
+
+    [DllImport("fwpuclnt.dll")]
+    internal static extern uint FwpmProviderDeleteByKey0(IntPtr engineHandle, ref Guid key);
 }

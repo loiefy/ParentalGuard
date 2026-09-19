@@ -1,4 +1,5 @@
 using ParentalGuard.Ipc.Protocol;
+using ParentalGuard.Ipc.Tamper;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
 using ParentalGuard.Service.Configuration;
@@ -6,15 +7,20 @@ using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Ipc;
 using ParentalGuard.Service.Security;
 using ParentalGuard.Service.Session;
+using ParentalGuard.Service.Tamper;
 
 namespace ParentalGuard.Service;
 
 /// <summary>
-/// Orchestrator Đợt 0 (ROADMAP.md Đợt 0): ACL, config.db fail-secure, WFP block Vision,
-/// 2 Named Pipe server (Vision/Overlay) + supervision, theo dõi đổi session tương tác
-/// (Architecture/02-process-architecture.md mục 6).
+/// Orchestrator: ACL, config.db fail-secure, WFP block Vision, Named Pipe server (Vision/Overlay/UI/
+/// Watchdog/Uninstaller) + supervision, theo dõi đổi session tương tác (Architecture/02 mục 6), Dual
+/// Watchdog + anti-tamper (Architecture/09, Đợt 4).
 /// </summary>
-public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger) : BackgroundService
+public sealed class Worker(
+    ILoggerFactory loggerFactory,
+    ILogger<Worker> logger,
+    IHostApplicationLifetime hostLifetime,
+    StartupArgs startupArgs) : BackgroundService
 {
     private static readonly TimeSpan _visionHeartbeatInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan _overlayHeartbeatInterval = TimeSpan.FromSeconds(2);
@@ -28,6 +34,16 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
     private IconPositionCoordinator? _iconPositionCoordinator;
     private AuditLogWriter? _auditLog;
     private UiSessionServer? _uiSessionServer;
+    private AuthCoordinator? _authCoordinator;
+    private WfpVisionBlocker? _wfpVisionBlocker;
+
+    // Đợt 4 (ANTI-0xx, Architecture/09) — Dual Watchdog + custom uninstaller + anti-tamper.
+    private WatchdogSessionServer? _watchdogSessionServer;
+    private UninstallerSessionServer? _uninstallerSessionServer;
+    private AttackPatternCoordinator? _attackPatternCoordinator;
+    private RegistryStartValueWatcher? _serviceKeyWatcher;
+    private RegistryStartValueWatcher? _watchdogKeyWatcher;
+
     private volatile uint _currentSessionId = SessionInterop.InvalidSessionId;
 
     // Architecture/05-image-pipeline-architecture.md mục 8.1 bước 5 (ADR-49): chỉ nhớ trong bộ
@@ -41,6 +57,9 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         ApplyAclBestEffort();
 
         _auditLog = await AuditLogWriter.InitializeAsync(InstallPaths.AuditLogPath, stoppingToken).ConfigureAwait(false);
+
+        await ApplyScRecoveryOptionsBestEffortAsync(stoppingToken).ConfigureAwait(false);
+        await LogSelfRestartedByWatchdogBestEffortAsync().ConfigureAwait(false);
 
         var configLoader = new FailSecureConfigLoader(_auditLog, loggerFactory.CreateLogger<FailSecureConfigLoader>());
         ConfigLoadResult config = await configLoader.LoadAsync(stoppingToken).ConfigureAwait(false);
@@ -71,7 +90,8 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
             BuildOverlayOneTimeMessages(config),
             onBusinessMessage: (message, ct) => DispatchOverlayBusinessMessageAsync(message, ct),
             onSessionConnected: () => _iconStatusCoordinator!.SetState(IconState.Active),
-            onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error));
+            onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
+            onChildRestarted: () => _attackPatternCoordinator!.RecordServiceSideEvent("process_restart_loop"));
 
         // BE-090: ngưỡng risk score đọc lại tại thời điểm mỗi VisionInferenceResult tới (không
         // chụp giá trị 1 lần) — Đợt 1 chưa có đường nào đổi RiskThreshold lúc runtime (Pause/UI
@@ -80,6 +100,11 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         _overlayDecisionCoordinator = new OverlayDecisionCoordinator(_overlaySupervisor, _auditLog, () => config.MonitoringState.RiskThreshold);
         _iconStatusCoordinator = new IconStatusCoordinator(_overlaySupervisor);
         _iconPositionCoordinator = new IconPositionCoordinator(loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.IconPositionCoordinator"));
+        _attackPatternCoordinator = new AttackPatternCoordinator(_auditLog, _iconStatusCoordinator);
+
+        StartWatchdogSessionServer(stoppingToken);
+        StartUninstallerSessionServer(stoppingToken);
+        StartRegistryTamperWatchersBestEffort();
 
         _visionSupervisor = new ChildProcessSupervisor(
             ProcessType.Vision,
@@ -94,7 +119,8 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
             resolveLowIntegrityLevel: () => !_visionRequiresMediumIl,
             onCaptureInitAccessDeniedExitCode: OnVisionCaptureInitAccessDenied,
             onSessionConnected: () => _iconStatusCoordinator!.SetState(IconState.Active),
-            onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error));
+            onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
+            onChildRestarted: () => _attackPatternCoordinator!.RecordServiceSideEvent("process_restart_loop"));
 
         StartVisionNetworkWatcherBestEffort();
 
@@ -111,7 +137,7 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         }
         catch (OperationCanceledException)
         {
-            // Bình thường lúc SCM stop/shutdown.
+            // Bình thường lúc SCM stop/shutdown (kể cả tự kích hoạt qua UninstallCoordinator — mục 5.5 bước 9).
         }
 
         await StopAllAsync().ConfigureAwait(false);
@@ -136,7 +162,8 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
     {
         try
         {
-            new WfpVisionBlocker(loggerFactory.CreateLogger<WfpVisionBlocker>()).Apply(InstallPaths.VisionExecutablePath);
+            _wfpVisionBlocker = new WfpVisionBlocker(loggerFactory.CreateLogger<WfpVisionBlocker>());
+            _wfpVisionBlocker.Apply(InstallPaths.VisionExecutablePath);
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
@@ -146,19 +173,108 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         }
     }
 
+    /// <summary>ANTI-011 (Architecture/09 mục 3.5, ADR-89) — idempotent, gọi lại mỗi lần Starting, không chờ installer Đợt 9.</summary>
+    private async Task ApplyScRecoveryOptionsBestEffortAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ScFailureConfigurator.ConfigureAsync(InstallPaths.ServiceName, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        {
+            logger.LogWarning(ex, "Could not configure SCM recovery options (needs SYSTEM/admin) — continuing.");
+        }
+    }
+
+    /// <summary>
+    /// Mục 3.6 — chỉ áp dụng cho bên "Service" (có quyền ghi audit.log trực tiếp). Đọc SCM start-args
+    /// KHÔNG được .NET Generic Host (<c>WindowsServiceLifetime</c>) phơi ra <c>Main(string[] args)</c>
+    /// một cách đáng tin cậy — GHI CHÚ TRIỂN KHAI (không phải gap WHAT): thay vì phụ thuộc cơ chế đó,
+    /// nguồn sự thật chính cho việc ghi log 2 chiều là bước 5 của mục 3.4 (bên THỰC HIỆN khôi phục tự
+    /// báo cáo — <see cref="ChildProcessSupervisor"/>/<see cref="WatchdogSessionServer"/> đã làm việc
+    /// này). Vẫn giữ nhánh này cho trường hợp chạy console/dev thật sự truyền được <c>args</c>.
+    /// </summary>
+    private async Task LogSelfRestartedByWatchdogBestEffortAsync()
+    {
+        if (!RestartedByWatchdogDetector.WasRestartedByWatchdog(startupArgs.Values))
+        {
+            return;
+        }
+
+        await _auditLog!.AppendAsync(
+            "ProcessRestarted", new { process = "Service", trigger = "watchdog_peer_recovery" }, CancellationToken.None).ConfigureAwait(false);
+    }
+
     /// <summary>Đợt 3 (`PWD-0xx`, Architecture/08 mục 7) — pipe <c>ParentalGuard.Svc.UI</c>, độc lập vòng đời Vision/Overlay (UI tự mở, không do Service spawn).</summary>
     private void StartUiSessionServer(CancellationToken stoppingToken)
     {
         var clock = new MonotonicClock();
-        var authCoordinator = new AuthCoordinator(InstallPaths.AuthDatPath, _auditLog!, clock, loggerFactory.CreateLogger<AuthCoordinator>());
+        _authCoordinator = new AuthCoordinator(InstallPaths.AuthDatPath, _auditLog!, clock, loggerFactory.CreateLogger<AuthCoordinator>());
         _uiSessionServer = new UiSessionServer(
             "ParentalGuard.Svc.UI",
             InstallPaths.UiExecutablePath,
-            authCoordinator,
+            _authCoordinator,
             _auditLog!,
             loggerFactory.CreateLogger<UiSessionServer>());
         _uiSessionServer.Start(stoppingToken);
     }
+
+    /// <summary>Architecture/09 mục 3.2/3.3 — heartbeat 3s/3-miss, không spawn process (Watchdog là Windows Service độc lập).</summary>
+    private void StartWatchdogSessionServer(CancellationToken stoppingToken)
+    {
+        _watchdogSessionServer = new WatchdogSessionServer(
+            "ParentalGuard.Svc.Watchdog",
+            InstallPaths.WatchdogExecutablePath,
+            _auditLog!,
+            _attackPatternCoordinator!,
+            loggerFactory.CreateLogger<WatchdogSessionServer>());
+        _watchdogSessionServer.Start(stoppingToken);
+    }
+
+    /// <summary>Architecture/09 mục 5.2 — pipe <c>ParentalGuard.Svc.Uninstaller</c>, dùng chung <see cref="_authCoordinator"/> (rate-limit mật khẩu chung, mục 2 bảng file 09).</summary>
+    private void StartUninstallerSessionServer(CancellationToken stoppingToken)
+    {
+        var uninstallCoordinator = new UninstallCoordinator(
+            _authCoordinator!,
+            _auditLog!,
+            _wfpVisionBlocker ?? new WfpVisionBlocker(loggerFactory.CreateLogger<WfpVisionBlocker>()),
+            _watchdogSessionServer!,
+            loggerFactory.CreateLogger<UninstallCoordinator>());
+        _uninstallerSessionServer = new UninstallerSessionServer(
+            "ParentalGuard.Svc.Uninstaller",
+            InstallPaths.UninstallerExecutablePath,
+            _authCoordinator!,
+            uninstallCoordinator,
+            _auditLog!,
+            requestServiceShutdown: () => hostLifetime.StopApplication(),
+            loggerFactory.CreateLogger<UninstallerSessionServer>());
+        _uninstallerSessionServer.Start(stoppingToken);
+    }
+
+    /// <summary>ANTI-031 (Architecture/09 mục 4) — RegNotifyChangeKeyValue trên CẢ 2 key (chính mình + peer), tự phục hồi.</summary>
+    private void StartRegistryTamperWatchersBestEffort()
+    {
+        try
+        {
+            _serviceKeyWatcher = new RegistryStartValueWatcher(InstallPaths.ServiceRegistryKeyPath, OnRegistryTamperDetectedAndRestored, OnRegistryWatcherError);
+            _watchdogKeyWatcher = new RegistryStartValueWatcher(InstallPaths.WatchdogRegistryKeyPath, OnRegistryTamperDetectedAndRestored, OnRegistryWatcherError);
+            _serviceKeyWatcher.Start();
+            _watchdogKeyWatcher.Start();
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        {
+            logger.LogWarning(ex, "Could not start registry tamper watchers (needs SYSTEM/admin) — continuing.");
+        }
+    }
+
+    private void OnRegistryTamperDetectedAndRestored(string keyPath, uint oldValue, uint newValue)
+    {
+        _ = _auditLog!.AppendAsync(
+            "TamperDetected", new { key = keyPath, old_value = oldValue, new_value = newValue, detected_by = "Service" }, CancellationToken.None);
+        _attackPatternCoordinator!.RecordServiceSideEvent("registry_tamper_loop");
+    }
+
+    private void OnRegistryWatcherError(Exception ex) => logger.LogError(ex, "RegistryStartValueWatcher failed.");
 
     private void StartVisionNetworkWatcherBestEffort()
     {
@@ -184,6 +300,7 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         try
         {
             await _auditLog!.AppendAsync("VisionNetworkBlocked", new { detail = e.DetailXml }, CancellationToken.None).ConfigureAwait(false);
+            _attackPatternCoordinator!.RecordServiceSideEvent("network_block_loop");
             _visionSupervisor!.RequestChildRestart(); // ADR-34: xử lý như crash, tái dùng luồng khôi phục.
         }
         catch (Exception ex)
@@ -242,6 +359,16 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
             await _uiSessionServer.StopAsync().ConfigureAwait(false);
         }
 
+        if (_watchdogSessionServer is not null)
+        {
+            await _watchdogSessionServer.StopAsync().ConfigureAwait(false);
+        }
+
+        if (_uninstallerSessionServer is not null)
+        {
+            await _uninstallerSessionServer.StopAsync().ConfigureAwait(false);
+        }
+
         if (_visionSupervisor is not null)
         {
             await _visionSupervisor.StopAsync().ConfigureAwait(false);
@@ -252,6 +379,9 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
             await _overlaySupervisor.StopAsync().ConfigureAwait(false);
         }
 
+        _serviceKeyWatcher?.Dispose();
+        _watchdogKeyWatcher?.Dispose();
+        _attackPatternCoordinator?.Dispose();
         _visionNetworkWatcher?.Dispose();
         _sessionWatcher?.Dispose();
     }
@@ -315,3 +445,6 @@ public sealed class Worker(ILoggerFactory loggerFactory, ILogger<Worker> logger)
         };
     }
 }
+
+/// <summary>Bọc <c>Main(string[] args)</c> gốc để DI-inject vào <see cref="Worker"/> (mục "GHI CHÚ TRIỂN KHAI" ở <see cref="Worker.LogSelfRestartedByWatchdogBestEffortAsync"/>).</summary>
+public sealed record StartupArgs(string[] Values);

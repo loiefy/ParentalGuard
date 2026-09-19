@@ -1,6 +1,6 @@
 # 04 — Data Architecture
 
-> Version: v0.2.1 | Trạng thái: Approved | Cập nhật: 2026-09-19
+> Version: v0.2.2 | Trạng thái: Approved | Cập nhật: 2026-09-19
 
 ## 1. Mục đích
 
@@ -207,14 +207,18 @@ File `%ProgramData%\ParentalGuard\auth.dat`: không phải SQLite (dữ liệu q
 | `ContentBlocked` | Overlay chặn 1 cửa sổ vi phạm (kèm `risk_score`, toạ độ — KHÔNG kèm ảnh) | `MISC-010`, `BE-060` |
 | `ForceCloseRequested` | `Service` nhận `ForceCloseRequest` từ `Overlay` và xử lý xong (xoá overlay khỏi danh sách active) — `OverlayDecisionCoordinator.HandleForceCloseAsync`, đã ghi từ code Đợt 1, bổ sung tường minh vào bảng này ở v0.2.0 (trước đó là gap câu chữ, không phải gap hành vi — code đã ghi đúng event này) | `BE-032`, `BE-089b` |
 | `AuthAttempt` | Mỗi lần xác thực mật khẩu/Recovery Key (thành công/thất bại) | `MISC-010`, `PWD-020`/`021` |
-| `ProcessRestarted` | `Vision`/`Overlay` bị crash-restart | `MISC-010`, `BE-023` |
+| `ProcessRestarted` | `Vision`/`Overlay` bị crash-restart; **mở rộng v0.2.2**: nay bao gồm cả `process ∈ {"Service","Watchdog"}` khi 1 bên khôi phục bên kia (`detail.process`, `detail.trigger="watchdog_peer_recovery"`) | `MISC-010`, `BE-023`, `09-anti-tamper-architecture.md` mục 3.4/3.6 |
 | `ConfigChanged` | Đổi cấu hình nhạy cảm | `MISC-010` |
 | `ConfigFallbackTriggered` | `Service` rơi vào nhánh fail-secure (mục 6) | `BE-061`, `ANTI-070` |
-| `AttackPatternDetected` | Restart liên tục vượt ngưỡng (`ANTI-060`) | `ANTI-060` |
+| `AttackPatternDetected` | Restart liên tục vượt ngưỡng (`ANTI-060`); **mở rộng v0.2.2**: `detail.trigger ∈ {process_restart_loop, registry_tamper_loop}` ngoài kill-restart Vision/Overlay gốc — thiết kế bộ đếm đầy đủ (2 bộ đếm độc lập `Service`-side/`Watchdog`-side) ở `09-anti-tamper-architecture.md` mục 6 | `ANTI-060`, `09-anti-tamper-architecture.md` mục 6 |
 | `AuditChainBrokenDetected` | Phát hiện chain đứt lúc verify (mục 5.3) | Suy ra từ `SEC-041`/`MISC-010` (không phải Requirement ID riêng — HOW-level) |
 | `SoftwareUpdated` | Cài đè bản mới qua installer thủ công | `MISC-010`, `MISC-020` |
 | `VisionNetworkBlocked` | WFP chặn 1 kết nối network từ `Vision` (phát hiện qua Security Event 5157) — bổ sung v0.2.1, đã định nghĩa `detail` ở `06-security-architecture.md` mục 3.3 (`dest_addr`/`dest_port`/`protocol`/`blocked_at_unix_ms`) từ v0.1.0, trước đó thiếu dòng này ở bảng — gap câu chữ, không phải gap hành vi | `SEC-010`, `06-security-architecture.md` ADR-33/34 |
 | `AuthBruteForceThresholdReached` | `rate_limit.consecutive_failures` đạt ngưỡng ≥ 9 (mức cao nhất `PWD-021`) — mức cảnh báo cao, `detail = {consecutive_failures, action_context}`, bổ sung v0.2.1 | `PWD-021`, `08-password-authentication-architecture.md` mục 7.7 |
+| `TamperDetected` | Phát hiện + tự phục hồi thay đổi bất thường registry `Start` value của key Service/Watchdog — bổ sung v0.2.2, `detail = {key, old_value, new_value, detected_by}` | `ANTI-031`, `09-anti-tamper-architecture.md` mục 4.2 |
+| `UninstallInitiated` | Bắt đầu thực thi gỡ cài đặt sau khi `action_token` hợp lệ, trước bất kỳ bước phá huỷ nào — bổ sung v0.2.2, `detail = {keep_audit_log}` | `ANTI-020`, `09-anti-tamper-architecture.md` mục 5.5 |
+| `UninstallPartialFailure` | 1+ bước dọn dẹp gỡ cài đặt thất bại (best-effort, không rollback) — bổ sung v0.2.2, `detail = {failed_steps}` | `ANTI-020`, `09-anti-tamper-architecture.md` mục 5.5 |
+| `WFPFiltersRemoved` | Gỡ thành công Provider/Sublayer/Filter WFP lúc uninstall hợp lệ — bổ sung v0.2.2 | `ANTI-020`, liên hệ `06-security-architecture.md` mục 3 |
 
 **`ForceCloseRequested.detail` (bổ sung v0.2.0, `BE-089b`)**:
 
@@ -333,6 +337,7 @@ Toàn bộ luồng mục 6.2 **không đụng tới `audit.log`** — chỉ `con
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.2 | 2026-09-19 | MINOR — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Thêm 4 dòng `event_type` mới vào mục 5.1: `TamperDetected` (`ANTI-031`, phát hiện+tự phục hồi registry tamper), `UninstallInitiated`/`UninstallPartialFailure`/`WFPFiltersRemoved` (`ANTI-020`, luồng custom uninstaller). Mở rộng ghi chú ngữ nghĩa (không đổi cấu trúc) cho 2 event đã có: `ProcessRestarted` nay bao gồm `process ∈ {"Service","Watchdog"}` (trước chỉ Vision/Overlay); `AttackPatternDetected` nay bao gồm `trigger ∈ {process_restart_loop, registry_tamper_loop}` — thiết kế bộ đếm `ANTI-060` đầy đủ (lần đầu tiên, 2 bộ đếm độc lập RAM-only, không persist ở đây) ở `09` mục 6. Không đổi schema `config.db`/`auth.dat`/layout file nào — `Watchdog` không đụng `config.db` theo thiết kế (ADR-86 ở `09`) |
 | v0.2.1 | 2026-09-19 | PATCH — amendment cùng lượt viết `08-password-authentication-architecture.md` (Đợt 3). Thêm 2 dòng vào bảng `event_type` mục 5.1: `VisionNetworkBlocked` (đóng nợ kỹ thuật còn treo từ `06-security-architecture.md` v0.1.0 mục 7 — nội dung `detail` đã định nghĩa từ trước, chỉ thiếu dòng ở bảng này) và `AuthBruteForceThresholdReached` (mới, `PWD-021` mức cảnh báo cao ≥9 lần sai liên tiếp). Xác nhận (không sửa nội dung): schema `auth.dat` mục 4 đã đủ cho Đợt 3, không cần amendment nào khác — xem `08` mục 2 |
 | v0.2.0 | 2026-09-19 | MINOR — amendment cùng lượt viết lại `07-overlay-architecture.md` v0.2.0 (`BE-088a`/`BE-089a`/`BE-089b`, `FE-016f`/`FE-016g`, `FE-020`–`022`). (1) Bổ sung event `ForceCloseRequested` vào bảng event_type mục 5.1 (đã có trong code Đợt 1, trước đó thiếu trong bảng — gap câu chữ) + field `source` bắt buộc trong `detail` (`"manual"`/`"auto-timeout"`, `BE-089b`), map trực tiếp từ enum `CloseSource` nhận qua IPC. (2) Bảng mới `icon_positions` (mục 3.6a, ADR-70) — lưu vị trí icon sau kéo-thả (`FE-020a`), khoá theo `device_name` (Win32 `szDevice`, tách biệt hoàn toàn `monitor_id`), plaintext, không có đường phục hồi riêng khi fail-secure (chấp nhận mất theo `config.db`, hệ quả không nghiêm trọng). Cập nhật luồng fail-secure mục 6.2 bước 5 (thêm `icon_positions` rỗng vào danh sách bảng tái tạo). 1 ADR mới (70) |
 | v0.1.0 | 2026-09-17 | Khởi tạo — layout file đầy đủ trên đĩa (`%ProgramFiles%`/`%ProgramData%`, ACL chỉ SYSTEM), schema `config.db` (`schema_meta`/`monitoring_state`/`pause_state`/`ipc_keys`/`audit_meta`, mã hoá DPAPI theo blob JSON/dòng), `auth.dat` tách biệt cho password/recovery key hash (`PWD-013`), format `audit.log` hash-chain JSONL + quy trình verify/xử lý chain đứt, luồng fail-secure chi tiết hoá `BE-061`/`061a`/`061b`/`ANTI-070`, schema versioning, 7 ADR (23-29), phát hiện 1 điểm không nhất quán nhỏ giữa `02-backend-spec.md` và `SEC-041` cần `spec-maintainer` sửa |
