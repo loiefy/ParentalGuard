@@ -1,6 +1,6 @@
 # 07 — Pause / Resume Mechanism Spec
 
-> Version: v0.2.2 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.2.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục đích
 
@@ -24,7 +24,7 @@ Cho phép phụ huynh tạm dừng giám sát trong tình huống hợp lệ (v�
 ## 4. Giới hạn tần suất tạm dừng (chống lạm dụng)
 
 - `PAUSE-020`: Ghi nhận số lần và tổng thời lượng tạm dừng trong audit log (metadata: thời điểm bắt đầu/kết thúc, ai xác thực — không cần thiết phải biết "ai" nếu chỉ có 1 mật khẩu chung, nhưng ghi nhận đủ để phụ huynh tự đối chiếu).
-- `PAUSE-021` (ĐÃ CHỐT v0.2.2, APPROVED — chủ dự án xác nhận trực tiếp 2026-09-20): Nếu tần suất tạm dừng bất thường cao trong 1 khoảng thời gian ngắn (**> 5 lần/ngày, con số chính thức, không còn là ví dụ minh hoạ**) → hiện cảnh báo nhẹ trên Dashboard lần tiếp theo phụ huynh mở app, gợi ý xem lại — đây không phải để chặn hành vi (phụ huynh có toàn quyền), mà để tăng nhận thức, phòng trường hợp mật khẩu đã bị lộ và ai đó khác đang tạm dừng liên tục.
+- `PAUSE-021` (PROPOSED): Nếu tần suất tạm dừng bất thường cao trong 1 khoảng thời gian ngắn (ví dụ > 5 lần/ngày) → hiện cảnh báo nhẹ trên Dashboard lần tiếp theo phụ huynh mở app, gợi ý xem lại — đây không phải để chặn hành vi (phụ huynh có toàn quyền), mà để tăng nhận thức, phòng trường hợp mật khẩu đã bị lộ và ai đó khác đang tạm dừng liên tục.
 
 ## 5. Ràng buộc kỹ thuật
 
@@ -39,7 +39,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.2.2 | 2026-09-20 | **Vá gap quy trình `PROPOSED → APPROVED`**: `architecture-writer` phát hiện `PAUSE-021` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.2.1 và mục 6 ghi "không còn câu hỏi mở" (2 tầng trạng thái file vs requirement không khớp nhau). Chủ dự án xác nhận trực tiếp 2026-09-20: DUYỆT `PAUSE-021`, giữ nguyên ngưỡng đã có sẵn trong spec **> 5 lần/ngày** làm con số chính thức (trước đó chỉ ghi là "ví dụ minh hoạ"). Đổi tag từ `(PROPOSED)` sang `(ĐÃ CHỐT v0.2.2, APPROVED)`. Rà soát toàn file: không còn requirement `PAUSE-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/07-pause-resume-spec__v0.2.1__2026-09-20.md` |
 | v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt 2 câu hỏi mở**: `PAUSE-002a` — mốc "Hết ngày hôm nay" dùng cứng 23:59 theo giờ hệ thống, không cấu hình "giờ đi ngủ" riêng ở Phase 1. `PAUSE-002b` — Phase 1 chỉ hỗ trợ tạm dừng toàn bộ giám sát, không phân biệt theo app/browser cụ thể (cùng lý do đã bỏ whitelist app ở `BE-072`/`BE-073`). Không còn câu hỏi mở |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Data;
 
@@ -31,6 +32,25 @@ public class ConfigDbTests : IDisposable
     }
 
     [Fact]
+    public void UpdatePauseState_ThenReadSnapshot_RoundTripsNewValue()
+    {
+        ConfigDb.CreateFresh(_dbPath, MonitoringStateData.CreateFirstRunDefault(), PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+        var paused = new PauseStateData(IsPaused: true, PauseStartedAtUnixMs: 1_000L, PauseExpiresAtUnixMs: 2_000L);
+
+        using (ConfigDb db = ConfigDb.Open(_dbPath))
+        {
+            db.UpdatePauseState(paused);
+        }
+
+        using ConfigDb reopened = ConfigDb.Open(_dbPath);
+        ConfigSnapshot snapshot = reopened.ReadSnapshot();
+
+        Assert.True(snapshot.PauseState.IsPaused);
+        Assert.Equal(1_000L, snapshot.PauseState.PauseStartedAtUnixMs);
+        Assert.Equal(2_000L, snapshot.PauseState.PauseExpiresAtUnixMs);
+    }
+
+    [Fact]
     public void Open_OnCorruptFile_ThrowsConfigLoadException()
     {
         File.WriteAllBytes(_dbPath, [0x01, 0x02, 0x03, 0x04]); // không phải file SQLite hợp lệ
@@ -53,6 +73,41 @@ public class ConfigDbTests : IDisposable
 
         Assert.Empty(snapshot.MonitoringState.ExcludeProcessNames);
         Assert.Equal(1234, snapshot.LastFallbackEventUnixMs);
+    }
+
+    /// <summary>
+    /// Regression cho FAIL cứng audit 2026-09-20: hàm ghi (`UpdatePauseState`) phải bọc
+    /// <c>SqliteException</c> thành <see cref="ConfigLoadException"/> giống mọi hàm đọc — trước fix,
+    /// exception nguyên bản lọt thẳng ra ngoài, phá vỡ fail-secure của <c>PauseCoordinator.TryPersist</c>.
+    /// Dùng overload nội bộ <c>busyTimeoutSecondsForTest</c> để lấy lỗi lock nhanh, không chờ 30s mặc định.
+    /// </summary>
+    [Fact]
+    public void UpdatePauseState_WhileDbLockedByAnotherConnection_ThrowsConfigLoadExceptionNotSqliteException()
+    {
+        ConfigDb.CreateFresh(_dbPath, MonitoringStateData.CreateFirstRunDefault(), PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+
+        using var locker = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = _dbPath, Mode = SqliteOpenMode.ReadWriteCreate }.ToString());
+        locker.Open();
+        using (SqliteCommand beginImmediate = locker.CreateCommand())
+        {
+            beginImmediate.CommandText = "BEGIN IMMEDIATE TRANSACTION;";
+            beginImmediate.ExecuteNonQuery();
+        }
+
+        try
+        {
+            using ConfigDb db = ConfigDb.Open(_dbPath, busyTimeoutSecondsForTest: 1);
+            var newState = new PauseStateData(IsPaused: true, PauseStartedAtUnixMs: 1, PauseExpiresAtUnixMs: 2);
+
+            ConfigLoadException ex = Assert.Throws<ConfigLoadException>(() => db.UpdatePauseState(newState));
+            Assert.Contains("pause_state write failed", ex.Reason);
+        }
+        finally
+        {
+            using SqliteCommand rollback = locker.CreateCommand();
+            rollback.CommandText = "ROLLBACK;";
+            rollback.ExecuteNonQuery();
+        }
     }
 
     public void Dispose()

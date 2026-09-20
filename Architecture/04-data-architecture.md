@@ -1,6 +1,6 @@
 # 04 — Data Architecture
 
-> Version: v0.2.2 | Trạng thái: Approved | Cập nhật: 2026-09-19
+> Version: v0.2.4 | Trạng thái: Approved | Cập nhật: 2026-09-20
 
 ## 1. Mục đích
 
@@ -204,6 +204,7 @@ File `%ProgramData%\ParentalGuard\auth.dat`: không phải SQLite (dữ liệu q
 |---|---|---|
 | `MonitoringToggled` | Bật/tắt giám sát | `MISC-010` |
 | `PauseActivated` / `PauseResumed` | Tạm dừng / resume (chủ động hoặc tự động hết hạn) | `MISC-010`, `PAUSE-020` |
+| `PauseFrequencyAnomalyDetected` | Số lần `PauseActivated` trong 1 ngày lịch UTC vượt ngưỡng `> 5 lần/ngày` (ĐÃ CHỐT bởi chủ dự án 2026-09-20) — dấu hiệu mật khẩu bị lộ hoặc lạm dụng Pause để né giám sát, bổ sung v0.2.4, `detail = {date_utc, activation_count}` | `PAUSE-021`, `02-process-architecture.md` mục 3a.7 |
 | `ContentBlocked` | Overlay chặn 1 cửa sổ vi phạm (kèm `risk_score`, toạ độ — KHÔNG kèm ảnh) | `MISC-010`, `BE-060` |
 | `ForceCloseRequested` | `Service` nhận `ForceCloseRequest` từ `Overlay` và xử lý xong (xoá overlay khỏi danh sách active) — `OverlayDecisionCoordinator.HandleForceCloseAsync`, đã ghi từ code Đợt 1, bổ sung tường minh vào bảng này ở v0.2.0 (trước đó là gap câu chữ, không phải gap hành vi — code đã ghi đúng event này) | `BE-032`, `BE-089b` |
 | `AuthAttempt` | Mỗi lần xác thực mật khẩu/Recovery Key (thành công/thất bại) | `MISC-010`, `PWD-020`/`021` |
@@ -219,6 +220,20 @@ File `%ProgramData%\ParentalGuard\auth.dat`: không phải SQLite (dữ liệu q
 | `UninstallInitiated` | Bắt đầu thực thi gỡ cài đặt sau khi `action_token` hợp lệ, trước bất kỳ bước phá huỷ nào — bổ sung v0.2.2, `detail = {keep_audit_log}` | `ANTI-020`, `09-anti-tamper-architecture.md` mục 5.5 |
 | `UninstallPartialFailure` | 1+ bước dọn dẹp gỡ cài đặt thất bại (best-effort, không rollback) — bổ sung v0.2.2, `detail = {failed_steps}` | `ANTI-020`, `09-anti-tamper-architecture.md` mục 5.5 |
 | `WFPFiltersRemoved` | Gỡ thành công Provider/Sublayer/Filter WFP lúc uninstall hợp lệ — bổ sung v0.2.2 | `ANTI-020`, liên hệ `06-security-architecture.md` mục 3 |
+
+**`PauseActivated`/`PauseResumed`.detail (bổ sung v0.2.3, Đợt 5 — `PAUSE-020`, `02-process-architecture.md` mục 3a)**:
+
+```json
+// PauseActivated
+{ "duration": "FIFTEEN_MINUTES", "pause_expires_at_unix_ms": 1758100000000 }
+
+// PauseResumed
+{ "trigger": "manual", "pause_expires_at_unix_ms": 1758100000000, "actual_resumed_at_unix_ms": 1758099000000 }
+```
+
+- `duration`: đúng 1 trong 5 giá trị literal của enum `PauseDuration` (`03-ipc-communication.md` mục 3.6): `"FIFTEEN_MINUTES"`/`"THIRTY_MINUTES"`/`"ONE_HOUR"`/`"FOUR_HOURS"`/`"END_OF_DAY"` — `Service` map trực tiếp từ enum nhận qua IPC, không tự suy luận lại (nhất quán nguyên tắc đã áp dụng cho `ForceCloseRequested.source` ngay dưới đây).
+- `PauseResumed.trigger`: đúng 1 trong 3 giá trị literal — `"manual"` (phụ huynh chủ động resume sớm, `PAUSE-004`), `"auto_expired"` (hết hạn tự nhiên trong lúc `Service` đang chạy, `PauseMonitor` tick phát hiện), `"auto_expired_while_offline"` (hết hạn trong lúc `Service` không chạy — máy tắt/`Service` bị dừng giữa lúc Pause, phát hiện ngay lúc `Starting` đọc lại `pause_state`) — 3 giá trị tách biệt để phụ huynh xem lịch sử qua Dashboard (Đợt 6) phân biệt được "tự resume đúng hạn" khỏi "chỉ phát hiện được lúc khởi động lại máy" (khác biệt hữu ích để chẩn đoán, không phải yêu cầu bảo mật).
+- `pause_expires_at_unix_ms` trong `PauseResumed` là **mốc dự kiến gốc** lúc kích hoạt (để đối chiếu với `actual_resumed_at_unix_ms` — chênh lệch dương nhỏ là bình thường do sai số tick `PauseMonitor` ≤ 30 giây, `02` mục 3a.3; chênh lệch âm hoặc rất lớn chỉ xảy ra ở nhánh `"manual"`).
 
 **`ForceCloseRequested.detail` (bổ sung v0.2.0, `BE-089b`)**:
 
@@ -337,6 +352,8 @@ Toàn bộ luồng mục 6.2 **không đụng tới `audit.log`** — chỉ `con
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.4 | 2026-09-20 | PATCH — Đợt 5, bổ sung sau khi feature-dev báo cáo gap câu chữ: thêm `event_type` mới `PauseFrequencyAnomalyDetected` vào bảng mục 5.1 (`PAUSE-021`, ngưỡng `>5 lần/ngày` đã ĐÃ CHỐT qua `07-pause-resume-spec.md` v0.2.2) — trước đó ngưỡng đã chốt ở spec nhưng bảng event_type ở đây chưa có dòng tương ứng. Không đổi cấu trúc bảng/schema nào khác |
+| v0.2.3 | 2026-09-20 | PATCH — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Định nghĩa lần đầu `detail` schema cho 2 `event_type` đã có sẵn từ trước nhưng chưa có cấu trúc cụ thể (`PauseActivated`/`PauseResumed`, mục 5.1): field `duration` (map trực tiếp `PauseDuration` enum), `trigger` (`"manual"`/`"auto_expired"`/`"auto_expired_while_offline"` — phân biệt 3 nguồn gốc resume), `pause_expires_at_unix_ms`/`actual_resumed_at_unix_ms`. Không thêm `event_type` mới, không đổi cấu trúc bảng — thuần bổ sung chi tiết còn thiếu (cùng mẫu hình đã làm cho `ForceCloseRequested.detail` ở v0.2.0). Xác nhận (không sửa): schema `pause_state` (mục 3.4) đã đủ cho Đợt 5 từ Đợt 0, không cần thêm cột/bảng nào |
 | v0.2.2 | 2026-09-19 | MINOR — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Thêm 4 dòng `event_type` mới vào mục 5.1: `TamperDetected` (`ANTI-031`, phát hiện+tự phục hồi registry tamper), `UninstallInitiated`/`UninstallPartialFailure`/`WFPFiltersRemoved` (`ANTI-020`, luồng custom uninstaller). Mở rộng ghi chú ngữ nghĩa (không đổi cấu trúc) cho 2 event đã có: `ProcessRestarted` nay bao gồm `process ∈ {"Service","Watchdog"}` (trước chỉ Vision/Overlay); `AttackPatternDetected` nay bao gồm `trigger ∈ {process_restart_loop, registry_tamper_loop}` — thiết kế bộ đếm `ANTI-060` đầy đủ (lần đầu tiên, 2 bộ đếm độc lập RAM-only, không persist ở đây) ở `09` mục 6. Không đổi schema `config.db`/`auth.dat`/layout file nào — `Watchdog` không đụng `config.db` theo thiết kế (ADR-86 ở `09`) |
 | v0.2.1 | 2026-09-19 | PATCH — amendment cùng lượt viết `08-password-authentication-architecture.md` (Đợt 3). Thêm 2 dòng vào bảng `event_type` mục 5.1: `VisionNetworkBlocked` (đóng nợ kỹ thuật còn treo từ `06-security-architecture.md` v0.1.0 mục 7 — nội dung `detail` đã định nghĩa từ trước, chỉ thiếu dòng ở bảng này) và `AuthBruteForceThresholdReached` (mới, `PWD-021` mức cảnh báo cao ≥9 lần sai liên tiếp). Xác nhận (không sửa nội dung): schema `auth.dat` mục 4 đã đủ cho Đợt 3, không cần amendment nào khác — xem `08` mục 2 |
 | v0.2.0 | 2026-09-19 | MINOR — amendment cùng lượt viết lại `07-overlay-architecture.md` v0.2.0 (`BE-088a`/`BE-089a`/`BE-089b`, `FE-016f`/`FE-016g`, `FE-020`–`022`). (1) Bổ sung event `ForceCloseRequested` vào bảng event_type mục 5.1 (đã có trong code Đợt 1, trước đó thiếu trong bảng — gap câu chữ) + field `source` bắt buộc trong `detail` (`"manual"`/`"auto-timeout"`, `BE-089b`), map trực tiếp từ enum `CloseSource` nhận qua IPC. (2) Bảng mới `icon_positions` (mục 3.6a, ADR-70) — lưu vị trí icon sau kéo-thả (`FE-020a`), khoá theo `device_name` (Win32 `szDevice`, tách biệt hoàn toàn `monitor_id`), plaintext, không có đường phục hồi riêng khi fail-secure (chấp nhận mất theo `config.db`, hệ quả không nghiêm trọng). Cập nhật luồng fail-secure mục 6.2 bước 5 (thêm `icon_positions` rỗng vào danh sách bảng tái tạo). 1 ADR mới (70) |

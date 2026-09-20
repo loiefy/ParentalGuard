@@ -54,7 +54,14 @@ message IpcPayload {
     RecoveryResetResponse recovery_reset_resp = 89;
     AuthStatusQuery auth_status_query = 90;
     AuthStatusResponse auth_status_resp = 91;
-    // 92-99 dành cho Đợt 6 (Dashboard query khác), chi tiết hoá khi thiết kế 10-ui-architecture.md
+    // Pause/Resume (92-97, Đợt 5) — Architecture/02-process-architecture.md mục 3a
+    PauseMonitoringRequest pause_monitoring_req = 92;
+    PauseMonitoringResponse pause_monitoring_resp = 93;
+    ResumeMonitoringRequest resume_monitoring_req = 94;
+    ResumeMonitoringResponse resume_monitoring_resp = 95;
+    PauseStatusQuery pause_status_query = 96;
+    PauseStatusResponse pause_status_resp = 97;
+    // 98-99 dành cho Đợt 6 (Dashboard query khác), chi tiết hoá khi thiết kế 10-ui-architecture.md
 
     // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
     WatchdogReportEvent watchdog_report_event = 100;
@@ -326,6 +333,61 @@ enum RecoveryResetResult {
   RECOVERY_RESET_RESULT_WRONG_RECOVERY_KEY = 2;
   RECOVERY_RESET_RESULT_LOCKED_OUT = 3;
   RECOVERY_RESET_RESULT_NEW_PASSWORD_TOO_LONG = 4;
+}
+
+// --- Đợt 5, PAUSE-0xx: Pause/Resume (field 92-97 của khối UI 80-99) ---
+// Nguồn: Architecture/02-process-architecture.md mục 3a, Architecture/03-ipc-communication.md mục
+// 3.6 (Approved). Giá trị enum *Result đặt tiền tố tên type (cùng lý do đã ghi ở khối Password/Auth
+// phía trên — proto3 dùng C++ enum scoping, SUCCESS/INVALID_TOKEN đã bị UninstallResult chiếm bare)
+// — protoc-gen-csharp tự rút gọn lại thành PauseResult.Success/InvalidToken/AlreadyPaused,
+// ResumeResult.Success/InvalidToken/NotPaused khi sinh code (đã xác nhận qua build thật).
+
+message PauseMonitoringRequest {
+  bytes action_token = 1;
+  PauseDuration duration = 2;
+}
+
+enum PauseDuration {
+  PAUSE_DURATION_UNSPECIFIED = 0;
+  FIFTEEN_MINUTES = 1;
+  THIRTY_MINUTES = 2;
+  ONE_HOUR = 3;
+  FOUR_HOURS = 4;
+  END_OF_DAY = 5; // 23:59:59.999 giờ hệ thống LOCAL, PAUSE-002a — Service tính, KHÔNG phải UI
+}
+
+message PauseMonitoringResponse {
+  PauseResult result = 1;
+  int64 pause_expires_at_unix_ms = 2; // chỉ set khi result=SUCCESS
+}
+
+enum PauseResult {
+  PAUSE_RESULT_UNSPECIFIED = 0;
+  PAUSE_RESULT_SUCCESS = 1;
+  PAUSE_RESULT_INVALID_TOKEN = 2; // hết hạn / sai action_context / đã dùng / không tồn tại
+  PAUSE_RESULT_ALREADY_PAUSED = 3; // idempotent guard
+}
+
+message ResumeMonitoringRequest {
+  bytes action_token = 1; // action_context="pause_monitoring" — CÙNG hằng số với Pause (ADR-101)
+}
+
+message ResumeMonitoringResponse {
+  ResumeResult result = 1;
+}
+
+enum ResumeResult {
+  RESUME_RESULT_UNSPECIFIED = 0;
+  RESUME_RESULT_SUCCESS = 1;
+  RESUME_RESULT_INVALID_TOKEN = 2;
+  RESUME_RESULT_NOT_PAUSED = 3; // idempotent guard
+}
+
+message PauseStatusQuery {}
+
+message PauseStatusResponse {
+  bool is_paused = 1;
+  int64 pause_expires_at_unix_ms = 2; // 0 nếu không áp dụng
 }
 
 // --- Đợt 4, ANTI-0xx: Dual Watchdog + Custom Uninstaller ---

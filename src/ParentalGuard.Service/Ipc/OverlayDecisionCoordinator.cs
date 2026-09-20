@@ -89,6 +89,27 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
             CancellationToken.None).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// ADR-106 (Architecture/02 mục 3a.1 bước 7, `PAUSE-002b`): giải phóng TOÀN BỘ overlay đang che
+    /// ngay lúc chuyển <c>Running·Paused</c> — xoá cả state nội bộ (không chỉ gửi 1 lần danh sách
+    /// rỗng), để nếu Overlay reconnect trong lúc đang Pause cũng nhận đúng danh sách rỗng thay vì
+    /// state cũ trước lúc Pause (khác nguyên tắc "giữ nguyên state khi mất kết nối" áp dụng cho
+    /// crash-restart — Pause hợp lệ là quyết định nghiệp vụ chủ động, không phải gián đoạn kênh
+    /// IPC, nên không thuộc phạm vi fail-secure "gián đoạn kênh điều khiển không được hiểu là đã
+    /// hết vi phạm" ở `03-ipc-communication.md` mục 6).
+    /// </summary>
+    public void ClearForPause()
+    {
+        lock (_sync)
+        {
+            _active.Clear();
+            _mergedModeActive = false;
+            _mergedOverlayIdByMonitor.Clear();
+        }
+
+        PushCurrentList();
+    }
+
     private void PushCurrentList() => overlaySupervisor.TryEnqueueBusinessMessage(payload => payload.OverlayRects = BuildCommand());
 
     /// <summary>

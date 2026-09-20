@@ -7,6 +7,8 @@ using ParentalGuard.Ipc.Framing;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
+using ParentalGuard.Service.Data;
+using ParentalGuard.Service.Pause;
 using ParentalGuard.Service.Security;
 
 namespace ParentalGuard.Service.Ipc;
@@ -15,13 +17,16 @@ namespace ParentalGuard.Service.Ipc;
 /// Pipe server <c>ParentalGuard.Svc.UI</c> (Architecture/03 mục 2.1/4/5.3) — khác hẳn
 /// <see cref="ChildProcessSupervisor"/> (Vision/Overlay): không spawn process (UI tự mở), không
 /// heartbeat định kỳ (request/response theo nhu cầu), khoá HMAC ephemeral thương lượng ngay trong
-/// phiên kết nối (ADR-19) thay vì bootstrap persistent qua anonymous pipe. Toàn bộ business logic
-/// uỷ quyền cho <see cref="AuthCoordinator"/> — lớp này chỉ là transport glue.
+/// phiên kết nối (ADR-19) thay vì bootstrap persistent qua anonymous pipe. Business logic uỷ quyền
+/// cho <see cref="AuthCoordinator"/> (domain Password/Auth, field 80-91) hoặc
+/// <see cref="PauseCoordinator"/> (domain Pause/Resume, field 92-97, Đợt 5) theo whitelist message
+/// của pipe này (Architecture/03 mục 3.1a) — lớp này chỉ là transport glue + định tuyến.
 /// </summary>
 public sealed class UiSessionServer(
     string pipeName,
     string expectedExecutablePath,
     AuthCoordinator authCoordinator,
+    PauseCoordinator pauseCoordinator,
     AuditLogWriter auditLog,
     ILogger logger)
 {
@@ -96,10 +101,15 @@ public sealed class UiSessionServer(
             {
                 break;
             }
-            catch (Exception ex) when (ex is IOException or IpcFrameViolationException or InvalidOperationException or Win32Exception)
+            catch (Exception ex) when (ex is IOException or IpcFrameViolationException or InvalidOperationException or Win32Exception or ConfigLoadException)
             {
                 // Đúng bảng xử lý lỗi mục 6 (`03-ipc-communication.md`): đóng kết nối, KHÔNG phản
-                // hồi lỗi, tạo pipe instance mới ngay ở vòng lặp kế tiếp.
+                // hồi lỗi, tạo pipe instance mới ngay ở vòng lặp kế tiếp. ConfigLoadException thêm
+                // vào đây làm lưới an toàn tầng ngoài (defense in depth) — các coordinator domain
+                // (Pause/Auth) đã tự bắt exception này ở nơi phát sinh; nếu 1 exception vẫn lọt ra
+                // tới đây, vẫn phải đóng kết nối hiện tại thay vì để crash toàn bộ vòng lặp
+                // <c>RunLoopAsync</c> (Task.Run — không ai observe), khiến MỌI kết nối UI sau đó
+                // treo vĩnh viễn tới khi Service restart.
                 logger.LogWarning(ex, "UI IPC session ended — accepting a new connection.");
             }
             finally
@@ -134,7 +144,7 @@ public sealed class UiSessionServer(
         while (!token.IsCancellationRequested)
         {
             IpcPayload request = await IpcFrameTransport.ReadFrameAsync(pipe, sessionKey, token).ConfigureAwait(false);
-            IpcPayload response = await authCoordinator.HandleAsync(request, token).ConfigureAwait(false);
+            IpcPayload response = await DispatchAsync(request, token).ConfigureAwait(false);
             try
             {
                 await IpcFrameTransport.WriteFrameAsync(pipe, response, sessionKey, token).ConfigureAwait(false);
@@ -148,6 +158,15 @@ public sealed class UiSessionServer(
             }
         }
     }
+
+    /// <summary>Đợt 5 (`PAUSE-0xx`) — 2 domain cùng chia sẻ pipe <c>UI</c> (Architecture/03 mục 3.1a): Pause/Resume/Status đi qua <see cref="PauseCoordinator"/>, còn lại (Password/Auth) đi qua <see cref="AuthCoordinator"/>.</summary>
+    private Task<IpcPayload> DispatchAsync(IpcPayload request, CancellationToken token) => request.BodyCase switch
+    {
+        IpcPayload.BodyOneofCase.PauseMonitoringReq or
+        IpcPayload.BodyOneofCase.ResumeMonitoringReq or
+        IpcPayload.BodyOneofCase.PauseStatusQuery => pauseCoordinator.HandleAsync(request, token),
+        _ => authCoordinator.HandleAsync(request, token),
+    };
 
     /// <summary>Architecture/03 mục 4.2 điều kiện 3a — điều kiện 3b (chữ ký code-signing) chưa implement, cùng gap đã ghi nhận ở <c>ChildProcessSupervisor.VerifyClientIdentity</c> (Đợt 9, `DEV-012`).</summary>
     private bool VerifyClientIdentity(NamedPipeServerStream pipe, out string? actualExecutablePath)

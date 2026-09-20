@@ -32,13 +32,29 @@ public sealed class ConfigDb : IDisposable
         _connection = connection;
     }
 
-    public static ConfigDb Open(string path)
+    public static ConfigDb Open(string path) => Open(path, busyTimeoutSecondsForTest: null);
+
+    /// <summary>
+    /// Overload nội bộ chỉ dùng để test fail-secure write-path dưới lock contention (regression test
+    /// cho bug ConfigDb write không bắt <see cref="SqliteException"/>) mà không phải chờ đủ busy
+    /// timeout mặc định (~30s — "Default Timeout" của Microsoft.Data.Sqlite) — KHÔNG đổi hành vi
+    /// production vì caller công khai duy nhất (<see cref="Open(string)"/>) luôn truyền null. Dùng
+    /// connection-string keyword thay vì PRAGMA nối chuỗi để tránh CA2100 (SQLite PRAGMA vốn không hỗ
+    /// trợ bind parameter cho vế giá trị).
+    /// </summary>
+    internal static ConfigDb Open(string path, int? busyTimeoutSecondsForTest)
     {
-        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        var connectionStringBuilder = new SqliteConnectionStringBuilder
         {
             DataSource = path,
             Mode = SqliteOpenMode.ReadWriteCreate,
-        }.ToString());
+        };
+        if (busyTimeoutSecondsForTest is int busyTimeoutSeconds)
+        {
+            connectionStringBuilder.DefaultTimeout = busyTimeoutSeconds;
+        }
+
+        var connection = new SqliteConnection(connectionStringBuilder.ToString());
         try
         {
             connection.Open();
@@ -162,7 +178,14 @@ public sealed class ConfigDb : IDisposable
               updated_at_unix_ms  INTEGER NOT NULL
             );
             """;
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"schema creation failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -182,7 +205,14 @@ public sealed class ConfigDb : IDisposable
             );
             UPDATE schema_meta SET schema_version = 2 WHERE id = 1;
             """;
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"schema migration v1->v2 failed: {ex.Message}");
+        }
     }
 
     /// <summary>`FE-020a`: gọi mỗi khi Overlay báo kết quả kéo-thả (<c>IconPositionUpdate</c>) — plaintext, không DPAPI (ADR-70).</summary>
@@ -198,22 +228,36 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$x", position.X);
         command.Parameters.AddWithValue("$y", position.Y);
         command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"icon_positions write failed: {ex.Message}");
+        }
     }
 
     /// <summary>`IconLayoutSync` (Architecture/07 mục 4.1.4): đẩy lại toàn bộ vị trí đã lưu lúc Overlay connect.</summary>
     public IReadOnlyList<IconPositionData> ReadAllIconPositions()
     {
-        var results = new List<IconPositionData>();
-        using SqliteCommand command = _connection.CreateCommand();
-        command.CommandText = "SELECT device_name, x, y FROM icon_positions;";
-        using SqliteDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        try
         {
-            results.Add(new IconPositionData(reader.GetString(0), reader.GetInt32(1), reader.GetInt32(2)));
-        }
+            var results = new List<IconPositionData>();
+            using SqliteCommand command = _connection.CreateCommand();
+            command.CommandText = "SELECT device_name, x, y FROM icon_positions;";
+            using SqliteDataReader reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                results.Add(new IconPositionData(reader.GetString(0), reader.GetInt32(1), reader.GetInt32(2)));
+            }
 
-        return results;
+            return results;
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"icon_positions read failed: {ex.Message}");
+        }
     }
 
     private void InsertSchemaMeta(long? lastFallbackEventUnixMs)
@@ -227,7 +271,14 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$createdAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         command.Parameters.AddWithValue("$appVersion", ServiceVersion.Current);
         command.Parameters.AddWithValue("$lastFallback", (object?)lastFallbackEventUnixMs ?? DBNull.Value);
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"schema_meta write failed: {ex.Message}");
+        }
     }
 
     private (int SchemaVersion, long? LastFallbackEventUnixMs) ReadSchemaMeta()
@@ -273,7 +324,14 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$rowSchemaVersion", 1);
         command.Parameters.AddWithValue("$data", encrypted);
         command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"monitoring_state write failed: {ex.Message}");
+        }
     }
 
     private MonitoringStateData ReadMonitoringState()
@@ -317,7 +375,41 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$rowSchemaVersion", 1);
         command.Parameters.AddWithValue("$data", encrypted);
         command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"pause_state write failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>`PAUSE-030` (Architecture/02 mục 3a) — ghi đè dòng <c>pause_state</c> hiện có khi Pause kích hoạt/resume (khác <see cref="InsertPauseState"/>, chỉ dùng lúc <see cref="CreateFresh"/>).</summary>
+    public void UpdatePauseState(PauseStateData state)
+    {
+        var json = new PauseStateJson
+        {
+            IsPaused = state.IsPaused,
+            PauseStartedAtUnixMs = state.PauseStartedAtUnixMs,
+            PauseExpiresAtUnixMs = state.PauseExpiresAtUnixMs,
+        };
+        byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = """
+            UPDATE pause_state SET data_encrypted = $data, updated_at_unix_ms = $updatedAt WHERE id = 1;
+            """;
+        command.Parameters.AddWithValue("$data", encrypted);
+        command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"pause_state write failed: {ex.Message}");
+        }
     }
 
     private PauseStateData ReadPauseState()
@@ -351,7 +443,14 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$rowSchemaVersion", 1);
         command.Parameters.AddWithValue("$key", encrypted);
         command.Parameters.AddWithValue("$createdAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"ipc_keys write failed: {ex.Message}");
+        }
     }
 
     private byte[] ReadIpcKey()
@@ -389,7 +488,14 @@ public sealed class ConfigDb : IDisposable
         command.Parameters.AddWithValue("$chainId", checkpoint.ChainId);
         command.Parameters.AddWithValue("$lastSeq", checkpoint.LastSeq);
         command.Parameters.AddWithValue("$lastHash", checkpoint.LastHash);
-        command.ExecuteNonQuery();
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"audit_meta write failed: {ex.Message}");
+        }
     }
 
     private static TJson DecryptAndParse<TJson>(byte[] encrypted, string tableName)

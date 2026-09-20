@@ -5,6 +5,7 @@ using ParentalGuard.Service.Auth;
 using ParentalGuard.Service.Configuration;
 using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Ipc;
+using ParentalGuard.Service.Pause;
 using ParentalGuard.Service.Security;
 using ParentalGuard.Service.Session;
 using ParentalGuard.Service.Tamper;
@@ -35,6 +36,7 @@ public sealed class Worker(
     private AuditLogWriter? _auditLog;
     private UiSessionServer? _uiSessionServer;
     private AuthCoordinator? _authCoordinator;
+    private PauseCoordinator? _pauseCoordinator; // Đợt 5 (PAUSE-0xx)
     private WfpVisionBlocker? _wfpVisionBlocker;
 
     // Đợt 4 (ANTI-0xx, Architecture/09) — Dual Watchdog + custom uninstaller + anti-tamper.
@@ -70,7 +72,14 @@ public sealed class Worker(
 
         ApplyWfpBestEffort();
 
-        StartUiSessionServer(stoppingToken);
+        // Đợt 5 (PAUSE-0xx, Architecture/02 mục 3a.3) — neo trusted_now (ADR-105, tái dùng đúng
+        // "monotonic anchor" đã có ở Architecture/08 ADR-77) TRƯỚC khi quyết định khôi phục Pause,
+        // rồi dùng chung 1 instance cho cả AuthCoordinator lẫn PauseCoordinator (cùng khái niệm
+        // "trusted_now tại lúc Service Starting").
+        var clock = new MonotonicClock();
+        PauseStateData bootPauseState = await RecoverPauseStateAtBootAsync(config.PauseState, clock, stoppingToken).ConfigureAwait(false);
+
+        _authCoordinator = new AuthCoordinator(InstallPaths.AuthDatPath, _auditLog, clock, loggerFactory.CreateLogger<AuthCoordinator>());
 
         _overlaySupervisor = new ChildProcessSupervisor(
             ProcessType.Overlay,
@@ -89,7 +98,7 @@ public sealed class Worker(
             loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.ChildProcessSupervisor.Overlay"),
             BuildOverlayOneTimeMessages(config),
             onBusinessMessage: (message, ct) => DispatchOverlayBusinessMessageAsync(message, ct),
-            onSessionConnected: () => _iconStatusCoordinator!.SetState(IconState.Active),
+            onSessionConnected: OnChildSessionConnected,
             onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
             onChildRestarted: () => _attackPatternCoordinator!.RecordServiceSideEvent("process_restart_loop"));
 
@@ -106,22 +115,44 @@ public sealed class Worker(
         StartUninstallerSessionServer(stoppingToken);
         StartRegistryTamperWatchersBestEffort();
 
+        // Cadence Vision khởi tạo THẲNG ở 10s nếu Starting vào ngay Running·Paused (mục 3a.3 —
+        // "chưa từng ở 1s trong phiên chạy mới, không cần 'đổi'") — khác đường "đổi cadence" giữa
+        // chừng 1 kết nối do PauseCoordinator.SetHeartbeatInterval xử lý (ADR-104).
+        TimeSpan initialVisionHeartbeatInterval = bootPauseState.IsPaused ? TimeSpan.FromSeconds(10) : _visionHeartbeatInterval;
         _visionSupervisor = new ChildProcessSupervisor(
             ProcessType.Vision,
             "ParentalGuard.Svc.Vision",
             InstallPaths.VisionExecutablePath,
-            _visionHeartbeatInterval,
-            [payload => payload.ControlVision = BuildControlVisionCommand(config.MonitoringState)],
+            initialVisionHeartbeatInterval,
+            // PauseCoordinator là nguồn sự thật cho MonitoringEnabled hiệu dụng (mục 3a.5) — kể cả
+            // lúc reconnect (vd Vision crash-restart hiếm gặp trong lúc Pause), không riêng lần push đầu.
+            [payload => payload.ControlVision = BuildControlVisionCommand(config.MonitoringState, !_pauseCoordinator!.IsPaused)],
             config.IpcHmacKey,
             _auditLog,
             loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.ChildProcessSupervisor.Vision"),
             onBusinessMessage: (message, ct) => _overlayDecisionCoordinator!.HandleVisionResultAsync(message, ct),
             resolveLowIntegrityLevel: () => !_visionRequiresMediumIl,
             onCaptureInitAccessDeniedExitCode: OnVisionCaptureInitAccessDenied,
-            onSessionConnected: () => _iconStatusCoordinator!.SetState(IconState.Active),
+            onSessionConnected: OnChildSessionConnected,
             onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
             onChildRestarted: () => _attackPatternCoordinator!.RecordServiceSideEvent("process_restart_loop"));
 
+        _pauseCoordinator = new PauseCoordinator(
+            InstallPaths.ConfigDbPath,
+            InstallPaths.AuditLogPath,
+            _authCoordinator,
+            _auditLog,
+            clock,
+            _visionSupervisor,
+            _overlaySupervisor,
+            _overlayDecisionCoordinator,
+            _iconStatusCoordinator,
+            enabled => BuildControlVisionCommand(config.MonitoringState, enabled),
+            bootPauseState,
+            loggerFactory.CreateLogger<PauseCoordinator>());
+        _pauseCoordinator.Start(stoppingToken);
+
+        StartUiSessionServer(stoppingToken);
         StartVisionNetworkWatcherBestEffort();
 
         _sessionWatcher = new SessionWatcher();
@@ -205,19 +236,61 @@ public sealed class Worker(
             "ProcessRestarted", new { process = "Service", trigger = "watchdog_peer_recovery" }, CancellationToken.None).ConfigureAwait(false);
     }
 
-    /// <summary>Đợt 3 (`PWD-0xx`, Architecture/08 mục 7) — pipe <c>ParentalGuard.Svc.UI</c>, độc lập vòng đời Vision/Overlay (UI tự mở, không do Service spawn).</summary>
+    /// <summary>
+    /// Đợt 3 (`PWD-0xx`, Architecture/08 mục 7) + Đợt 5 (`PAUSE-0xx`, Architecture/02 mục 3a) — pipe
+    /// <c>ParentalGuard.Svc.UI</c>, độc lập vòng đời Vision/Overlay (UI tự mở, không do Service
+    /// spawn). Gọi SAU KHI <see cref="_authCoordinator"/>/<see cref="_pauseCoordinator"/> đã sẵn
+    /// sàng (2 domain cùng chia sẻ pipe này, Architecture/03 mục 3.1a).
+    /// </summary>
     private void StartUiSessionServer(CancellationToken stoppingToken)
     {
-        var clock = new MonotonicClock();
-        _authCoordinator = new AuthCoordinator(InstallPaths.AuthDatPath, _auditLog!, clock, loggerFactory.CreateLogger<AuthCoordinator>());
         _uiSessionServer = new UiSessionServer(
             "ParentalGuard.Svc.UI",
             InstallPaths.UiExecutablePath,
-            _authCoordinator,
+            _authCoordinator!,
+            _pauseCoordinator!,
             _auditLog!,
             loggerFactory.CreateLogger<UiSessionServer>());
         _uiSessionServer.Start(stoppingToken);
     }
+
+    /// <summary>
+    /// Mục 3a.3 (`PAUSE-030`) — cụ thể hoá bước <c>Starting</c>: quyết định thuần ở
+    /// <see cref="PauseStateRecovery"/> (unit test được), ở đây chỉ thực hiện phần I/O (ghi
+    /// <c>config.db</c>, audit log) khi phát hiện Pause đã hết hạn TRONG LÚC Service down.
+    /// </summary>
+    private async Task<PauseStateData> RecoverPauseStateAtBootAsync(PauseStateData loaded, MonotonicClock clock, CancellationToken cancellationToken)
+    {
+        PauseStateRecovery.Decision decision = PauseStateRecovery.Decide(loaded, clock.UtcNowUnixMs);
+        if (!decision.AutoResumedWhileOffline)
+        {
+            return decision.Result;
+        }
+
+        try
+        {
+            using ConfigDb db = ConfigDb.Open(InstallPaths.ConfigDbPath);
+            db.UpdatePauseState(decision.Result);
+        }
+        catch (ConfigLoadException ex)
+        {
+            // Fail-secure nghiêng về phía giám sát BẬT (Architecture/01 mục 5) — dù không ghi được
+            // pause_state, vẫn tiếp tục coi như đã resume trong RAM (return decision.Result bên dưới),
+            // không giữ Vision ở trạng thái suspended chỉ vì lỗi ghi đĩa không liên quan.
+            logger.LogWarning(ex, "Could not persist auto-resume-while-offline pause_state — continuing with RAM-only resumed state.");
+        }
+
+        await _auditLog!.AppendAsync(
+            "PauseResumed",
+            new { trigger = "auto_expired_while_offline", pause_expires_at_unix_ms = loaded.PauseExpiresAtUnixMs ?? 0, actual_resumed_at_unix_ms = clock.UtcNowUnixMs },
+            cancellationToken).ConfigureAwait(false);
+
+        return decision.Result;
+    }
+
+    /// <summary>ADR-65/mục 4.1.2 (`FE-021`) mở rộng Đợt 5: icon phải phản ánh <c>Running·Paused</c> ngay khi Vision/Overlay (re)connect trong lúc đang Pause, không mặc định luôn ACTIVE.</summary>
+    private void OnChildSessionConnected() =>
+        _iconStatusCoordinator!.SetState(_pauseCoordinator!.IsPaused ? IconState.Paused : IconState.Active, _pauseCoordinator.PauseExpiresAtUnixMs);
 
     /// <summary>Architecture/09 mục 3.2/3.3 — heartbeat 3s/3-miss, không spawn process (Watchdog là Windows Service độc lập).</summary>
     private void StartWatchdogSessionServer(CancellationToken stoppingToken)
@@ -408,11 +481,17 @@ public sealed class Worker(
         _ => Task.CompletedTask,
     };
 
-    private static ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state)
+    /// <summary>
+    /// <paramref name="monitoringEnabled"/> tách riêng khỏi <paramref name="state"/>.MonitoringEnabled
+    /// (Đợt 5) — <see cref="Pause.PauseCoordinator"/> là nguồn sự thật cho giá trị hiệu dụng thật sự
+    /// gửi xuống Vision (mục 3a.5: Pause chỉ đổi TẦN SUẤT/bật-tắt, không sửa <c>MonitoringStateData</c>
+    /// gốc trong <c>config.db</c>).
+    /// </summary>
+    private static ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state, bool monitoringEnabled)
     {
         var command = new ControlVisionCommand
         {
-            MonitoringEnabled = state.MonitoringEnabled,
+            MonitoringEnabled = monitoringEnabled,
             CaptureIntervalMs = state.CaptureIntervalBaselineMs,
             RiskThreshold = state.RiskThreshold,
         };

@@ -48,6 +48,11 @@ public sealed class ChildProcessSupervisor(
 
     private readonly IpcMessageIdGenerator _messageIds = new();
 
+    // ADR-104 (Architecture/02 mục 3a.4): cadence Vision đổi 1s↔10s khi Pause/Resume, ngay giữa 1
+    // kết nối đang chạy (không chờ reconnect) — Interlocked vì TimeSpan không phải kiểu volatile hợp lệ.
+    private long _heartbeatIntervalTicks = heartbeatInterval.Ticks;
+    private int _cadenceGeneration;
+
     private CancellationTokenSource? _sessionCts;
     private Task? _runTask;
     private volatile System.Diagnostics.Process? _currentProcess;
@@ -75,6 +80,18 @@ public sealed class ChildProcessSupervisor(
 
     /// <summary>Kill tiến trình con hiện tại để buộc supervisor tự phục hồi qua đúng luồng crash-restart (ADR-34).</summary>
     public void RequestChildRestart() => KillIfAlive(_currentProcess);
+
+    /// <summary>
+    /// ADR-104 (Architecture/02 mục 3a.4, `PAUSE-031`) — đổi cadence heartbeat NGAY (áp dụng từ lần
+    /// ping kế tiếp, không chờ reconnect) và reset bộ đếm miss liên tiếp, tránh so sánh nhầm ranh
+    /// giới cadence cũ/mới gây false-positive crash-detect ngay lúc chuyển trạng thái Pause/Resume.
+    /// Chỉ có ý nghĩa cho kênh Vision — Overlay giữ nguyên 2 giây suốt Pause (không gọi hàm này).
+    /// </summary>
+    public void SetHeartbeatInterval(TimeSpan interval)
+    {
+        Interlocked.Exchange(ref _heartbeatIntervalTicks, interval.Ticks);
+        Interlocked.Increment(ref _cadenceGeneration);
+    }
 
     /// <summary>
     /// Đẩy 1 message nghiệp vụ theo sự kiện (vd <c>OverlayRectListCommand</c> cập nhật khi
@@ -327,21 +344,32 @@ public sealed class ChildProcessSupervisor(
     {
         int consecutiveMisses = 0;
         ulong sequence = 0;
+        int observedCadenceGeneration = Volatile.Read(ref _cadenceGeneration);
         while (!token.IsCancellationRequested)
         {
+            int currentCadenceGeneration = Volatile.Read(ref _cadenceGeneration);
+            if (currentCadenceGeneration != observedCadenceGeneration)
+            {
+                // ADR-104: cadence vừa đổi giữa chừng kết nối (Pause/Resume) — reset bộ đếm miss
+                // ngay tại thời điểm đổi, không chờ đủ 3 lần theo cadence cũ mới phát hiện sai.
+                consecutiveMisses = 0;
+                observedCadenceGeneration = currentCadenceGeneration;
+            }
+
+            TimeSpan interval = TimeSpan.FromTicks(Interlocked.Read(ref _heartbeatIntervalTicks));
             sequence++;
             IpcPayload ping = IpcEnvelope.NewEnvelope(ProcessType.Service, _messageIds.Next());
             ping.HeartbeatPing = new HeartbeatPing { Sequence = sequence, SentAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() };
             await outbound.Writer.WriteAsync(ping, token).ConfigureAwait(false);
 
-            bool acked = await WaitForAckAsync(heartbeatAcks, sequence, heartbeatInterval, token).ConfigureAwait(false);
+            bool acked = await WaitForAckAsync(heartbeatAcks, sequence, interval, token).ConfigureAwait(false);
             consecutiveMisses = acked ? 0 : consecutiveMisses + 1;
             if (consecutiveMisses >= 3)
             {
                 throw new InvalidOperationException($"{processType} missed 3 consecutive heartbeats (BE-040).");
             }
 
-            await Task.Delay(heartbeatInterval, token).ConfigureAwait(false);
+            await Task.Delay(interval, token).ConfigureAwait(false);
         }
     }
 

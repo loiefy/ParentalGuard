@@ -245,7 +245,7 @@ caller/callee giữ nguyên ở bảng phía trên.
 | Hàm | File | Callers | Callees |
 |---|---|---|---|
 | `ConfigDb.CurrentSchemaVersion = 2`, `ConfigDb.MigrateFromV1ToV2` (private, **mới**) | `ConfigDb.cs` | `ReadSnapshot` (khi `schemaVersion < CurrentSchemaVersion`) | — (`CREATE TABLE IF NOT EXISTS icon_positions` + bump `schema_meta.schema_version`, idempotent) |
-| `ConfigDb.UpsertIconPosition`/`.ReadAllIconPositions` (public, **mới**) | `ConfigDb.cs` | `IconPositionCoordinator.HandleIconPositionUpdateAsync`/`.ConfigureInitialPush` | — |
+| `ConfigDb.UpsertIconPosition`/`.ReadAllIconPositions` (public, **mới**; **sửa 2026-09-20 audit fix**: `UpsertIconPosition` bọc `ExecuteNonQuery` → `ConfigLoadException`, trước đó `SqliteException` lọt ra ngoài dù `IconPositionCoordinator.HandleIconPositionUpdateAsync` đã catch `ConfigLoadException or IOException` — cùng lớp bug với `UpdatePauseState`) | `ConfigDb.cs` | `IconPositionCoordinator.HandleIconPositionUpdateAsync`/`.ConfigureInitialPush` | — |
 | `IconPositionData` (record, **mới**) | `IconPositionData.cs` | `ConfigDb.*IconPosition*`, `IconPositionCoordinator.*` | — |
 
 ### `src/ParentalGuard.Overlay/`
@@ -341,6 +341,7 @@ giữ nguyên chữ ký/callee, TRỪ các hàm dưới đây (đã đổi).
 |---|---|---|---|
 | `UiSessionServer.Start`/`.StopAsync`/`.RunLoopAsync`/`.HandshakeAsync`/`.RunConnectionAsync`/`.VerifyClientIdentity` (**mới**; `.RunConnectionAsync` **sửa Đợt 3 fix — FAIL 1, ADR-83**: gọi `AuthCoordinator.ZeroRecoveryKeyPlaintextAfterSend` trong `finally` ngay sau `WriteFrameAsync`) | `Ipc/UiSessionServer.cs` | `Worker.StartUiSessionServer`/`.StopAllAsync` | `PipeAclFactory.CreateUiServerInstance`, `PipeIdentityInterop.GetNamedPipeClientProcessId`, `IpcFrameTransport.ReadFrameAsync/WriteFrameAsync`, `IpcEnvelope.NewEnvelope`, `AuthCoordinator.HandleAsync`, `AuthCoordinator.ZeroRecoveryKeyPlaintextAfterSend` (**mới**), `AuditLogWriter.AppendAsync` |
 | `PipeAclFactory.CreateUiServerInstance` (**mới**) | `Security/PipeAclFactory.cs` | `UiSessionServer.RunLoopAsync` | `NamedPipeServerStreamAcl.Create` (BCL) — ACL `NT AUTHORITY\INTERACTIVE` + SYSTEM (Architecture/03 mục 2.2, khác Vision/Overlay dùng SID cụ thể), KHÔNG áp Mandatory Label Low (Architecture/06 mục 2.5 — UI chạy IL bình thường) |
+| `UiSessionServer.RunLoopAsync` (sửa **2026-09-20 audit fix**: thêm `ConfigLoadException` vào danh sách catch — lưới an toàn tầng ngoài, phòng khi 1 coordinator domain để lọt exception này thay vì tự bắt tại chỗ như `PauseCoordinator.TryPersist`) | `Ipc/UiSessionServer.cs` | `Start` (qua `Task.Run`) | `PipeAclFactory.CreateUiServerInstance`, `VerifyClientIdentity`, `HandshakeAsync`, `RunConnectionAsync` |
 | `InstallPaths.UiExecutablePath` (**mới**) | `Configuration/InstallPaths.cs` | `Worker.StartUiSessionServer` (truyền `UiSessionServer` làm `expectedExecutablePath`) | — |
 | `Worker.StartUiSessionServer` (**mới**) | `Worker.cs` | `Worker.ExecuteAsync` | `MonotonicClock` ctor, `AuthCoordinator` ctor, `UiSessionServer` ctor + `.Start` |
 | `Worker.StopAllAsync` (sửa Đợt 3 — thêm `_uiSessionServer.StopAsync()` đầu hàm) | `Worker.cs` | `Worker.ExecuteAsync` | thêm: `UiSessionServer.StopAsync` |
@@ -456,6 +457,64 @@ giữ nguyên chữ ký/callee, TRỪ các hàm dưới đây (đã đổi).
 - **Recovery Options thật (`sc failure`) và `RegistryStartValueWatcher` dưới `HKLM`** chưa verify được
   trên máy Windows thật với quyền SYSTEM (sandbox dev không có) — best-effort try/catch đã có (giống
   `AclProvisioner`/`WfpVisionBlocker` Đợt 0), nhưng hành vi thật cần xác nhận lại ngoài sandbox.
+
+## Đợt 5 (Architecture/02-process-architecture.md mục 3a) — Pause/Resume
+
+### `src/ParentalGuard.Ipc/` (schema)
+
+| Thay đổi | File | Ghi chú |
+|---|---|---|
+| `PauseMonitoringRequest`(92)/`Response`(93), `ResumeMonitoringRequest`(94)/`Response`(95), `PauseStatusQuery`(96)/`Response`(97) + enum `PauseDuration`/`PauseResult`/`ResumeResult` (giá trị `*Result` đặt tiền tố tên type — bare `SUCCESS`/`INVALID_TOKEN` đã bị `UninstallResult` chiếm, cùng lý do đã áp dụng cho `SetupResult`/`AuthResult`; protoc-gen-csharp tự rút gọn C# thành `PauseResult.Success`/`.InvalidToken`/`.AlreadyPaused`, `ResumeResult.Success`/`.InvalidToken`/`.NotPaused`) | `Protos/ipc.proto` | `PAUSE-001`-`004`, Architecture/03 mục 3.6 |
+
+### `src/ParentalGuard.Service/Pause/` (mới — toàn bộ business logic Pause/Resume, transport-agnostic)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `PauseCoordinator.Start` | `PauseCoordinator.cs` | `Worker.ExecuteAsync` | `StartTick` (nếu boot thẳng vào `Running·Paused`) |
+| `PauseCoordinator.HandleAsync` (định tuyến theo `BodyCase`) | `PauseCoordinator.cs` | `UiSessionServer.DispatchAsync` | `HandlePauseAsync`/`HandleResumeAsync`/`HandleStatusQueryAsync` |
+| `PauseCoordinator.HandlePauseAsync` (private, mục 3a.1) | `PauseCoordinator.cs` | `HandleAsync` | `ConsumeTokenAsync`, `PauseDurationCalculator.ComputeExpiresAtUnixMs`, `TryPersist`, `ChildProcessSupervisor.TryEnqueueBusinessMessage`/`.SetHeartbeatInterval` (Vision), `OverlayDecisionCoordinator.ClearForPause` (ADR-106), `IconStatusCoordinator.SetState`, `AuditLogWriter.AppendAsync` (`PauseActivated`), `PauseDurationMapper.ToAuditLogValue`, `CheckDailyFrequencyAnomalyAsync`, `StartTick` |
+| `PauseCoordinator.HandleResumeAsync` (private, mục 3a.2) | `PauseCoordinator.cs` | `HandleAsync` | `ConsumeTokenAsync`, `ApplyResumeAsync` |
+| `PauseCoordinator.HandleStatusQueryAsync` (private) | `PauseCoordinator.cs` | `HandleAsync` | — (đọc `_state` snapshot) |
+| `PauseCoordinator.ApplyResumeAsync` (private — dùng chung cho resume thủ công lẫn tự động) | `PauseCoordinator.cs` | `HandleResumeAsync`, `OnTickAsync` (nhánh hết hạn) | `TryPersist` (fail-secure NGƯỢC chiều `HandlePauseAsync` — vẫn resume trong RAM dù ghi lỗi), `ChildProcessSupervisor.TryEnqueueBusinessMessage`/`.SetHeartbeatInterval`, `IconStatusCoordinator.SetState`, `AuditLogWriter.AppendAsync` (`PauseResumed`), `StopTick` |
+| `PauseCoordinator.TickLoopAsync`/`.OnTickAsync`/`.StartTick`/`.StopTick` (ADR-102, chu kỳ 30s cố định — KHÔNG `Timer` bắn đúng 1 lần) | `PauseCoordinator.cs` | `Start`, `HandlePauseAsync`, `ApplyResumeAsync`, `OnTickAsync` (tự dừng khi resume) | `ApplyResumeAsync` (khi hết hạn), `SendBannerReminder` (khi đủ 10 phút, ADR-103) |
+| `PauseCoordinator.SendBannerReminder` (private, ADR-108 — tái dùng `ShowToastCommand`, không message mới) | `PauseCoordinator.cs` | `OnTickAsync` | `ChildProcessSupervisor.TryEnqueueBusinessMessage` (Overlay) |
+| `PauseCoordinator.TriggerTickForTestAsync`/`.LastBannerShownAtUnixMsForTest` (internal, test hook) | `PauseCoordinator.cs` | `tests/PauseCoordinatorTests` | `OnTickAsync` |
+| `PauseDurationCalculator.ComputeExpiresAtUnixMs` (pure, unit test được, ADR-105) | `PauseDurationCalculator.cs` | `PauseCoordinator.HandlePauseAsync` | — (`trustedNowUnixMs` truyền vào, không đọc đồng hồ hệ thống trực tiếp — chống bypass đổi giờ) |
+| `PauseDurationMapper.ToAuditLogValue` (pure, unit test được qua `PauseCoordinatorTests`) | `PauseDurationMapper.cs` | `PauseCoordinator.HandlePauseAsync` | — (Architecture/04 mục 5.1) |
+| `PauseStateRecovery.Decide` (pure, unit test được, mục 3a.3) | `PauseStateRecovery.cs` | `Worker.RecoverPauseStateAtBootAsync` | — |
+| `PauseFrequencyGuard.CountPauseActivatedTodayAsync` (`PAUSE-021`, ngưỡng &gt;5/ngày lịch UTC) | `PauseFrequencyGuard.cs` | `PauseCoordinator.CheckDailyFrequencyAnomalyAsync` | đọc trực tiếp `audit.log` (không cache riêng, đúng Architecture/04 mục 3.4) |
+
+### `src/ParentalGuard.Service/Ipc/`, `Data/`, `Worker.cs` (sửa)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `ChildProcessSupervisor.SetHeartbeatInterval` (**mới**, ADR-104 — đổi cadence Vision 1s↔10s NGAY giữa 1 kết nối đang chạy, không chờ reconnect) | `Ipc/ChildProcessSupervisor.cs` | `PauseCoordinator.HandlePauseAsync`/`.ApplyResumeAsync` | `Interlocked.Exchange`/`.Increment` (`_heartbeatIntervalTicks`/`_cadenceGeneration`) |
+| `ChildProcessSupervisor.HeartbeatPingLoopAsync` (private, sửa — đọc `_heartbeatIntervalTicks` mỗi vòng lặp thay vì tham số cố định, reset `consecutiveMisses` khi `_cadenceGeneration` đổi) | `Ipc/ChildProcessSupervisor.cs` | `RunConnectionAsync` | như cũ + đọc cadence động |
+| `OverlayDecisionCoordinator.ClearForPause` (**mới**, ADR-106) | `Ipc/OverlayDecisionCoordinator.cs` | `PauseCoordinator.HandlePauseAsync` | xoá `_active`/`_mergedModeActive`/`_mergedOverlayIdByMonitor`, `PushCurrentList` |
+| `UiSessionServer` ctor (thêm tham số `PauseCoordinator`), `.DispatchAsync` (**mới** — định tuyến `PauseMonitoringReq`/`ResumeMonitoringReq`/`PauseStatusQuery` sang `PauseCoordinator`, còn lại sang `AuthCoordinator`) | `Ipc/UiSessionServer.cs` | `Worker.StartUiSessionServer` (ctor), `RunConnectionAsync` (`DispatchAsync`) | `PauseCoordinator.HandleAsync`, `AuthCoordinator.HandleAsync` |
+| `ConfigDb.UpdatePauseState` (**mới** — `UPDATE` khác `InsertPauseState` chỉ dùng lúc `CreateFresh`; **sửa 2026-09-20 audit fix**: bọc `ExecuteNonQuery` trong try/catch `SqliteException`→`ConfigLoadException`, trước đó lọt nguyên bản ra ngoài) | `Data/ConfigDb.cs` | `PauseCoordinator.TryPersist`, `Worker.RecoverPauseStateAtBootAsync` | `DataProtectionHelper.Protect` |
+| `ConfigDb.Open(string, int?)` (internal overload, **mới 2026-09-20 audit fix**) | `Data/ConfigDb.cs` | `ConfigDb.Open(string)` (public 1-arg, luôn truyền `null` — hành vi production không đổi), `ConfigDbTests` (test regression lock-contention, dùng `SqliteConnectionStringBuilder.DefaultTimeout` thay vì nối chuỗi PRAGMA để tránh CA2100) | `SqliteConnection.Open`, `PRAGMA journal_mode=WAL` |
+| `Worker.RecoverPauseStateAtBootAsync` (**mới**, mục 3a.3 — chỉ phần I/O, quyết định thuần ở `PauseStateRecovery.Decide`) | `Worker.cs` | `ExecuteAsync` | `PauseStateRecovery.Decide`, `ConfigDb.Open/.UpdatePauseState`, `AuditLogWriter.AppendAsync` (`PauseResumed`, `trigger="auto_expired_while_offline"`) |
+| `Worker.OnChildSessionConnected` (**mới** — thay 2 lambda `SetState(IconState.Active)` cũ của Vision/Overlay `onSessionConnected`, phản ánh đúng `Running·Paused` nếu reconnect trong lúc Pause) | `Worker.cs` | `ChildProcessSupervisor` ctor ×2 (`onSessionConnected`) | `PauseCoordinator.IsPaused`/`.PauseExpiresAtUnixMs`, `IconStatusCoordinator.SetState` |
+| `Worker.BuildControlVisionCommand` (sửa — thêm tham số `monitoringEnabled` tách khỏi `MonitoringStateData.MonitoringEnabled`) | `Worker.cs` | `ExecuteAsync` (initial push Vision), `PauseCoordinator` (qua lambda `buildControlVisionCommand` truyền vào ctor) | — |
+| `Worker.ExecuteAsync` (sửa — thêm `MonotonicClock` dùng chung Auth+Pause, `RecoverPauseStateAtBootAsync`, cadence Vision khởi tạo 10s nếu boot vào `Running·Paused`, `new PauseCoordinator`, dời `StartUiSessionServer` xuống sau khi `PauseCoordinator` sẵn sàng) | `Worker.cs` | `BackgroundService` (Generic Host) | như bảng Đợt 0 + `RecoverPauseStateAtBootAsync`, `new PauseCoordinator`, `PauseCoordinator.Start` |
+
+### Khoảng trống đã biết — Đợt 5 (báo cáo lại, không tự quyết định)
+
+- **Chưa có test tích hợp qua Named Pipe thật** cho `UiSessionServer` định tuyến `PauseMonitoringRequest`/
+  `ResumeMonitoringRequest`/`PauseStatusQuery` (chỉ unit test `PauseCoordinator.HandleAsync` trực tiếp,
+  cùng lý do/tinh thần khoảng trống đã ghi ở Đợt 3/4 — sandbox dev không có `ParentalGuard.UI` thật để
+  round-trip qua pipe `ParentalGuard.Svc.UI`).
+- **`PAUSE-021` — sự kiện audit log `PauseFrequencyAnomalyDetected`** chưa có trong bảng `event_type` ở
+  `Architecture/04-data-architecture.md` mục 5.1 (chỉ mới ghi nhận `PauseActivated`/`PauseResumed`) —
+  đặt tên theo đúng mẫu hình các event khác (`AuthBruteForceThresholdReached`, `TamperDetected`), cùng
+  cách "phát sinh từ code thật, chờ `architecture-writer` bổ sung amendment chính thức" đã áp dụng nhiều
+  lần trước đó ở file này (`ForceCloseRequested`/`VisionNetworkBlocked`...). Chi tiết `detail`:
+  `{count_today, threshold_per_day}`. Không phải gap WHAT (ngưỡng đã `ĐÃ CHỐT v0.2.2`, hành vi "ghi audit
+  log cảnh báo" đã rõ trong chỉ đạo Đợt 5) — thuần thiếu 1 dòng bảng tài liệu.
+- **Banner nhắc (`ShowToastCommand`, ADR-108) chưa verify hiển thị thật trên Windows Toast** (chỉ verify
+  logic thời điểm gửi qua `PauseCoordinatorTests` — `TryEnqueueBusinessMessage` không có kết nối Overlay
+  thật trong test) — cùng nhóm khoảng trống "cần máy Windows thật" đã ghi nhận nhiều lần ở các Đợt trước.
 
 ## Ghi chú khoảng trống đã biết (xem báo cáo bàn giao)
 
@@ -632,3 +691,44 @@ giữ nguyên chữ ký/callee, TRỪ các hàm dưới đây (đã đổi).
      `FailSecureConfigLoader.cs` (1), `AuditLogWriterTests.cs` (4, test project). Dọn `using
      ParentalGuard.Service.Configuration;` không còn dùng ở 3 file (`UiSessionServer`/
      `OverlayDecisionCoordinator`/`ChildProcessSupervisor`) sau khi bỏ `InstallPaths.AuditLogPath`.
+
+- **2026-09-20** — Đợt 5 (Pause/Resume, `PAUSE-001`-`031`, Architecture/02 mục 3a) hoàn thành. 6
+  message IPC mới (`ipc.proto` field 92-97), 1 module mới `src/ParentalGuard.Service/Pause/` (5 file:
+  `PauseCoordinator`, `PauseDurationCalculator`, `PauseDurationMapper`, `PauseStateRecovery`,
+  `PauseFrequencyGuard`), sửa `ChildProcessSupervisor` (cadence heartbeat động, ADR-104),
+  `OverlayDecisionCoordinator` (`ClearForPause`, ADR-106), `UiSessionServer` (định tuyến 2 domain),
+  `ConfigDb` (`UpdatePauseState`), `Worker.cs` (khôi phục lúc Starting mục 3a.3, wiring
+  `PauseCoordinator`). Build 0 Warning/0 Error, test 251/251 (+31 so với Đợt 4: 6 file test mới —
+  `PauseCoordinatorTests`/`PauseDurationCalculatorTests`/`PauseStateRecoveryTests`/
+  `PauseFrequencyGuardTests` + 1 test mới `ConfigDbTests.UpdatePauseState_ThenReadSnapshot_...` + đã
+  tính `Overlay.Tests` không đổi). Không phá vỡ hành vi Đợt 0-4 đã có (220/220 test cũ vẫn pass
+  nguyên trước khi thêm test mới). Xác nhận tách biệt `ANTI-060` bằng test chức năng thật (8 chu kỳ
+  pause/resume liên tiếp, audit log không có `AttackPatternDetected`/`ProcessRestarted`) thay vì chỉ
+  suy luận từ code review — đúng yêu cầu "test xác nhận KHÔNG tăng bộ đếm". 2 khoảng trống ghi nhận ở
+  mục "Khoảng trống đã biết — Đợt 5" phía trên (event_type `PauseFrequencyAnomalyDetected` chưa có
+  dòng ở Architecture/04, banner Toast chưa verify hiển thị thật).
+
+- **2026-09-20 (audit fix)** — FAIL cứng `TEST-001` (security-privacy-auditor): mọi hàm WRITE trong
+  `ConfigDb.cs` (`CreateSchema`, `MigrateFromV1ToV2`, `InsertSchemaMeta`, `InsertMonitoringState`,
+  `InsertPauseState`, `UpdatePauseState`, `InsertIpcKey`, `InsertAuditMeta`, `UpsertIconPosition`) gọi
+  thẳng `command.ExecuteNonQuery()` KHÔNG bọc try/catch như mọi hàm READ — `SqliteException` (vd. `SQLite
+  Error 5: 'database is locked'` do AV/backup/WAL checkpoint khoá file thoáng qua, hoàn toàn tự nhiên,
+  không cần tấn công) lọt nguyên bản ra ngoài, phá vỡ fail-secure của `PauseCoordinator.TryPersist` (chỉ
+  catch `ConfigLoadException`) — hậu quả: Resume "thành công" về xác thực nhưng `_state = resumedState`
+  KHÔNG BAO GIỜ chạy (giám sát ÂM THẦM vẫn Paused, NGƯỢC HƯỚNG fail-secure đã thiết kế), và kết nối UI bị
+  hang (exception thoát khỏi `Task.Run` không observe, giết cả vòng lặp `UiSessionServer.RunLoopAsync`,
+  không chỉ 1 kết nối). Sửa: bọc TẤT CẢ hàm ghi trên bằng đúng pattern `catch (SqliteException ex) => throw
+  new ConfigLoadException(...)` đã dùng nhất quán ở hàm đọc (xem các dòng `ConfigDb.*` phía trên, mỗi dòng
+  đã cập nhật ghi chú sửa riêng). Thêm `ConfigLoadException` vào catch của `UiSessionServer.RunLoopAsync`
+  làm lưới an toàn tầng ngoài (defense in depth). Thêm overload nội bộ `ConfigDb.Open(string, int?
+  busyTimeoutSecondsForTest)` (dùng `SqliteConnectionStringBuilder.DefaultTimeout` — KHÔNG nối chuỗi PRAGMA
+  để tránh CA2100 — SQLite PRAGMA không hỗ trợ bind parameter cho vế giá trị) chỉ phục vụ test lock-
+  contention nhanh, hành vi production không đổi (caller công khai duy nhất luôn truyền `null`). Test mới:
+  `ConfigDbTests.UpdatePauseState_WhileDbLockedByAnotherConnection_ThrowsConfigLoadExceptionNotSqliteException`
+  (nhanh, dùng `busyTimeoutSecondsForTest: 1`), `PauseCoordinatorTests.HandlePause_ConfigDbLockedDuringWrite_ReturnsUnspecifiedAndStaysMonitoring`
+  + `.HandleResume_ConfigDbLockedDuringWrite_StillAppliesRamStateResumeFailSecure` (đi qua `PauseCoordinator`
+  thật với busy timeout mặc định ~30s — chậm nhưng đúng bug thật đã tái hiện, dùng kỹ thuật
+  `BEGIN IMMEDIATE TRANSACTION` trên 1 connection SQLite riêng để khoá ghi), và
+  `PauseCoordinatorTests.HandlePause_ActionTokenIssuedForDifferentActionContext_ReturnsInvalidToken`
+  (permanent hoá kịch bản action_context mismatch security-privacy-auditor đã xác nhận adhoc). Build 0
+  Warning/0 Error, không còn file test tạm nào sót lại.

@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-09-19
+> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
 
 ## 1. Mục đích
 
@@ -105,7 +105,14 @@ message IpcPayload {
     RecoveryResetResponse            recovery_reset_resp       = 89;
     AuthStatusQuery                  auth_status_query         = 90;
     AuthStatusResponse               auth_status_resp          = 91;
-    // 92-99 dành cho Đợt 6 (Dashboard query khác — audit log history, config query...),
+    // Pause/Resume (92-97, Đợt 5) — 02-process-architecture.md mục 3a
+    PauseMonitoringRequest           pause_monitoring_req      = 92;
+    PauseMonitoringResponse          pause_monitoring_resp     = 93;
+    ResumeMonitoringRequest          resume_monitoring_req     = 94;
+    ResumeMonitoringResponse         resume_monitoring_resp    = 95;
+    PauseStatusQuery                 pause_status_query        = 96;
+    PauseStatusResponse              pause_status_resp         = 97;
+    // 98-99 dành cho Đợt 6 (Dashboard query khác — audit log history, config query...),
     // chi tiết hoá khi thiết kế 10-ui-architecture.md
 
     // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
@@ -478,6 +485,63 @@ enum UninstallResult {
 
 Ghi chú traceability: `WatchdogReportEvent`/`Ack` hiện thực hoá `ANTI-010` (mục 3.6 file `09`). `UninstallExecuteRequest`/`Response` hiện thực hoá `ANTI-020` (mục 5.3-5.5 file `09`).
 
+### 3.6 Message con — Đợt 5 (Pause/Resume, field 92-97 khối UI)
+
+Thiết kế nghiệp vụ đầy đủ (luồng kích hoạt/resume sớm/auto-resume/banner nhắc, `action_token` gate dùng chung `action_context="pause_monitoring"`) ở `02-process-architecture.md` mục 3a — file này chỉ định nghĩa schema on-the-wire, cùng nguyên tắc "`Service` là nguồn sự thật duy nhất" (không có field nào để `UI` tự tính lại `pause_expires_at_unix_ms`, luôn nhận nguyên giá trị từ `Service`).
+
+```protobuf
+// --- Pause/Resume (92-97, Đợt 5) — 02-process-architecture.md mục 3a ---
+message PauseMonitoringRequest {
+  bytes         action_token = 1; // từ AuthVerifyResponse{action_context="pause_monitoring"}, 08 mục 7.2
+  PauseDuration duration     = 2;
+}
+
+enum PauseDuration {
+  PAUSE_DURATION_UNSPECIFIED = 0;
+  FIFTEEN_MINUTES = 1;
+  THIRTY_MINUTES  = 2;
+  ONE_HOUR        = 3;
+  FOUR_HOURS      = 4;
+  END_OF_DAY      = 5; // 23:59:59.999 giờ hệ thống LOCAL, PAUSE-002a — Service tính, KHÔNG phải UI
+}
+
+message PauseMonitoringResponse {
+  PauseResult result                  = 1;
+  int64       pause_expires_at_unix_ms = 2; // chỉ set khi result=SUCCESS
+}
+
+enum PauseResult {
+  PAUSE_RESULT_UNSPECIFIED = 0;
+  SUCCESS        = 1;
+  INVALID_TOKEN  = 2; // hết hạn / sai action_context / đã dùng / không tồn tại (đúng nguyên tắc 08 mục 7.2)
+  ALREADY_PAUSED = 3; // idempotent guard — 2 phiên UI thao tác gần như đồng thời
+}
+
+message ResumeMonitoringRequest {
+  bytes action_token = 1; // action_context="pause_monitoring" — CÙNG hằng số với Pause, 02 mục 3a.2/ADR-101
+}
+
+message ResumeMonitoringResponse {
+  ResumeResult result = 1;
+}
+
+enum ResumeResult {
+  RESUME_RESULT_UNSPECIFIED = 0;
+  SUCCESS      = 1;
+  INVALID_TOKEN = 2;
+  NOT_PAUSED   = 3; // idempotent guard
+}
+
+message PauseStatusQuery {} // UI đọc trạng thái hiện hành khi vừa mở Dashboard, không chờ push MonitoringStatusUpdate
+
+message PauseStatusResponse {
+  bool  is_paused                = 1;
+  int64 pause_expires_at_unix_ms = 2; // 0 nếu không áp dụng
+}
+```
+
+Ghi chú traceability: hiện thực hoá `PAUSE-001`–`004`, `PAUSE-030` (đọc lại trạng thái đúng qua `PauseStatusQuery` khi `UI` vừa kết nối, không cần round-trip `AuthVerifyRequest` chỉ để xem trạng thái). Field `pause_expires_at_unix_ms` dùng lại đúng kiểu dữ liệu/đơn vị đã có sẵn ở `MonitoringStatusUpdate` (mục 3.3) — `Overlay` và `UI` cùng nhận 1 nguồn giá trị nhất quán từ `Service`, không có 2 công thức tính khác nhau. `ControlVisionCommand.reserved 20 to 29` (mục 3.2, để ngỏ từ Đợt 0 "cờ suspend/resume tần suất heartbeat riêng khi Pause") **cố tình vẫn để trống, không dùng ở Đợt 5** — cơ chế suspend/tần suất heartbeat khi Pause đã giải quyết đầy đủ mà không cần field IPC mới (`Vision` suspend qua `MonitoringEnabled` đã có sẵn, `05` ADR-40; cadence heartbeat do chính `Service` tự đổi lịch gửi `HeartbeatPing`, không cần báo cho `Vision` biết — `02` mục 3a.4), tránh gây hiểu nhầm cho người đọc sau này tưởng đây vẫn là gap chưa đóng.
+
 ## 4. Thứ tự gọi / handshake khi connect
 
 ### 4.1 Thời điểm connect
@@ -602,16 +666,18 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-82 (v0.5.1) | Cụ thể hoá "chữ ký rỗng" (ADR-19) của khung `Hello`/`HelloAck` đầu tiên kênh `UI` bằng 1 khoá HMAC hằng số 32-byte-zero biết trước cả 2 phía, thay vì thêm 1 chế độ framing "không HMAC" riêng vào `IpcFrameTransport` | Giữ `IpcFrameTransport` chỉ hiểu đúng 1 định dạng frame cho mọi kênh/mọi giai đoạn; an toàn vì xác thực danh tính thật của `UI` đã xảy ra ở mục 4.2 trước khi đọc `Hello`, HMAC trên 2 frame này chưa từng là security boundary |
 | ADR-85 (v0.6.0) | 2 pipe mới `ParentalGuard.Svc.Watchdog`/`ParentalGuard.Svc.Uninstaller`, field block mới 100-119/120-139, `ProcessType.UNINSTALLER=6` | Thiết kế đầy đủ + lý do ở `09-anti-tamper-architecture.md` mục 3/5/8.3 (ADR-85/91/92/93 ở file đó) |
 | ADR-94 (v0.6.0) | Thêm bước 5 vào mục 4.2 — đối chiếu `Hello.process_type` khớp đúng loại tiến trình dự kiến của từng pipe, áp dụng hồi tố cho cả 3 pipe Đợt 0 | Defense-in-depth bổ sung khi thiết kế 2 pipe mới cho `Watchdog`/`Uninstaller` (`09-anti-tamper-architecture.md` ADR-94) — không đổi hành vi luồng hợp lệ hiện tại |
+| ADR-107 (v0.7.0) | Pause/Resume (Đợt 5) chiếm field 92-97 trong khối UI 80-99 đã dành sẵn (thu hẹp từ "92-99 dành cho Đợt 6" xuống còn "98-99"), 6 message riêng (không gộp Pause+Resume+Status vào 1 message tổng hợp) | Đúng quy ước "khối field/domain" đã có (ADR-16/ADR-80); mỗi message vẫn giữ 1 sự kiện nghiệp vụ riêng (activate/resume-sớm/query trạng thái), nhất quán cách tách message đã áp dụng cho icon trạng thái (ADR-69) |
 
 ## 8. Câu hỏi mở
 
 - [x] ~~Giao thức `Watchdog ↔ Service` (Named Pipe riêng hay SCM query) — đã ghi nhận là thuộc `09-anti-tamper-architecture.md`, không lặp lại ở đây (kế thừa từ câu hỏi mở ở `02-process-architecture.md` mục 8).~~ — **Đã xong** (`09` v0.1.0, Đợt 4: Named Pipe riêng, xem mục 2.1/3.1a/5.2).
-- [ ] Message type cụ thể cho phần còn lại của kênh `Service ↔ UI` (field 92-99 — query cấu hình, lịch sử audit log, trạng thái pause...) — Password/Auth (80-91) đã thiết kế xong ở Đợt 3 (`08-password-authentication-architecture.md`), phần còn lại quyết định khi thiết kế `10-ui-architecture.md` ở Đợt 6, không phải thiếu sót của file này (transport/handshake/security đã đủ điều kiện dùng chung ngay khi cần).
+- [x] ~~Message type cụ thể cho phần còn lại của kênh `Service ↔ UI` (field 92-99 — query cấu hình, lịch sử audit log, trạng thái pause...)~~ — **Phần "trạng thái pause" đã xong** (field 92-97, Đợt 5, mục 3.6 — `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response`). Còn lại field **98-99** (query cấu hình, lịch sử audit log) vẫn để quyết định khi thiết kế `10-ui-architecture.md` ở Đợt 6, không phải thiếu sót của file này.
 
 ## 9. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.7.0 | 2026-09-20 | MINOR — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Thêm mục 3.6 (6 message mới, field 92-97 khối UI): `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response` — enum `PauseDuration` (5 lựa chọn `PAUSE-002`), `PauseResult`/`ResumeResult` (kèm `ALREADY_PAUSED`/`NOT_PAUSED` idempotent guard). Additive, không đổi field/message cũ (đúng ADR-16). Thu hẹp comment "92-99 dành cho Đợt 6" xuống còn "98-99" (đóng 1 phần open question mục 8 — phần "trạng thái pause" đã xong, phần audit log/config query vẫn để Đợt 6). Làm rõ tường minh `ControlVisionCommand.reserved 20 to 29` (để ngỏ từ Đợt 0 cho "cờ suspend/tần suất heartbeat Pause") **cố tình không dùng** ở Đợt 5 — cơ chế đã giải quyết đầy đủ không cần field IPC mới (`05` ADR-40 + `02` mục 3a.4), tránh hiểu nhầm là gap còn sót. 1 ADR mới (107). Theo chỉ đạo — không dừng chờ review |
 | v0.6.0 | 2026-09-19 | MINOR — Đợt 4 (`ROADMAP.md`), amendment cùng lượt viết `09-anti-tamper-architecture.md`. Thêm 2 pipe mới (`ParentalGuard.Svc.Watchdog`, `ParentalGuard.Svc.Uninstaller` — mục 2.1/2.2), field block mới 100-119 (Watchdog: `WatchdogReportEvent`/`Ack`)/120-139 (Uninstaller: `UninstallExecuteRequest`/`Response` — mục 3.5 mới), `ProcessType.UNINSTALLER=6` (`WATCHDOG=4` từ "reserved" chuyển sang dùng thật). Thêm mục 3.1a (bảng whitelist message theo pipe, hệ thống hoá lần đầu đầy đủ cho cả 5 pipe — trước đó chỉ có nguyên tắc chung ở mục 2.1). Thêm bước 5 vào mục 4.2 (đối chiếu `Hello.process_type` khớp đúng pipe, ADR-94, áp dụng hồi tố 3 pipe cũ). Mở rộng phạm vi ADR-19 (session key ephemeral) sang pipe `Watchdog`/`Uninstaller` (mục 5.3) — không cần bootstrap thứ 3. Sửa lỗi đồng bộ phát hiện khi viết `09`: 3 field `recovery_key_plaintext`/`new_recovery_key_plaintext`×2 (mục 3.4) đổi `string`→`bytes` cho khớp đúng `08-password-authentication-architecture.md` v0.3.0 (ADR-83, FAIL 1) — bản sao `.proto` ở file này trước đó chưa được đồng bộ dù changelog `08` có ghi đã đồng bộ. Đóng câu hỏi mở giao thức `Watchdog↔Service` (mục 8). 2 ADR mới (85, 94 — chi tiết đầy đủ ở `09`). Theo chỉ đạo — không dừng chờ review |
 | v0.5.1 | 2026-09-20 | PATCH — cụ thể hoá mục 5.3 (ADR-82): "chữ ký rỗng" của khung `Hello`/`HelloAck` đầu tiên kênh `UI` (trước khi có session key) nay đặc tả rõ bit-level = khoá HMAC hằng số 32-byte-zero biết trước cả 2 phía, không phải bỏ hẳn trailer HMAC hay thêm 1 chế độ framing riêng cho `IpcFrameTransport`. Gap `feature-dev` báo cáo lại sau khi implement `UiSessionServer` Đợt 3 (`docs/dependency-map.md` mục "Khoảng trống đã biết — Đợt 3") — xác nhận cách `UiSessionServer._unsignedHelloKey` đã tự chọn là lựa chọn kỹ thuật hợp lý (transport giữ đúng 1 định dạng frame duy nhất; an toàn vì xác thực danh tính thật của `UI` đã xảy ra ở mục 4.2 trước khi đọc `Hello`). Không đổi ý nghĩa ADR-19, không đổi hành vi/code, chỉ chính thức hoá quy ước để `ParentalGuard.UI` (Đợt 6) implement đúng khớp. Không kéo theo sửa `Specification/` hay file `Architecture/` khác |
 | v0.5.0 | 2026-09-19 | MINOR — Đợt 3 (`ROADMAP.md`), viết `08-password-authentication-architecture.md`: thêm 12 message mới (field 80-91, khối UI 80-99) cho Password & Authentication (`SetInitialPasswordRequest/Response`, `ConfirmRecoveryKeySavedRequest/Response`, `AuthVerifyRequest/Response`, `ChangePasswordRequest/Response`, `RecoveryResetRequest/Response`, `AuthStatusQuery/Response` — mục 3.4 mới), additive, không đổi field/message cũ (đúng ADR-16). Sửa 1 comment field-number sót lại từ trước ("khối UI... Đợt 6 (Architecture/08)" — tham chiếu số cũ trước renumbering Đợt 2, chưa từng được cập nhật — nay sửa đúng + tách rõ 80-91 đã dùng/92-99 còn trống). Đổi 2 tham chiếu `08-anti-tamper-architecture.md`/`09-ui-architecture.md` thành `09-anti-tamper-architecture.md`/`10-ui-architecture.md` theo renumbering ở `00-INDEX.md` khi chèn `08-password-authentication-architecture.md` mới. 1 ADR mới (80, định nghĩa đầy đủ ở `08`) |
