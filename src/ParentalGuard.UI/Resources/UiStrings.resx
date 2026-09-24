@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- Mục 9 — màn hình lỗi kết nối toàn cửa sổ lúc khởi động. -->
+  <data name="ConnectionErrorTitle" xml:space="preserve">
+    <value>Không thể kết nối tới ParentalGuard Service</value>
+  </data>
+  <data name="ConnectionErrorMessage" xml:space="preserve">
+    <value>Service có thể chưa chạy hoặc đang khởi động.</value>
+  </data>
+  <data name="ConnectionErrorRetryButton" xml:space="preserve">
+    <value>Thử lại</value>
+  </data>
+
+  <!-- S1 Onboarding — bước 1 Giới thiệu (FE-031). -->
+  <data name="OnboardingWelcomeTitle" xml:space="preserve">
+    <value>Chào mừng đến với ParentalGuard</value>
+  </data>
+  <data name="OnboardingWelcomeBody" xml:space="preserve">
+    <value>ParentalGuard giám sát nội dung trên màn hình hoàn toàn cục bộ — dữ liệu không rời khỏi máy tính này, và ảnh chụp màn hình không bao giờ được lưu lại dưới bất kỳ hình thức nào.</value>
+  </data>
+  <data name="OnboardingWelcomeAcknowledge" xml:space="preserve">
+    <value>Tôi đã đọc và hiểu</value>
+  </data>
+
+  <!-- S1 Onboarding — bước 2 Đặt mật khẩu (PWD-001-003). -->
+  <data name="OnboardingSetPasswordTitle" xml:space="preserve">
+    <value>Đặt mật khẩu quản trị</value>
+  </data>
+  <data name="OnboardingPasswordLabel" xml:space="preserve">
+    <value>Mật khẩu</value>
+  </data>
+  <data name="OnboardingConfirmPasswordLabel" xml:space="preserve">
+    <value>Xác nhận mật khẩu</value>
+  </data>
+  <data name="OnboardingPasswordMismatch" xml:space="preserve">
+    <value>Mật khẩu xác nhận không khớp.</value>
+  </data>
+  <data name="OnboardingPasswordTooLong" xml:space="preserve">
+    <value>Mật khẩu không được vượt quá 50 ký tự.</value>
+  </data>
+  <data name="OnboardingPasswordEmpty" xml:space="preserve">
+    <value>Vui lòng nhập mật khẩu.</value>
+  </data>
+  <data name="OnboardingAlreadyConfigured" xml:space="preserve">
+    <value>Đã có mật khẩu được thiết lập.</value>
+  </data>
+  <data name="PasswordStrengthWeak" xml:space="preserve">
+    <value>Yếu</value>
+  </data>
+  <data name="PasswordStrengthMedium" xml:space="preserve">
+    <value>Trung bình</value>
+  </data>
+  <data name="PasswordStrengthStrong" xml:space="preserve">
+    <value>Mạnh</value>
+  </data>
+
+  <!-- S1 Onboarding — bước 3 Recovery Key (PWD-030/030a). -->
+  <data name="OnboardingRecoveryKeyTitle" xml:space="preserve">
+    <value>Lưu lại Recovery Key</value>
+  </data>
+  <data name="OnboardingRecoveryKeyBody" xml:space="preserve">
+    <value>Recovery Key dùng để khôi phục quyền truy cập nếu bạn quên mật khẩu. Đây là lần DUY NHẤT key này được hiển thị — hãy lưu lại ở nơi an toàn.</value>
+  </data>
+  <data name="OnboardingRecoveryKeyCopyButton" xml:space="preserve">
+    <value>Sao chép</value>
+  </data>
+  <data name="OnboardingRecoveryKeyConfirmCheckbox" xml:space="preserve">
+    <value>Tôi đã lưu lại Recovery Key</value>
+  </data>
+  <data name="OnboardingTokenExpired" xml:space="preserve">
+    <value>Thiết lập chưa hoàn tất, vui lòng thực hiện lại từ bước đặt mật khẩu.</value>
+  </data>
+
+  <data name="ContinueButton" xml:space="preserve">
+    <value>Tiếp tục</value>
+  </data>
+
+  <!-- S5 Auth Modal (mục 6.5). -->
+  <data name="AuthPromptPasswordLabel" xml:space="preserve">
+    <value>Mật khẩu</value>
+  </data>
+  <data name="AuthPromptSubmitButton" xml:space="preserve">
+    <value>Xác nhận</value>
+  </data>
+  <data name="AuthPromptCancelButton" xml:space="preserve">
+    <value>Huỷ</value>
+  </data>
+  <data name="AuthPromptWrongPassword" xml:space="preserve">
+    <value>Sai mật khẩu.</value>
+  </data>
+  <data name="AuthPromptLockedOutFormat" xml:space="preserve">
+    <value>Đã khoá tạm thời do nhập sai nhiều lần. Vui lòng thử lại sau {0}.</value>
+  </data>
+  <data name="AuthPromptForgotPasswordLink" xml:space="preserve">
+    <value>Quên mật khẩu?</value>
+  </data>
+  <data name="AuthPromptPurposePauseMonitoring" xml:space="preserve">
+    <value>Xác nhận mật khẩu để tạm dừng giám sát</value>
+  </data>
+  <data name="AuthPromptPurposeViewAuditLog" xml:space="preserve">
+    <value>Xác nhận mật khẩu để xem lịch sử</value>
+  </data>
+  <data name="AuthPromptPurposeManageWhitelist" xml:space="preserve">
+    <value>Xác nhận mật khẩu để thay đổi danh sách loại trừ</value>
+  </data>
+
+  <!-- Main Shell placeholder pages (giai đoạn 2-4 mới implement đầy đủ). -->
+  <data name="NavDashboard" xml:space="preserve">
+    <value>Tổng quan</value>
+  </data>
+  <data name="NavAuditLog" xml:space="preserve">
+    <value>Lịch sử</value>
+  </data>
+  <data name="NavSettings" xml:space="preserve">
+    <value>Cài đặt</value>
+  </data>
+  <data name="PlaceholderInDevelopment" xml:space="preserve">
+    <value>Đang phát triển</value>
+  </data>
+</root>

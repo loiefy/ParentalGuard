@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>ParentalGuard.UI</RootNamespace>
+    <AssemblyName>ParentalGuard.UI</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <!-- Unpackaged Win32 .exe (ADR-114) — nhất quán 5 executable còn lại (Architecture/10 mục 2.1). -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- CA5392 chỉ nổ ở UndockedRegFreeWinRT-AutoInitializer.cs — file auto-include từ chính gói
+         Microsoft.WindowsAppSDK.Foundation (bắt buộc cho app unpackaged, ADR-114), không phải code
+         của dự án — không thể sửa DefaultDllImportSearchPaths trong file không sở hữu. Không nới
+         WarningsAsErrors chung (Directory.Build.props, DEV-023) cho 5 executable còn lại. -->
+    <NoWarn>$(NoWarn);CA5392</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParentalGuard.Ipc\ParentalGuard.Ipc.csproj" />
+  </ItemGroup>
+
+</Project>

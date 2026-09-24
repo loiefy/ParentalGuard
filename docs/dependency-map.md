@@ -33,6 +33,11 @@ bộ codebase có ý nghĩa cho impact analysis — không liệt kê từng l�
 | `IpcChildClient.EnqueueOutbound` (public, **mới Đợt 1**) | `Client/IpcChildClient.cs` | `EnqueueHeartbeatAck`, `Vision/Pipeline/CaptureLoopWorker.ProcessOneFrame`, `Overlay/Program.SendForceClose` | `Channel<IpcPayload>.Writer.TryWrite` (BCL) |
 | `IpcChildClient.NewEnvelope` (public, **mới Đợt 1**) | `Client/IpcChildClient.cs` | `HandshakeAsync`, `EnqueueHeartbeatAck`, `Vision/Pipeline/CaptureLoopWorker.ProcessOneFrame`, `Overlay/Program.SendForceClose` | `IpcEnvelope.NewEnvelope` |
 | `IpcChildClient.DiagnosticState` (public field, **mới Đợt 1**) | `Client/IpcChildClient.cs` | set bởi `Vision/Program.cs` (ADR-45 EP fallback), đọc bởi `EnqueueHeartbeatAck` | — |
+| `UiIpcClient.ConnectAsync` (**mới Đợt 6**, ADR-118/119) | `Client/UiIpcClient.cs` | `ParentalGuard.UI/App.ConnectAndRouteAsync` | `DisconnectAsync`, `NamedPipeClientStream.ConnectAsync` (BCL), `HandshakeAsync` |
+| `UiIpcClient.HandshakeAsync` (private, **mới Đợt 6**, ADR-82) | `Client/UiIpcClient.cs` | `ConnectAsync` | `IpcFrameTransport.WriteFrameAsync/ReadFrameAsync` (khoá hằng số 32-byte-zero), `NewEnvelope` |
+| `UiIpcClient.SendRequestAsync<TResp>` (**mới Đợt 6**, ADR-119 — `SemaphoreSlim(1)`, không Reader/Writer loop song song khác `IpcChildClient`) | `Client/UiIpcClient.cs` | `ParentalGuard.UI/Services/IpcClient/AuthFacade.*` | `IpcFrameTransport.WriteFrameAsync/ReadFrameAsync` (session_key), `DisconnectCoreAsync` (khi lỗi pipe/framing) |
+| `UiIpcClient.NewEnvelope` (**mới Đợt 6**) | `Client/UiIpcClient.cs` | `HandshakeAsync`, `AuthFacade.*` | `IpcEnvelope.NewEnvelope` |
+| `UiIpcClient.DisconnectAsync`/`.DisconnectCoreAsync` (private) (**mới Đợt 6**) | `Client/UiIpcClient.cs` | `ConnectAsync` (dọn phiên cũ), `SendRequestAsync` (khi lỗi), `ParentalGuard.UI/App.OnWindowClosed` | `NamedPipeClientStream.DisposeAsync` (BCL) |
 
 ## `src/ParentalGuard.Vision/` (Đợt 1 — pipeline 7 bước, Architecture/05)
 
@@ -515,6 +520,108 @@ giữ nguyên chữ ký/callee, TRỪ các hàm dưới đây (đã đổi).
 - **Banner nhắc (`ShowToastCommand`, ADR-108) chưa verify hiển thị thật trên Windows Toast** (chỉ verify
   logic thời điểm gửi qua `PauseCoordinatorTests` — `TryEnqueueBusinessMessage` không có kết nối Overlay
   thật trong test) — cùng nhóm khoảng trống "cần máy Windows thật" đã ghi nhận nhiều lần ở các Đợt trước.
+
+## Đợt 6 (Architecture/10-ui-architecture.md) — `ParentalGuard.UI` giai đoạn 1 (nền tảng)
+
+Phạm vi lượt này: project skeleton, `UiIpcClient` (bảng đã thêm ở mục `src/ParentalGuard.Ipc/` phía
+trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại stub rỗng cho giai đoạn 2-4),
+`NavigationService`/`LocalizationService`, single-instance, `S1` Onboarding, `S5` Auth Modal,
+`App.xaml.cs`. KHÔNG bao gồm `S2`-`S4` đầy đủ (chỉ placeholder "Đang phát triển").
+
+### `src/ParentalGuard.UI/Services/IpcClient/` (Facade layer, ADR-116)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `AuthFacade.GetAuthStatusAsync` | `AuthFacade.cs` | `App.ConnectAndRouteAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `AuthFacade.SetInitialPasswordAsync` | `AuthFacade.cs` | `OnboardingViewModel.SubmitPasswordAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync`, `MapSetInitialPasswordResponse`, `CredentialBytes.UnsafeGetBuffer/.Zero`, `CryptographicOperations.ZeroMemory` |
+| `AuthFacade.MapSetInitialPasswordResponse` (private static) | `AuthFacade.cs` | `SetInitialPasswordAsync` | `CredentialBytes.UnsafeGetBuffer` (lấy `recovery_key_plaintext`/`setup_token`) |
+| `AuthFacade.ConfirmRecoveryKeySavedAsync` | `AuthFacade.cs` | `OnboardingViewModel.ConfirmRecoveryKeySavedAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `AuthFacade.AuthVerifyAsync` | `AuthFacade.cs` | `AuthPromptViewModel.SubmitAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync`, `MapAuthVerifyResponse`, `CredentialBytes.UnsafeGetBuffer/.Zero`, `CryptographicOperations.ZeroMemory` |
+| `AuthFacade.MapAuthVerifyResponse` (private static) | `AuthFacade.cs` | `AuthVerifyAsync` | `CredentialBytes` (nếu cần), `resp.ActionToken.ToByteArray` |
+| `PauseFacade`/`DashboardFacade`/`AuditFacade`/`ConfigFacade` (stub rỗng, **CHƯA có method** — placeholder DI cho giai đoạn 2-4) | `PauseFacade.cs`/`DashboardFacade.cs`/`AuditFacade.cs`/`ConfigFacade.cs` | đăng ký DI ở `App.BuildServiceProvider`, chưa ai gọi | — |
+
+### `src/ParentalGuard.UI/Services/` (NavigationService, LocalizationService, SingleInstanceGuard)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `NavigationService.Initialize` | `NavigationService.cs` | `App.OnLaunched` | — (lưu `Frame` root) |
+| `NavigationService.NavigateToConnectionError`/`.NavigateToOnboarding`/`.NavigateToMainShell` | `NavigationService.cs` | `App.ConnectAndRouteAsync`, `Views/OnboardingPage.*` | `Frame.Navigate` (BCL) |
+| `NavigationService.NavigateToRecovery` (**CHƯA implement — throw NotImplementedException có chủ đích, `S6` giai đoạn sau**) | `NavigationService.cs` | `ShowAuthPromptAsync` (khi `AuthPromptDialog.ForgotPasswordRequested`), `Views/SettingsPage` (giai đoạn 4, chưa gọi) | — |
+| `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5) | `NavigationService.cs` | (chưa có caller thật ở giai đoạn 1 — `S3`/`S2`/`S4` gọi ở giai đoạn 2-4) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
+| `LocalizationService.Get`/`.GetFormatted` | `LocalizationService.cs` | mọi `Views/*.xaml.cs`, `ViewModels/*.cs` | `ResourceManager.GetString` (BCL) |
+| `SingleInstanceGuard` ctor/`.Dispose` | `SingleInstanceGuard.cs` | `App.OnLaunched`, `App.OnWindowClosed` | `Mutex` (BCL) |
+| `SingleInstanceGuard.ActivateExistingInstance` (static) | `SingleInstanceGuard.cs` | `App.OnLaunched` (khi `IsFirstInstance=false`) | `FindWindow`/`SetForegroundWindow` (P/Invoke `user32`) |
+
+### `src/ParentalGuard.UI/ViewModels/`, `Views/` (`S1` Onboarding, `S5` Auth Modal, Main Shell)
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `OnboardingViewModel.AcknowledgeIntro` (`[RelayCommand]`) | `OnboardingViewModel.cs` | `Views/OnboardingWelcomePage.xaml` (`Command` binding) | raises `NavigateToSetPasswordRequested` |
+| `OnboardingViewModel.SubmitPasswordAsync` | `OnboardingViewModel.cs` | `Views/OnboardingSetPasswordPage.OnContinueClick` | `AuthFacade.SetInitialPasswordAsync`, raises `NavigateToRecoveryKeyRequested`/`AlreadyConfiguredDetected` |
+| `OnboardingViewModel.ConfirmRecoveryKeySavedAsync` | `OnboardingViewModel.cs` | `Views/OnboardingRecoveryKeyPage.OnContinueClick` | `AuthFacade.ConfirmRecoveryKeySavedAsync`, `ZeroRecoveryKeyBuffer`, raises `OnboardingCompleted`/`NavigateBackToSetPasswordRequested` |
+| `OnboardingViewModel.ZeroRecoveryKeyBuffer` | `OnboardingViewModel.cs` | `ConfirmRecoveryKeySavedAsync` (mọi nhánh kết quả), `Dispose` | `CryptographicOperations.ZeroMemory` |
+| `OnboardingViewModel.Dispose` (**mới, security audit BUG B fix**) | `OnboardingViewModel.cs` | `App.OnWindowClosed` (safety net qua `App._activeOnboardingViewModel`) | `ZeroRecoveryKeyBuffer` (idempotent — no-op nếu buffer đã null) |
+| `AuthPromptViewModel.SubmitAsync` | `AuthPromptViewModel.cs` | `Views/AuthPromptDialog.OnPrimaryButtonClick` | `AuthFacade.AuthVerifyAsync` |
+| `Views/OnboardingPage.OnLoaded` | `Views/OnboardingPage.xaml.cs` | `Page.Loaded` (XAML event) | `new OnboardingViewModel`, `App.RegisterActiveOnboardingViewModel` (**mới, BUG B fix**), `StepFrame.Navigate` (→ `OnboardingWelcomePage`), đăng ký 5 event handler của `OnboardingViewModel` |
+| `Views/OnboardingPage.OnAlreadyConfiguredAsync` | `Views/OnboardingPage.xaml.cs` | `OnboardingViewModel.AlreadyConfiguredDetected` (event) | `ContentDialog.ShowAsync`, `GoToMainShell` |
+| `Views/OnboardingPage.GoToMainShell` (**sửa, BUG B fix**) | `Views/OnboardingPage.xaml.cs` | `OnAlreadyConfiguredAsync`, `OnboardingViewModel.OnboardingCompleted` (event, đăng ký trong `OnLoaded`) | `App.UnregisterActiveOnboardingViewModel`, `NavigationService.NavigateToMainShell` |
+| `Views/OnboardingSetPasswordPage.OnContinueClick` | `Views/OnboardingSetPasswordPage.xaml.cs` | nút "Tiếp tục" (XAML event) | `OnboardingViewModel.SubmitPasswordAsync` (byte[] pinned từ `PasswordBox.Password`) |
+| `Views/OnboardingSetPasswordPage.ComputeStrengthLabel` (private static, `PWD-002` thuần UX) | `Views/OnboardingSetPasswordPage.xaml.cs` | `OnPasswordChanged` | `LocalizationService.Get` |
+| `Views/OnboardingRecoveryKeyPage.OnCopyClick` | `Views/OnboardingRecoveryKeyPage.xaml.cs` | nút "Sao chép" (XAML event) | `Clipboard.SetContent` (WinRT) |
+| `Views/OnboardingRecoveryKeyPage.OnContinueClick` | `Views/OnboardingRecoveryKeyPage.xaml.cs` | nút "Tiếp tục" (XAML event) | `OnboardingViewModel.ConfirmRecoveryKeySavedAsync` |
+| `Views/AuthPromptDialog.RequestActionTokenAsync` | `Views/AuthPromptDialog.xaml.cs` | `NavigationService.ShowAuthPromptAsync` | `ContentDialog.ShowAsync` |
+| `Views/AuthPromptDialog.OnPrimaryButtonClick` | `Views/AuthPromptDialog.xaml.cs` | `ContentDialog.PrimaryButtonClick` (XAML event) | `AuthPromptViewModel.SubmitAsync` (byte[] pinned từ `PasswordBox.Password`), `Hide` (nếu SUCCESS) |
+| `Views/AuthPromptDialog.OnForgotPasswordClick` | `Views/AuthPromptDialog.xaml.cs` | `HyperlinkButton.Click` (XAML event) | set `ForgotPasswordRequested=true`, `Hide` |
+| `Views/MainShellPage.OnSelectionChanged` | `Views/MainShellPage.xaml.cs` | `NavigationView.SelectionChanged` (XAML event) | `ContentFrame.Navigate` (→ `DashboardPage`/`AuditLogPage`/`SettingsPage`, placeholder "Đang phát triển" giai đoạn này) |
+| `Views/ConnectionErrorPage.OnRetryClick` | `Views/ConnectionErrorPage.xaml.cs` | nút "Thử lại" (XAML event) | `App.RetryConnectAsync` |
+
+### `src/ParentalGuard.UI/App.xaml.cs`, `MainWindow.xaml.cs`
+
+| Hàm | File | Callers | Callees |
+|---|---|---|---|
+| `App.OnLaunched` | `App.xaml.cs` | Windows App SDK (entry point) | `SingleInstanceGuard` ctor/`.ActivateExistingInstance`, `BuildServiceProvider`, `new MainWindow`, `NavigationService.Initialize`, `ConnectAndRouteAsync` |
+| `App.ConnectAndRouteAsync` (private) | `App.xaml.cs` | `OnLaunched`, `RetryConnectAsync` | `UiIpcClient.ConnectAsync`, `AuthFacade.GetAuthStatusAsync`, `NavigationService.NavigateToMainShell/.NavigateToOnboarding/.NavigateToConnectionError` |
+| `App.RetryConnectAsync` (public) | `App.xaml.cs` | `Views/ConnectionErrorPage.OnRetryClick` | `ConnectAndRouteAsync` |
+| `App.BuildServiceProvider` (private static) | `App.xaml.cs` | `OnLaunched` | `ServiceCollection.AddSingleton` ×7 (BCL DI) |
+| `App.RegisterActiveOnboardingViewModel`/`.UnregisterActiveOnboardingViewModel` (public, **mới, BUG B fix**) | `App.xaml.cs` | `Views/OnboardingPage.OnLoaded`/`.GoToMainShell` | set/clear field `_activeOnboardingViewModel` (đọc bởi `OnWindowClosed`) |
+| `App.OnWindowClosed` (private async void, **sửa, BUG B fix**) | `App.xaml.cs` | `MainWindow.Closed` (XAML event) | `OnboardingViewModel.Dispose` (nếu `_activeOnboardingViewModel` != null — user đóng app giữa chừng ở màn Recovery Key), `UiIpcClient.DisconnectAsync`, `SingleInstanceGuard.Dispose` |
+| `MainWindow` ctor | `MainWindow.xaml.cs` | `App.OnLaunched` | — |
+
+### Khoảng trống đã biết — Đợt 6 giai đoạn 1 (báo cáo lại, không tự quyết định)
+
+- **Chưa có test tích hợp/UI thật** cho toàn bộ `ParentalGuard.UI` (chỉ build + 2 unit test cho
+  `UiIpcClient` ở `tests/ParentalGuard.Service.Tests/UiIpcClientTests.cs`, dùng named pipe loopback
+  thật mô phỏng `UiSessionServer` — KHÔNG round-trip qua `UiSessionServer`/`AuthCoordinator` thật) —
+  sandbox dev không có màn hình/không chạy được app WinUI 3 tương tác để verify UX/accessibility thật,
+  cùng nhóm khoảng trống "cần máy Windows thật" đã ghi nhận nhiều lần ở các Đợt trước.
+- **`SingleInstanceGuard` tìm cửa sổ đang chạy theo TIÊU ĐỀ cửa sổ, không phải class name cố định**
+  như câu chữ gốc ADR-117a mô tả — Windows App SDK không expose 1 class name literal ổn định/tài liệu
+  hoá qua các phiên bản để hard-code an toàn cho `Microsoft.UI.Xaml.Window` unpackaged; đã ghi rõ lý do
+  trong XML doc của `SingleInstanceGuard`. Không đổi mục tiêu/hành vi UX của ADR-117a, chỉ khác cách
+  hiện thực bit-level — nếu `architecture-writer` muốn chốt lại câu chữ ADR-117a cho khớp, đây là 1
+  dòng dễ sửa.
+- **`WindowsAppSDKSelfContained=true` + `RuntimeIdentifier=win-x64` (thay vì Framework-dependent thuần
+  hoặc đa kiến trúc x86/x64/arm64)** — quyết định implement nhỏ của lượt này, chưa được chốt tường
+  minh ở `Architecture/11-deployment-release-architecture.md` (chưa viết, theo đúng mục 2.1 file `10`
+  đã xác nhận "MSIX packaging cho cả app chưa được quyết định... không tự phát minh trước"). Chọn
+  `win-x64` đơn kiến trúc để build nhanh/đơn giản trong giai đoạn phát triển — Đợt 11 (deployment) cần
+  xác nhận lại kiến trúc CPU mục tiêu chính thức (có cần x86/arm64 không) trước khi đóng gói installer.
+- **`CA5392` bị `NoWarn` ở `ParentalGuard.UI.csproj`** (không nới `WarningsAsErrors` chung) — chỉ nổ ở
+  `UndockedRegFreeWinRT-AutoInitializer.cs`, file auto-include từ gói `Microsoft.WindowsAppSDK.Foundation`
+  (bắt buộc cho app unpackaged), không phải code dự án — không có gì để sửa `DefaultDllImportSearchPaths`
+  trong file không sở hữu.
+- **Thuật toán đo độ mạnh mật khẩu (`ComputeStrengthLabel`) tự chọn** — thuần UX polish theo đúng câu
+  chữ `PWD-002`/Architecture/10 mục 11 (không phải cơ chế bảo mật, không chặn thiết kế).
+- **`IAuthFacade`/`AuthPromptDialog`/`OnboardingViewModel` đã được `security-privacy-auditor` review**
+  (Đợt 6 giai đoạn 1, domain `PWD-*`) — 2 FAIL cứng (TEST-001 zero-tolerance) đã tìm thấy và fix trong
+  lượt này: (1) `OnboardingSetPasswordPage.OnContinueClick` không clear `PasswordBox.Password` ở 2
+  nhánh early-return (rỗng/không khớp) — sửa: clear cả 2 `PasswordBox` ngay sau khi đọc vào biến cục
+  bộ, TRƯỚC mọi guard; (2) Recovery Key plaintext buffer không được zero nếu user đóng app giữa chừng
+  ở màn Recovery Key trước khi Confirm — sửa: safety net `OnboardingViewModel.Dispose` +
+  `App.RegisterActiveOnboardingViewModel`/`.UnregisterActiveOnboardingViewModel` (xem 2 dòng ở trên).
+  Có test hồi quy cho bug (2) ở `tests/ParentalGuard.UI.Tests/OnboardingViewModelTests.cs`; bug (1) khó
+  test tự động (phụ thuộc `PasswordBox` XAML control, sandbox không render UI tương tác) — đã review
+  thủ công logic.
 
 ## Ghi chú khoảng trống đã biết (xem báo cáo bàn giao)
 
