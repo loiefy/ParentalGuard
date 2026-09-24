@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-09-24
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
 
 ## 1. Mục tiêu hiệu năng
 
@@ -41,13 +41,11 @@
 
 ## 6. Giới hạn tài nguyên cấu hình được (Resource Throttling Config)
 
-- ~~`PERF-050` (ĐÃ CHỐT v0.6.0, 2026-09-20 — xác nhận trực tiếp bởi chủ dự án): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), đủ cả 3 mức: **Cân bằng** (mặc định) / **Tiết kiệm pin** (giảm tần suất tối đa, ưu tiên hiệu năng máy hơn, đánh đổi tăng độ trễ phát hiện/giảm hiệu quả bảo vệ) / **Bảo vệ tối đa** (tăng tần suất capture/inference, chấp nhận tiêu tốn CPU cao hơn).~~ — **DEPRECATED, superseded by `PERF-050b`** (xem ngay dưới).
-- ~~`PERF-050a` (ĐÃ CHỐT v0.6.0, ràng buộc UI bắt buộc): Khi phụ huynh chọn mức "Tiết kiệm pin", UI (`S4`) bắt buộc phải hiển thị cảnh báo rõ ràng về việc giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn.~~ — **DEPRECATED cùng `PERF-050`**: sub-requirement này chỉ có ý nghĩa khi tồn tại mức "Tiết kiệm pin"; nay mức đó bị loại bỏ hoàn toàn ở `PERF-050b` nên ràng buộc UI này không còn đối tượng áp dụng, không mang sang `PERF-050b`.
-- `PERF-050b` (ĐÃ CHỐT v0.7.0, 2026-09-24 — supersedes `PERF-050`, `PERF-050a`; xác nhận trực tiếp bởi chủ dự án, phát sinh khi review `Architecture/10-ui-architecture.md` Đợt 6 mục 11 "Câu hỏi mở"): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), chỉ còn **2 mức** (bỏ hẳn mức "Tiết kiệm pin"):
+- `PERF-050` (ĐÃ CHỐT v0.6.0, 2026-09-20 — xác nhận trực tiếp bởi chủ dự án): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), đủ cả 3 mức:
   - **Cân bằng** (mặc định): theo chiến lược adaptive ở mục 2.
+  - **Tiết kiệm pin**: giảm tần suất tối đa, ưu tiên hiệu năng máy hơn (đánh đổi tăng độ trễ phát hiện/giảm hiệu quả bảo vệ).
   - **Bảo vệ tối đa**: tăng tần suất capture/inference, chấp nhận tiêu tốn CPU cao hơn.
-
-  Lý do loại bỏ mức "Tiết kiệm pin": chủ dự án xác định đây là một lựa chọn có thể làm giảm hiệu quả bảo vệ trẻ em (giãn tần suất capture/inference so với mức "Cân bằng" mặc định) — dù đã có ràng buộc cảnh báo UI (`PERF-050a` cũ), chủ dự án không chấp nhận đánh đổi bảo mật này tồn tại như một lựa chọn khả dụng trong sản phẩm. Vì mức "Tiết kiệm pin" không còn tồn tại, `PERF-050a` (cảnh báo khi chọn mức đó) cũng không còn đối tượng áp dụng và bị `DEPRECATED` theo.
+  - `PERF-050a` **(ĐÃ CHỐT v0.6.0, ràng buộc UI bắt buộc)**: Khi phụ huynh chọn mức **"Tiết kiệm pin"**, UI (`S4`, xem `03-frontend-ui-spec.md`) **bắt buộc phải hiển thị cảnh báo rõ ràng về việc giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn** (ví dụ dialog/banner xác nhận, không phải chú thích nhỏ dễ bỏ qua) — mục đích: tôn trọng quyền quyết định của phụ huynh nhưng đảm bảo họ hiểu rõ đánh đổi, tránh trường hợp vô tình tự làm yếu bảo vệ mà không nhận thức được hậu quả. Đây là điều kiện bắt buộc đi kèm việc duyệt đủ 3 mức ở `PERF-050`, không phải gợi ý tuỳ chọn. Chi tiết trình bày cụ thể (nội dung câu chữ cảnh báo, dạng modal hay banner, có cần xác nhận thêm 1 lần nữa hay không...) không phải quyết định sản phẩm, để thiết kế ở `Architecture/`/implement ở `feature-dev` tự quyết định theo đúng tinh thần yêu cầu này.
 
 ## 7. Benchmark & tiêu chí đo lường (để chốt trước khi code)
 
@@ -71,7 +69,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.7.0 | 2026-09-24 | **MINOR — supersedes `PERF-050`/`PERF-050a`**: phát sinh khi review `Architecture/10-ui-architecture.md` (Đợt 6, Dashboard UI, mục 11 "Câu hỏi mở"). Chủ dự án quyết định trực tiếp: giữ nguyên việc "Chế độ hiệu năng" ở `S4` là `APPROVED`, nhưng **bỏ hẳn mức "Tiết kiệm pin"** — chỉ còn 2 mức "Cân bằng" (mặc định) / "Bảo vệ tối đa". Lý do: "Tiết kiệm pin" là lựa chọn có thể làm giảm hiệu quả bảo vệ trẻ em (giãn tần suất capture/inference), chủ dự án không chấp nhận đánh đổi bảo mật này dù đã có cảnh báo UI đi kèm. Thêm `PERF-050b` (mới, supersedes `PERF-050`) mô tả 2 mức còn lại; `PERF-050` (3 mức cũ) và `PERF-050a` (cảnh báo UI riêng cho "Tiết kiệm pin") đều đánh dấu `DEPRECATED` theo đúng quy tắc không sửa trực tiếp requirement đã `ĐÃ CHỐT`/`APPROVED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.6.0__2026-09-24.md` |
 | v0.6.0 | 2026-09-20 | **MINOR — vá gap quy trình phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI)**: `PERF-050` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.5.3 (cùng dạng gap 2-tầng-trạng-thái đã gặp ở `PAUSE-021`/`ANTI-060` trước đây). Chủ dự án xác nhận trực tiếp 2026-09-20: **DUYỆT đủ cả 3 mức** hiệu năng (Cân bằng/Tiết kiệm pin/Bảo vệ tối đa). Bổ sung `PERF-050a` mới: khi chọn "Tiết kiệm pin", UI **bắt buộc** hiển thị cảnh báo rõ ràng về giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn — ghi rõ vào requirement (không chỉ ngầm hiểu) vì đây là chi tiết UX quan trọng ảnh hưởng trực tiếp tới an toàn trẻ em. Rà soát toàn file `08`: không còn `PERF-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.5.3__2026-09-20.md` |
 | v0.5.3 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.5.2 | 2026-09-17 | Liên kết `PERF-032` tới model cụ thể đã chốt (`IMG-014` mới ở `09-image-processing-spec.md`: `GantMan/nsfw_model`, MobileNetV2, MIT) |

@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.8.1 | Trạng thái: Approved | Cập nhật: 2026-09-24
 
 ## 1. Mục đích
 
@@ -666,11 +666,35 @@ message ConfigQuery {}                                             // field 148
 message ConfigResponse {                                           // field 149
   string          overlay_message               = 1; // rỗng = đang dùng default cục bộ của Overlay
   repeated string user_whitelisted_process_names = 2;
+  PerformanceMode performance_mode               = 3; // PERF-050b (mới v0.8.1) — Service luôn trả về
+                                                        // giá trị cụ thể (BALANCED/MAXIMUM_PROTECTION),
+                                                        // không bao giờ UNSPECIFIED (04 mục 3.3: field
+                                                        // vắng mặt trong monitoring_state JSON → Service
+                                                        // tự suy ra BALANCED ngay khi đọc, không trả thô)
+}
+
+// PERF-050b (mới v0.8.1) — tập giá trị ĐÓNG, cố định bởi chính hợp đồng IPC này (khác event_type ở
+// AuditLogEntry, ADR-112: đó là catalog dữ liệu mở rộng dần ở 04, còn đây là 2 mức duy nhất do
+// Specification/08-performance-cpu-spec.md PERF-050b định nghĩa, không có domain khác cần đồng bộ theo)
+enum PerformanceMode {
+  PERFORMANCE_MODE_UNSPECIFIED = 0; // chỉ xuất hiện trong request không hợp lệ — Service không bao giờ set
+                                     // giá trị này trong response (xem ConfigResponse ở trên)
+  BALANCED             = 1; // mặc định, PERF-050b
+  MAXIMUM_PROTECTION   = 2; // PERF-050b
 }
 
 message ConfigUpdateRequest {                                      // field 150
-  string overlay_message = 1; // UI LUÔN gửi giá trị mong muốn đầy đủ (không phải partial update) —
-                               // rỗng = yêu cầu reset về default (nút "Khôi phục mặc định", FE-012)
+  string          overlay_message   = 1; // UI LUÔN gửi giá trị mong muốn đầy đủ (không phải partial
+                                          // update) — rỗng = yêu cầu reset về default (nút "Khôi phục
+                                          // mặc định", FE-012)
+  PerformanceMode performance_mode  = 2; // PERF-050b (mới v0.8.1) — UI (RadioButtons, luôn có 1 lựa
+                                          // chọn được chọn sẵn) gửi kèm giá trị hiện hành mỗi lần Save,
+                                          // cùng nguyên tắc "full update" như overlay_message. Nếu Service
+                                          // nhận PERFORMANCE_MODE_UNSPECIFIED (client lỗi/cũ) → giữ
+                                          // nguyên performance_mode hiện có, KHÔNG ghi đè, KHÔNG coi là
+                                          // lỗi cần trả về UI (không thêm ConfigUpdateResult mới cho
+                                          // trường hợp này — thuần safety net phía Service, không phải
+                                          // luồng hợp lệ mà UI thật sự đi qua)
 }
 
 message ConfigUpdateResponse {                                     // field 151
@@ -701,7 +725,7 @@ enum RemoveWhitelistEntryResult {
 }
 ```
 
-Ghi chú traceability: `DashboardStatusQuery`/`Response` hiện thực hoá `MISC-050`/`FE-041`/`PAUSE-021` (đọc, không sửa state). `AuditLogQuery`/`AuditChartQuery` hiện thực hoá `FE-070`–`072`/`MISC-010` (đọc lịch sử/thống kê, có gate `view_audit_log` theo `PWD-020` cho danh sách chi tiết — biểu đồ tổng hợp trên `S2` không gate, xem lý do phân biệt ở `10-ui-architecture.md` mục 5). `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest` hiện thực hoá `MISC-030`. `ConfigQuery`/`ConfigUpdateRequest` hiện thực hoá `FE-012`/`FE-012a` (**không** có field ngưỡng risk score — `BE-091` cấm tường minh việc phơi ra UI).
+Ghi chú traceability: `DashboardStatusQuery`/`Response` hiện thực hoá `MISC-050`/`FE-041`/`PAUSE-021` (đọc, không sửa state). `AuditLogQuery`/`AuditChartQuery` hiện thực hoá `FE-070`–`072`/`MISC-010` (đọc lịch sử/thống kê, có gate `view_audit_log` theo `PWD-020` cho danh sách chi tiết — biểu đồ tổng hợp trên `S2` không gate, xem lý do phân biệt ở `10-ui-architecture.md` mục 5). `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest` hiện thực hoá `MISC-030`. `ConfigQuery`/`ConfigUpdateRequest` hiện thực hoá `FE-012`/`FE-012a` (**không** có field ngưỡng risk score — `BE-091` cấm tường minh việc phơi ra UI) và, từ v0.8.1, `PERF-050b` qua field `performance_mode`/enum `PerformanceMode` (thiết kế nghiệp vụ đầy đủ ở `10-ui-architecture.md` mục 6.4, ADR-125).
 
 ## 4. Thứ tự gọi / handshake khi connect
 
@@ -833,6 +857,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-111 (v0.7.1) | Thêm field `process_name` (field 7) vào `VisionInferenceResult` — lấy từ dữ liệu `ForegroundWindowTracker` đã resolve sẵn (`05` mục 4.1), không resolve thêm | `MISC-030` (whitelist false-positive) cần biết tên process của cửa sổ bị chặn để `UI` gửi `MarkFalsePositiveRequest` mà không phải tự tra cứu lại; additive, không đổi field cũ (đúng ADR-16) |
 | ADR-112 (v0.8.0) | `AuditLogEntry.event_type` dùng `string` (literal khớp bảng ở `04` mục 5.1), không dùng `enum` proto | Tập `event_type` là catalog dữ liệu mở rộng dần theo domain/Đợt ở `04`, không phải tập lệnh điều khiển luồng IPC cố định — dùng `enum` sẽ buộc file này đồng bộ theo mọi amendment của `04`, tạo phụ thuộc chéo không cần thiết cho 1 mục đích thuần hiển thị |
 | ADR-113 (v0.8.0) | Khối message Dashboard/Settings (Đợt 6) đặt field mới **140-159**, không nhồi tiếp vào 92-99 (chỉ còn 98-99 trống) | 9 cặp request/response cần thiết (mục 3.7) vượt xa 2 slot còn lại của khối UI 80-99; mở khối mới giữ đúng quy ước "20 field/domain" đã áp dụng cho Watchdog/Uninstaller (ADR-85), tách bạch rõ ràng hơn nhồi chật khối cũ |
+| ADR-126 (v0.8.1) | `performance_mode` (`PERF-050b`) dùng `enum PerformanceMode` (proto), không dùng `string` như `AuditLogEntry.event_type` (ADR-112) | Tập giá trị **đóng, cố định bởi chính hợp đồng IPC này** (chỉ 2 mức do `PERF-050b` định nghĩa, không phải catalog mở rộng dần theo domain khác như `event_type` ở `04`) — dùng `enum` an toàn kiểu hơn (compile-time check), không có rủi ro phụ thuộc chéo mà ADR-112 lo ngại vì không domain nào khác cần thêm giá trị vào tập này |
 
 ## 8. Câu hỏi mở
 
@@ -843,6 +868,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.1 | 2026-09-24 | PATCH — amendment cùng lượt cập nhật `10-ui-architecture.md` v0.2.0 sau khi `spec-maintainer` chốt `PERF-050b` (`Specification/08-performance-cpu-spec.md` v0.7.0, 2 mức "Cân bằng"/"Bảo vệ tối đa"). Thêm `enum PerformanceMode` (`UNSPECIFIED`/`BALANCED`/`MAXIMUM_PROTECTION`) + field `performance_mode` vào `ConfigResponse` (field 3) và `ConfigUpdateRequest` (field 2) — dùng field number nội bộ tiếp theo trong 2 message đã có sẵn ở khối 140-159 (không cần mở field top-level mới, additive, đúng ADR-16). 1 ADR mới (126, giải thích vì sao dùng `enum` thay vì `string` như `event_type`). Không đổi field/message nào khác |
 | v0.8.0 | 2026-09-20 | MINOR — Đợt 6 (`ROADMAP.md`, Dashboard UI), viết `10-ui-architecture.md`. Thêm mục 3.7 (10 message mới, field 98-99 + khối mới 140-159): `DashboardStatusQuery`/`Response` (health check `MISC-050` + cờ `PAUSE-021`), `AcknowledgePauseAnomalyRequest`/`Response`, `AuditLogQuery`/`Response` (phân trang, gate `view_audit_log`), `AuditChartQuery`/`Response` (`FE-070`–`072`), `MarkFalsePositiveRequest`/`Response` + `RemoveWhitelistEntryRequest`/`Response` (`MISC-030`, gate `manage_whitelist` — hằng số mới, amendment `08` mục 7.2), `ConfigQuery`/`Response`/`ConfigUpdateRequest`/`Response` (`FE-012`, KHÔNG có field ngưỡng risk score theo `BE-091`). Thêm field `process_name` (field 7) vào `VisionInferenceResult` (mục 3.3, additive, `MISC-030`, ADR-111) — amendment cùng lượt `05-image-pipeline-architecture.md`. Thêm message `OverlayMessageUpdate` (field 66, kênh Overlay, `FE-012`) — amendment cùng lượt `07-overlay-architecture.md` mục 4.4 (ADR-110), cập nhật diagram handshake mục 4.3. 3 ADR mới (111-113). Đóng câu hỏi mở còn lại ở mục 8 (field 98-99). Toàn bộ additive, không đổi field/message cũ (đúng ADR-16). Theo chỉ đạo — không dừng chờ review |
 | v0.7.0 | 2026-09-20 | MINOR — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Thêm mục 3.6 (6 message mới, field 92-97 khối UI): `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response` — enum `PauseDuration` (5 lựa chọn `PAUSE-002`), `PauseResult`/`ResumeResult` (kèm `ALREADY_PAUSED`/`NOT_PAUSED` idempotent guard). Additive, không đổi field/message cũ (đúng ADR-16). Thu hẹp comment "92-99 dành cho Đợt 6" xuống còn "98-99" (đóng 1 phần open question mục 8 — phần "trạng thái pause" đã xong, phần audit log/config query vẫn để Đợt 6). Làm rõ tường minh `ControlVisionCommand.reserved 20 to 29` (để ngỏ từ Đợt 0 cho "cờ suspend/tần suất heartbeat Pause") **cố tình không dùng** ở Đợt 5 — cơ chế đã giải quyết đầy đủ không cần field IPC mới (`05` ADR-40 + `02` mục 3a.4), tránh hiểu nhầm là gap còn sót. 1 ADR mới (107). Theo chỉ đạo — không dừng chờ review |
 | v0.6.0 | 2026-09-19 | MINOR — Đợt 4 (`ROADMAP.md`), amendment cùng lượt viết `09-anti-tamper-architecture.md`. Thêm 2 pipe mới (`ParentalGuard.Svc.Watchdog`, `ParentalGuard.Svc.Uninstaller` — mục 2.1/2.2), field block mới 100-119 (Watchdog: `WatchdogReportEvent`/`Ack`)/120-139 (Uninstaller: `UninstallExecuteRequest`/`Response` — mục 3.5 mới), `ProcessType.UNINSTALLER=6` (`WATCHDOG=4` từ "reserved" chuyển sang dùng thật). Thêm mục 3.1a (bảng whitelist message theo pipe, hệ thống hoá lần đầu đầy đủ cho cả 5 pipe — trước đó chỉ có nguyên tắc chung ở mục 2.1). Thêm bước 5 vào mục 4.2 (đối chiếu `Hello.process_type` khớp đúng pipe, ADR-94, áp dụng hồi tố 3 pipe cũ). Mở rộng phạm vi ADR-19 (session key ephemeral) sang pipe `Watchdog`/`Uninstaller` (mục 5.3) — không cần bootstrap thứ 3. Sửa lỗi đồng bộ phát hiện khi viết `09`: 3 field `recovery_key_plaintext`/`new_recovery_key_plaintext`×2 (mục 3.4) đổi `string`→`bytes` cho khớp đúng `08-password-authentication-architecture.md` v0.3.0 (ADR-83, FAIL 1) — bản sao `.proto` ở file này trước đó chưa được đồng bộ dù changelog `08` có ghi đã đồng bộ. Đóng câu hỏi mở giao thức `Watchdog↔Service` (mục 8). 2 ADR mới (85, 94 — chi tiết đầy đủ ở `09`). Theo chỉ đạo — không dừng chờ review |
