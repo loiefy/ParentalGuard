@@ -35,7 +35,7 @@ bộ codebase có ý nghĩa cho impact analysis — không liệt kê từng l�
 | `IpcChildClient.DiagnosticState` (public field, **mới Đợt 1**) | `Client/IpcChildClient.cs` | set bởi `Vision/Program.cs` (ADR-45 EP fallback), đọc bởi `EnqueueHeartbeatAck` | — |
 | `UiIpcClient.ConnectAsync` (**mới Đợt 6**, ADR-118/119) | `Client/UiIpcClient.cs` | `ParentalGuard.UI/App.ConnectAndRouteAsync` | `DisconnectAsync`, `NamedPipeClientStream.ConnectAsync` (BCL), `HandshakeAsync` |
 | `UiIpcClient.HandshakeAsync` (private, **mới Đợt 6**, ADR-82) | `Client/UiIpcClient.cs` | `ConnectAsync` | `IpcFrameTransport.WriteFrameAsync/ReadFrameAsync` (khoá hằng số 32-byte-zero), `NewEnvelope` |
-| `UiIpcClient.SendRequestAsync<TResp>` (**mới Đợt 6**, ADR-119 — `SemaphoreSlim(1)`, không Reader/Writer loop song song khác `IpcChildClient`) | `Client/UiIpcClient.cs` | `ParentalGuard.UI/Services/IpcClient/AuthFacade.*` | `IpcFrameTransport.WriteFrameAsync/ReadFrameAsync` (session_key), `DisconnectCoreAsync` (khi lỗi pipe/framing) |
+| `UiIpcClient.SendRequestAsync<TResp>` (**mới Đợt 6**, ADR-119 — `SemaphoreSlim(1)`, không Reader/Writer loop song song khác `IpcChildClient`) | `Client/UiIpcClient.cs` | `ParentalGuard.UI/Services/IpcClient/AuthFacade.*`, `DashboardFacade.*`/`PauseFacade.*` (**mới, giai đoạn 2**) | `IpcFrameTransport.WriteFrameAsync/ReadFrameAsync` (session_key), `DisconnectCoreAsync` (khi lỗi pipe/framing) |
 | `UiIpcClient.NewEnvelope` (**mới Đợt 6**) | `Client/UiIpcClient.cs` | `HandshakeAsync`, `AuthFacade.*` | `IpcEnvelope.NewEnvelope` |
 | `UiIpcClient.DisconnectAsync`/`.DisconnectCoreAsync` (private) (**mới Đợt 6**) | `Client/UiIpcClient.cs` | `ConnectAsync` (dọn phiên cũ), `SendRequestAsync` (khi lỗi), `ParentalGuard.UI/App.OnWindowClosed` | `NamedPipeClientStream.DisposeAsync` (BCL) |
 
@@ -538,7 +538,12 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
 | `AuthFacade.ConfirmRecoveryKeySavedAsync` | `AuthFacade.cs` | `OnboardingViewModel.ConfirmRecoveryKeySavedAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
 | `AuthFacade.AuthVerifyAsync` | `AuthFacade.cs` | `AuthPromptViewModel.SubmitAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync`, `MapAuthVerifyResponse`, `CredentialBytes.UnsafeGetBuffer/.Zero`, `CryptographicOperations.ZeroMemory` |
 | `AuthFacade.MapAuthVerifyResponse` (private static) | `AuthFacade.cs` | `AuthVerifyAsync` | `CredentialBytes` (nếu cần), `resp.ActionToken.ToByteArray` |
-| `PauseFacade`/`DashboardFacade`/`AuditFacade`/`ConfigFacade` (stub rỗng, **CHƯA có method** — placeholder DI cho giai đoạn 2-4) | `PauseFacade.cs`/`DashboardFacade.cs`/`AuditFacade.cs`/`ConfigFacade.cs` | đăng ký DI ở `App.BuildServiceProvider`, chưa ai gọi | — |
+| `AuditFacade`/`ConfigFacade` (stub rỗng, **CHƯA có method** — placeholder DI cho `S3`/`S4`, giai đoạn 3-4) | `AuditFacade.cs`/`ConfigFacade.cs` | đăng ký DI ở `App.BuildServiceProvider`, chưa ai gọi | — |
+| `DashboardFacade.GetStatusAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.PollAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` ×2 liên tiếp (`DashboardStatusQuery` rồi `PauseStatusQuery`, mục 3.3/ADR-120) |
+| `DashboardFacade.AcknowledgePauseAnomalyAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.AcknowledgeAnomalyAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `DashboardFacade.GetAuditChartAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.LoadChartAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `PauseFacade.PauseMonitoringAsync`/`.MapDuration`/`.MapPauseResponse` (**mới giai đoạn 2**) | `PauseFacade.cs` | `DashboardViewModel.PauseAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `PauseFacade.ResumeMonitoringAsync`/`.MapResumeResponse` (**mới giai đoạn 2**) | `PauseFacade.cs` | `DashboardViewModel.ResumeAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
 
 ### `src/ParentalGuard.UI/Services/` (NavigationService, LocalizationService, SingleInstanceGuard)
 
@@ -547,7 +552,8 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
 | `NavigationService.Initialize` | `NavigationService.cs` | `App.OnLaunched` | — (lưu `Frame` root) |
 | `NavigationService.NavigateToConnectionError`/`.NavigateToOnboarding`/`.NavigateToMainShell` | `NavigationService.cs` | `App.ConnectAndRouteAsync`, `Views/OnboardingPage.*` | `Frame.Navigate` (BCL) |
 | `NavigationService.NavigateToRecovery` (**CHƯA implement — throw NotImplementedException có chủ đích, `S6` giai đoạn sau**) | `NavigationService.cs` | `ShowAuthPromptAsync` (khi `AuthPromptDialog.ForgotPasswordRequested`), `Views/SettingsPage` (giai đoạn 4, chưa gọi) | — |
-| `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5) | `NavigationService.cs` | (chưa có caller thật ở giai đoạn 1 — `S3`/`S2`/`S4` gọi ở giai đoạn 2-4) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
+| `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5, implement `IAuthPromptService`) | `NavigationService.cs` | `DashboardViewModel.PauseAsync`/`.ResumeAsync`/`.PauseWithTokenAsync`/`.ResumeWithTokenAsync` (qua interface `IAuthPromptService`, giai đoạn 2), `S3`/`S4` (giai đoạn sau) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
+| `IAuthPromptService` (**mới**, `Services/IAuthPromptService.cs` — seam test-only, sửa gap `test-runner` 2026-09-24) | — (interface) | `NavigationService` (implement thật), `tests/ParentalGuard.UI.Tests/DashboardViewModelTests.cs` (`FakeAuthPromptService`, fake token/CallCount) |
 | `LocalizationService.Get`/`.GetFormatted` | `LocalizationService.cs` | mọi `Views/*.xaml.cs`, `ViewModels/*.cs` | `ResourceManager.GetString` (BCL) |
 | `SingleInstanceGuard` ctor/`.Dispose` | `SingleInstanceGuard.cs` | `App.OnLaunched`, `App.OnWindowClosed` | `Mutex` (BCL) |
 | `SingleInstanceGuard.ActivateExistingInstance` (static) | `SingleInstanceGuard.cs` | `App.OnLaunched` (khi `IsFirstInstance=false`) | `FindWindow`/`SetForegroundWindow` (P/Invoke `user32`) |
@@ -622,6 +628,66 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
   Có test hồi quy cho bug (2) ở `tests/ParentalGuard.UI.Tests/OnboardingViewModelTests.cs`; bug (1) khó
   test tự động (phụ thuộc `PasswordBox` XAML control, sandbox không render UI tương tác) — đã review
   thủ công logic.
+
+## Đợt 6 (Architecture/10-ui-architecture.md) — `ParentalGuard.UI` giai đoạn 2 (`S2` Dashboard)
+
+Phạm vi lượt này: `DashboardFacade`/`PauseFacade` implement đầy đủ (trước là stub rỗng), `DashboardViewModel`
+(poll 5s, ADR-120), `DashboardPage.xaml` layout thật (5 phần mục 6.2). Amendment `ParentalGuard.Ipc/Protos/ipc.proto`
+— thêm message Đợt 6 field 98/99 (`DashboardStatusQuery`/`Response`) + 140/141/144/145
+(`AcknowledgePauseAnomalyRequest`/`Response`, `AuditChartQuery`/`Response`, `DailyBlockCount`) đúng
+`03-ipc-communication.md` mục 3.7 — field 142/143/146-153 (`S3`/`S4`) CHƯA định nghĩa, để dành giai đoạn sau.
+
+### `src/ParentalGuard.UI/ViewModels/DashboardViewModel.cs`
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `DashboardViewModel.Start` | `Views/DashboardPage.OnNavigatedTo` | `DispatcherQueue.CreateTimer`, `PollAsync`, `LoadChartAsync` (fire-and-forget lần đầu), `DispatcherQueueTimer.Start` |
+| `DashboardViewModel.Stop` | `Views/DashboardPage.OnNavigatedFrom` | `DispatcherQueueTimer.Stop` (KHÔNG poll nền khi rời trang, mục 3.3) |
+| `DashboardViewModel.PollAsync` (private) | `Start` (lần đầu), `DispatcherQueueTimer.Tick` (mỗi 5s), `PauseAsync`/`ResumeAsync` (refresh ngay sau khi Pause/Resume thành công) | `IDashboardFacade.GetStatusAsync`, `ApplyStatus` |
+| `DashboardViewModel.ApplyStatus` (**internal, seam test-only** — `InternalsVisibleTo` ở `AssemblyInfo.cs`) | `PollAsync`, `tests/ParentalGuard.UI.Tests/DashboardViewModelTests.cs` | set `CardState`/`WatchdogAlive`/`VisionConnected`/`VisionCpuFallback`/`OverlayConnected`/`DiskSpaceLow`/`UsingFallbackConfig`/`VisionDiagnosticStateDetail`/`ShowAnomalyBanner`/`IsPaused`/`PauseCountdownText`, `FormatCountdown` |
+| `DashboardViewModel.PauseAsync`/`.ResumeAsync` | `Views/DashboardPage.OnPauseClick`/`.OnResumeClick` | `IAuthPromptService.ShowAuthPromptAsync("pause_monitoring", xamlRoot)` (mục 6.2.2 — gate `S5` TRƯỚC request thật), `PauseWithTokenAsync`/`ResumeWithTokenAsync` |
+| `DashboardViewModel.PauseWithTokenAsync`/`.ResumeWithTokenAsync` (private, mục 6.5 — sửa gap `test-runner` phát hiện 2026-09-24) | `PauseAsync`/`ResumeAsync`, chính nó (đệ quy đúng 1 lần khi retry) | `IPauseFacade.PauseMonitoringAsync`/`.ResumeMonitoringAsync`, `PollAsync` (refresh khi Success/idempotent) — `InvalidToken`: set `ErrorMessage` rồi tự gọi lại `IAuthPromptService.ShowAuthPromptAsync` NGAY (`allowRetry=true`→`false`, chống đệ quy vô hạn); token mới → gọi lại chính nó với token mới; user huỷ dialog retry hoặc retry vẫn `InvalidToken` → dừng, giữ `ErrorMessage` |
+| `DashboardViewModel.AcknowledgeAnomalyAsync` (`[RelayCommand]` → `AcknowledgeAnomalyCommand`) | `Views/DashboardPage.xaml` (`InfoBar.ActionButton` Command binding) | `IDashboardFacade.AcknowledgePauseAnomalyAsync` |
+| `DashboardViewModel.SetChartRangeAsync`/`.LoadChartAsync` (private) | `Views/DashboardPage.OnChart7Click`/`.OnChart30Click`, `Start` (lần đầu) | `IDashboardFacade.GetAuditChartAsync` |
+
+### `src/ParentalGuard.UI/Services/IpcClient/DashboardFacade.cs`, `PauseFacade.cs` (implement đầy đủ, xem bảng ở trên)
+
+### `src/ParentalGuard.UI/Views/DashboardPage.xaml(.cs)`
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `DashboardPage` ctor | `Views/MainShellPage.OnLoaded`/`.OnSelectionChanged` (`Frame.Navigate`) | `new DashboardViewModel` (Facade lấy qua `App.Services`), `ApplyStaticLabels` |
+| `DashboardPage.OnNavigatedTo`/`.OnNavigatedFrom` | Windows App SDK (`Frame` navigation lifecycle) | `DashboardViewModel.Start`/`.Stop` |
+| `DashboardPage.RenderChart` | `OnViewModelPropertyChanged` (khi `ChartData`/`IsChartEmpty` đổi), `OnChartCanvasSizeChanged` | `Canvas.Children.Clear`, vẽ `Rectangle` trực tiếp (mục 6.2.5/11 — KHÔNG thêm NuGet chart mới, xem "Quyết định implement tự chọn" bên dưới) |
+
+### Quyết định implement tự chọn (giai đoạn 2)
+
+- **Chart tự vẽ bằng `Microsoft.UI.Xaml.Shapes.Rectangle`/`Canvas`, KHÔNG thêm package `LiveChartsCore.SkiaSharpView.WinUI`**
+  (Architecture/10 mục 6.2.5/11 để ngỏ 2 lựa chọn) — sandbox dev không có màn hình để verify UI thật
+  (không thể xác nhận 1 thư viện chart mới render đúng/không lỗi runtime WinRT), nên 0 dependency mới
+  là lựa chọn rủi ro thấp hơn ở giai đoạn này; `feature-dev` tương lai có thể thay bằng LiveCharts nếu
+  cần biểu đồ phức tạp hơn (đường xu hướng, tooltip...) mà không đổi hợp đồng `IDashboardFacade`.
+- **Picker thời lượng Pause implement bằng `ComboBox` inline** (không phải `Flyout`/dialog riêng) —
+  Architecture/10 mục 6.2.2 chỉ nói "mở picker 5 lựa chọn", không chỉ định control cụ thể; `ComboBox`
+  đơn giản nhất, đúng tinh thần "chi tiết implement không chặn kiến trúc".
+- **`x:Bind` không hỗ trợ toán tử `!` trong markup ở bản Windows App SDK 2.5.1 đang dùng** (xác nhận
+  qua build thật — lỗi `token recognition error at: '!'`) — thêm property phủ định tường minh
+  (`IsNotPaused`/`IsNotBusy`/`HasChartData`) trên `DashboardViewModel` thay vì phủ định trong XAML.
+
+### Test mới (`tests/ParentalGuard.UI.Tests/`)
+
+`DashboardFacadeTests.cs`/`PauseFacadeTests.cs` — loopback named pipe thật (cùng mẫu hình
+`UiIpcClientTests`), verify round-trip 2 query liên tiếp + mapping enum kết quả. `DashboardViewModelTests.cs`
+— verify `ApplyStatus` (CardState/Error precedence/cpu-fallback substring/disk threshold ADR-123),
+`AcknowledgeAnomalyCommand`, `SetChartRangeAsync`/`IsChartEmpty` (`FE-040`) qua fake facade. **Cập nhật
+2026-09-24** (sửa gap `test-runner` phát hiện — `PauseAsync`/`ResumeAsync` nhánh `InvalidToken` không tự
+mở lại `S5` như mục 6.5 yêu cầu): tách `IAuthPromptService` khỏi `NavigationService` (seam test-only) →
+`PauseAsync`/`ResumeAsync` giờ TEST ĐƯỢC end-to-end qua `FakeAuthPromptService`/`FakePauseFacade`
+(không cần `XamlRoot`/`ContentDialog` thật — fake bỏ qua tham số `xamlRoot`, gọi `PauseAsync(null!)` an
+toàn trong unit test). 5 test mới: `PauseAsync`/`ResumeAsync` × (retry thành công với token mới, user
+huỷ dialog retry → giữ `ErrorMessage`, retry cũng `InvalidToken` → dừng sau đúng 1 lần — không test
+riêng nhánh cuối cho Resume vì logic `ResumeWithTokenAsync` giống hệt `PauseWithTokenAsync`, đã cover
+qua `PauseAsync` tương ứng).
 
 ## Ghi chú khoảng trống đã biết (xem báo cáo bàn giao)
 

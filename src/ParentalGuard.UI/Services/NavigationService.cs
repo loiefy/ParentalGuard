@@ -9,7 +9,7 @@ namespace ParentalGuard.UI.Services;
 /// Điều hướng cấp cao giữa các Views (Architecture/10-ui-architecture.md mục 2.1/4) + quản lý hiển
 /// thị <see cref="AuthPromptDialog"/> (`S5`) theo <c>action_context</c>.
 /// </summary>
-public sealed class NavigationService(IAuthFacade authFacade)
+public sealed class NavigationService(IAuthFacade authFacade) : IAuthPromptService
 {
     private Frame? _rootFrame;
 

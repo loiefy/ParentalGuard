@@ -135,7 +135,7 @@
     <value>Xác nhận mật khẩu để thay đổi danh sách loại trừ</value>
   </data>
 
-  <!-- Main Shell placeholder pages (giai đoạn 2-4 mới implement đầy đủ). -->
+  <!-- Main Shell placeholder pages (giai đoạn 3-4 mới implement đầy đủ S3/S4). -->
   <data name="NavDashboard" xml:space="preserve">
     <value>Tổng quan</value>
   </data>
@@ -147,5 +147,111 @@
   </data>
   <data name="PlaceholderInDevelopment" xml:space="preserve">
     <value>Đang phát triển</value>
+  </data>
+
+  <!-- S2 Dashboard (mục 6.2) — thẻ trạng thái. -->
+  <data name="DashboardStatusActive" xml:space="preserve">
+    <value>Đang hoạt động</value>
+  </data>
+  <data name="DashboardStatusPaused" xml:space="preserve">
+    <value>Tạm dừng — còn {0}</value>
+  </data>
+  <data name="DashboardStatusError" xml:space="preserve">
+    <value>Gián đoạn</value>
+  </data>
+  <data name="DashboardActionTokenExpired" xml:space="preserve">
+    <value>Phiên xác thực đã hết hạn, vui lòng thử lại.</value>
+  </data>
+  <data name="DashboardConnectionLostMessage" xml:space="preserve">
+    <value>Mất kết nối tới Service, đang thử lại...</value>
+  </data>
+
+  <!-- S2 Dashboard — nút Pause/Resume + picker thời lượng (PAUSE-002). -->
+  <data name="DashboardPauseButton" xml:space="preserve">
+    <value>Tạm dừng giám sát</value>
+  </data>
+  <data name="DashboardResumeButton" xml:space="preserve">
+    <value>Tiếp tục ngay</value>
+  </data>
+  <data name="DashboardPauseDurationLabel" xml:space="preserve">
+    <value>Thời lượng tạm dừng</value>
+  </data>
+  <data name="PauseDuration15Min" xml:space="preserve">
+    <value>15 phút</value>
+  </data>
+  <data name="PauseDuration30Min" xml:space="preserve">
+    <value>30 phút</value>
+  </data>
+  <data name="PauseDuration1Hour" xml:space="preserve">
+    <value>1 giờ</value>
+  </data>
+  <data name="PauseDuration4Hours" xml:space="preserve">
+    <value>4 giờ</value>
+  </data>
+  <data name="PauseDurationEndOfDay" xml:space="preserve">
+    <value>Đến hết ngày hôm nay</value>
+  </data>
+
+  <!-- S2 Dashboard — banner PAUSE-021. -->
+  <data name="DashboardAnomalyBannerTitle" xml:space="preserve">
+    <value>Tần suất tạm dừng bất thường</value>
+  </data>
+  <data name="DashboardAnomalyBannerMessage" xml:space="preserve">
+    <value>Tạm dừng được kích hoạt bất thường nhiều lần hôm nay. Nếu không phải bạn thực hiện, hãy đổi mật khẩu ngay.</value>
+  </data>
+  <data name="DashboardAnomalyAckButton" xml:space="preserve">
+    <value>Đã xem</value>
+  </data>
+
+  <!-- S2 Dashboard — health check (MISC-050/FE-041). -->
+  <data name="DashboardHealthTitle" xml:space="preserve">
+    <value>Kiểm tra tình trạng</value>
+  </data>
+  <data name="DashboardHealthWatchdogOk" xml:space="preserve">
+    <value>✓ Watchdog hoạt động bình thường</value>
+  </data>
+  <data name="DashboardHealthWatchdogDown" xml:space="preserve">
+    <value>✗ Watchdog không phản hồi</value>
+  </data>
+  <data name="DashboardHealthVisionOk" xml:space="preserve">
+    <value>✓ Vision Engine hoạt động bình thường</value>
+  </data>
+  <data name="DashboardHealthVisionCpuFallback" xml:space="preserve">
+    <value>⚠ Vision Engine đang chạy chế độ CPU dự phòng (chậm hơn bình thường)</value>
+  </data>
+  <data name="DashboardHealthVisionDown" xml:space="preserve">
+    <value>✗ Vision Engine mất kết nối</value>
+  </data>
+  <data name="DashboardHealthOverlayOk" xml:space="preserve">
+    <value>✓ Overlay hoạt động bình thường</value>
+  </data>
+  <data name="DashboardHealthOverlayDown" xml:space="preserve">
+    <value>✗ Overlay mất kết nối</value>
+  </data>
+  <data name="DashboardHealthDiskSpaceLow" xml:space="preserve">
+    <value>⚠ Dung lượng ổ đĩa chứa nhật ký sắp hết</value>
+  </data>
+  <data name="DashboardHealthFallbackConfig" xml:space="preserve">
+    <value>⚠ Đang dùng cấu hình mặc định do sự cố, vui lòng kiểm tra</value>
+  </data>
+  <data name="DashboardHealthDetailsHeader" xml:space="preserve">
+    <value>Chi tiết kỹ thuật</value>
+  </data>
+
+  <!-- S2 Dashboard — biểu đồ (FE-070-072). -->
+  <data name="DashboardChartTitle" xml:space="preserve">
+    <value>Số lần chặn theo ngày</value>
+  </data>
+  <data name="DashboardChart7DaysButton" xml:space="preserve">
+    <value>7 ngày</value>
+  </data>
+  <data name="DashboardChart30DaysButton" xml:space="preserve">
+    <value>30 ngày</value>
+  </data>
+  <data name="DashboardChartEmptyText" xml:space="preserve">
+    <value>Chưa phát hiện nội dung nào cần chặn</value>
+  </data>
+  <data name="DashboardChartSummaryFormat" xml:space="preserve">
+    <value>{0} ngày qua: {1} lần chặn</value>
   </data>
 </root>

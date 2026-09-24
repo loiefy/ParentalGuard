@@ -61,7 +61,9 @@ message IpcPayload {
     ResumeMonitoringResponse resume_monitoring_resp = 95;
     PauseStatusQuery pause_status_query = 96;
     PauseStatusResponse pause_status_resp = 97;
-    // 98-99 dành cho Đợt 6 (Dashboard query khác), chi tiết hoá khi thiết kế 10-ui-architecture.md
+    // Đợt 6, S2 Dashboard — Architecture/03-ipc-communication.md mục 3.7/10-ui-architecture.md mục 5.
+    DashboardStatusQuery dashboard_status_query = 98;
+    DashboardStatusResponse dashboard_status_resp = 99;
 
     // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
     WatchdogReportEvent watchdog_report_event = 100;
@@ -72,6 +74,14 @@ message IpcPayload {
     // khối UI 80-99) qua whitelist message theo pipe (mục 3.1a của 03) — KHÔNG định nghĩa lại.
     UninstallExecuteRequest uninstall_execute_req = 120;
     UninstallExecuteResponse uninstall_execute_resp = 121;
+
+    // --- Kênh UI Dashboard/Settings (140-159), Đợt 6 — Architecture/03 mục 3.7/10-ui-architecture.md mục 5 ---
+    // Field 142/143 (AuditLogQuery/Response) và 146-153 (MarkFalsePositive/Config/RemoveWhitelistEntry)
+    // thuộc S3/S4 — ngoài phạm vi lượt implement S2 này, chưa định nghĩa message tương ứng ở đây.
+    AcknowledgePauseAnomalyRequest ack_pause_anomaly_req = 140;
+    AcknowledgePauseAnomalyResponse ack_pause_anomaly_resp = 141;
+    AuditChartQuery audit_chart_query = 144;
+    AuditChartResponse audit_chart_resp = 145;
   }
 }
 
@@ -429,4 +439,41 @@ enum UninstallResult {
   SUCCESS         = 1;
   INVALID_TOKEN   = 2; // hết hạn / sai action_context / đã dùng / không tồn tại
   PARTIAL_FAILURE = 3; // 1+ bước dọn dẹp lỗi — best-effort, KHÔNG rollback (mục 5.5 file 09)
+}
+
+// --- Đợt 6, `S2` Dashboard: DashboardStatusQuery/Response, xác nhận cảnh báo pause bất thường,
+// biểu đồ audit tổng hợp (field 98-99 + 140-141 + 144-145 của khối UI) ---
+// Nguồn: Architecture/03-ipc-communication.md mục 3.7, Architecture/10-ui-architecture.md mục 5/6.2
+// (Approved). Field 142/143/146-153 (AuditLogQuery/Response, MarkFalsePositive, Config,
+// RemoveWhitelistEntry) thuộc S3/S4 — ngoài phạm vi lượt này, chưa định nghĩa message ở đây.
+
+message DashboardStatusQuery {} // field 98
+
+message DashboardStatusResponse { // field 99
+  bool watchdog_alive = 1;
+  bool vision_connected = 2;
+  string vision_diagnostic_state = 3; // relay nguyên văn HeartbeatAck.diagnostic_state mới nhất — không diễn giải
+  bool overlay_connected = 4;
+  bool using_fallback_config = 5;
+  int64 audit_log_free_disk_bytes = 6;
+  bool pause_anomaly_pending_ack = 7; // PAUSE-021, 02 mục 3a.7
+}
+
+message AcknowledgePauseAnomalyRequest {} // field 140
+
+message AcknowledgePauseAnomalyResponse { // field 141
+  bool acknowledged = 1;
+}
+
+message AuditChartQuery { // field 144
+  uint32 range_days = 1; // 7 hoặc 30 (FE-071) — Phase 1 chỉ hỗ trợ đúng 2 giá trị này
+}
+
+message AuditChartResponse { // field 145
+  repeated DailyBlockCount days = 1;
+}
+
+message DailyBlockCount {
+  string date_utc = 1; // "YYYY-MM-DD"
+  uint32 blocked_count = 2; // đếm event_type="ContentBlocked" trong ngày đó
 }
