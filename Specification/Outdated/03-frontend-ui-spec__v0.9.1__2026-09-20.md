@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.9.2 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.9.1 | Trạng thái: Approved | Cập nhật: 2026-09-19
 
 ## 1. Nguyên tắc thiết kế
 
@@ -15,7 +15,7 @@
 | S1 | Onboarding / Setup ban đầu | Phụ huynh | Đặt mật khẩu lần đầu, thiết lập câu hỏi/khoá khôi phục, chọn mức độ nhạy cảm mặc định |
 | S2 | Dashboard chính | Phụ huynh | Trạng thái tổng quan: đang hoạt động/tạm dừng, **biểu đồ thống kê số lần chặn** (`FE-070`), truy cập cài đặt |
 | S3 | Lịch sử/Audit log | Phụ huynh | Danh sách sự kiện (thời gian, hành động, app liên quan) + biểu đồ theo thời gian — không hiển thị ảnh |
-| S4 | Cài đặt nâng cao | Phụ huynh | Whitelist theo tên process/ứng dụng, cấu hình hiệu năng, **nội dung thông điệp overlay** (`FE-012`), ngôn ngữ hiển thị (`FE-063`) — không có mục chỉnh ngưỡng nhạy cảm (xem `BE-091`) |
+| S4 | Cài đặt nâng cao | Phụ huynh | Whitelist app/domain, cấu hình hiệu năng, **nội dung thông điệp overlay** (`FE-012`), ngôn ngữ hiển thị (`FE-063`) — không có mục chỉnh ngưỡng nhạy cảm (xem `BE-091`) |
 | S5 | Xác thực mật khẩu (Auth Prompt) | Phụ huynh | Modal yêu cầu mật khẩu trước hành động nhạy cảm (tạm dừng, gỡ, đổi cấu hình) |
 | S6 | Quên mật khẩu / Khôi phục | Phụ huynh | Luồng recovery — xem `06-password-management-spec.md` |
 | S7 | **Overlay chặn nội dung** | Trẻ em | Màn hình blur phủ browser + thông điệp + nút "Tắt nội dung" |
@@ -112,7 +112,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.9.2 | 2026-09-20 | **PATCH — sửa câu chữ, không đổi ý nghĩa/phạm vi tính năng**: phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI) — mô tả màn hình `S4` (mục 2) dùng chữ "Whitelist app/domain" mâu thuẫn với thực tế kỹ thuật: pipeline phát hiện của dự án thuần pixel/window (`BE-021`), không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`. Sửa thành "Whitelist theo tên process/ứng dụng". Không đổi ý nghĩa/phạm vi `MISC-030` (`10-additional-mechanisms-spec.md`) đã `APPROVED` — chỉ khớp lại câu chữ với năng lực kỹ thuật thật. |
 | v0.9.1 | 2026-09-19 | **PATCH — chốt câu hỏi mở của `FE-016g`**: chủ dự án xác nhận overlay full-screen lock (chế độ gộp) **bắt buộc hiển thị đếm ngược trực quan** cho auto-timeout 30 giây (`BE-089b`) — không được đếm ngầm rồi tự đóng bất ngờ. Bổ sung vào `FE-016g`: hiển thị dạng "Tự động đóng sau: 30s" giảm dần từng giây, đặt cạnh/gần nút "Tắt nội dung" duy nhất. Chi tiết font/màu/vị trí chính xác không phải quyết định sản phẩm, để `feature-dev` tự quyết định khi implement. Xoá câu hỏi mở tương ứng ở mục 9 (đánh dấu đã trả lời). Archive: `Specification/Outdated/03-frontend-ui-spec__v0.9.0__2026-09-19.md` |
 | v0.9.0 | 2026-09-19 | **MINOR — thêm `FE-016g`**: bổ sung lối thoát dự phòng thứ 2 (auto-timeout) cho `FE-016f` (full-screen lock chỉ 1 nút duy nhất) — phát sinh khi session điều phối chỉ ra quyết định trước tạo ngoại lệ hoàn toàn cho `GEN-007`. Chủ dự án chốt qua 2 vòng hỏi đáp: overlay full-screen lock tự động force-close sau **30 giây** không thao tác, là lối thoát độc lập thứ 2 bên cạnh nút bấm thủ công (chi tiết kỹ thuật ở `BE-089b`, `02-backend-spec.md` → v0.13.0). Nhờ đó `GEN-007a` không còn là ngoại lệ "chỉ 1 lối thoát" mà là "2 lối thoát: 1 thủ công + 1 tự động theo thời gian". Chi tiết UX cho việc có hiển thị đếm ngược hay không **chưa chốt** — thêm vào mục 9 câu hỏi mở. Đồng bộ `00-INDEX.md` (`GEN-007a`/`GEN-007b`). Archive: `Specification/Outdated/03-frontend-ui-spec__v0.8.0__2026-09-19.md` |
 | v0.8.0 | 2026-09-19 | **MINOR — thêm `FE-016f`**: phát sinh khi `architecture-writer` viết `Architecture/07-overlay-architecture.md` (Đợt 2), phát hiện gap — cơ chế vùng loại trừ nút đóng 3 lớp (`FE-016`) giả định ánh xạ 1 overlay ↔ 1 cửa sổ, bị phá vỡ ở chế độ overlay gộp (`BE-088`, `02-backend-spec.md`). Chủ dự án chốt trực tiếp qua 2 vòng hỏi đáp: `FE-016` **không áp dụng** trong chế độ gộp (chủ đích thiết kế, không phải thiếu sót) — overlay chế độ gộp chuyển thành **full-screen lock** che toàn màn hình, chỉ có **đúng 1 nút "Tắt nội dung" duy nhất** đóng toàn bộ cửa sổ vi phạm bị gộp cùng lúc. Đồng bộ với `02-backend-spec.md` → v0.12.0 (`BE-088a`, `BE-089a` supersedes `BE-089`) và `00-INDEX.md` (`GEN-007a`, ngoại lệ tường minh cho nguyên tắc "luôn có ít nhất 2 cách thoát"). Archive: `Specification/Outdated/03-frontend-ui-spec__v0.7.0__2026-09-19.md` |

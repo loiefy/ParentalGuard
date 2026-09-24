@@ -1,6 +1,6 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.2.2 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
+> Version: v0.2.1 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
 > Cập nhật: 2026-09-17
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
@@ -19,7 +19,7 @@
 
 ## 3. Whitelist / báo cáo False Positive từ UI (MISC-030)
 
-- Khi phụ huynh xem lại audit log, cho phép đánh dấu 1 sự kiện chặn là "sai" (false positive) → thêm **tên process/ứng dụng** đó vào whitelist cục bộ để không bị chặn lại (**không phải whitelist theo domain/URL** — pipeline phát hiện của dự án thuần pixel/window theo `BE-021`, không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`).
+- Khi phụ huynh xem lại audit log, cho phép đánh dấu 1 sự kiện chặn là "sai" (false positive) → thêm domain/app đó vào whitelist cục bộ để không bị chặn lại.
 - Không gửi feedback này ra ngoài (không có cơ chế "gửi để cải thiện model chung" trừ khi có quyết định riêng sau này về việc xây dựng cơ chế đóng góp dữ liệu ẩn danh, hoàn toàn tự nguyện — hiện tại ngoài scope).
 
 ## 4. Hỗ trợ đa hồ sơ / đa người dùng máy (MISC-040)
@@ -72,7 +72,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.2.2 | 2026-09-20 | **PATCH — sửa câu chữ, không đổi ý nghĩa/phạm vi tính năng**: phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI) — `MISC-030` dùng chữ "thêm domain/app đó vào whitelist" mâu thuẫn với thực tế kỹ thuật: pipeline phát hiện của dự án thuần pixel/window (`BE-021`), không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`. Sửa thành whitelist theo **tên process/ứng dụng** (không phải domain/URL). Đồng bộ với `03-frontend-ui-spec.md` → v0.9.2 (sửa cùng lỗi câu chữ ở mô tả màn hình `S4`). Không đổi ý nghĩa/phạm vi `MISC-030` đã `APPROVED`. |
 | v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ mục trong file này (không chỉ bảng ưu tiên mục 10, mà cả từng mục con) — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt cả 2 câu hỏi mở**: duyệt bảng ưu tiên mục 10, ngoại trừ 2 điều chỉnh — `MISC-020` REJECTED (loại bỏ auto-update, app tuyệt đối zero internet, cập nhật chỉ thủ công); `MISC-080` REJECTED (loại hẳn khỏi roadmap, không chỉ đẩy Phase 2 — nhu cầu đã được `07-pause-resume-spec.md` giải quyết). Đồng bộ thay đổi sang `02-backend-spec.md`, `04-security-spec.md`, `01-tong-quan-va-pham-vi.md`, `05-anti-uninstall-tamper-spec.md`. File này không còn câu hỏi mở |
 | v0.1.0 | 2026-09-17 | Khởi tạo |

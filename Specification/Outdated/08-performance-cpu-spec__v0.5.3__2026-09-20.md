@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.5.3 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục tiêu hiệu năng
 
@@ -41,11 +41,11 @@
 
 ## 6. Giới hạn tài nguyên cấu hình được (Resource Throttling Config)
 
-- `PERF-050` (ĐÃ CHỐT v0.6.0, 2026-09-20 — xác nhận trực tiếp bởi chủ dự án): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), đủ cả 3 mức:
+- `PERF-050` (PROPOSED): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`):
   - **Cân bằng** (mặc định): theo chiến lược adaptive ở mục 2.
-  - **Tiết kiệm pin**: giảm tần suất tối đa, ưu tiên hiệu năng máy hơn (đánh đổi tăng độ trễ phát hiện/giảm hiệu quả bảo vệ).
+  - **Tiết kiệm pin**: giảm tần suất tối đa, ưu tiên hiệu năng máy hơn (đánh đổi tăng độ trễ phát hiện).
   - **Bảo vệ tối đa**: tăng tần suất capture/inference, chấp nhận tiêu tốn CPU cao hơn.
-  - `PERF-050a` **(ĐÃ CHỐT v0.6.0, ràng buộc UI bắt buộc)**: Khi phụ huynh chọn mức **"Tiết kiệm pin"**, UI (`S4`, xem `03-frontend-ui-spec.md`) **bắt buộc phải hiển thị cảnh báo rõ ràng về việc giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn** (ví dụ dialog/banner xác nhận, không phải chú thích nhỏ dễ bỏ qua) — mục đích: tôn trọng quyền quyết định của phụ huynh nhưng đảm bảo họ hiểu rõ đánh đổi, tránh trường hợp vô tình tự làm yếu bảo vệ mà không nhận thức được hậu quả. Đây là điều kiện bắt buộc đi kèm việc duyệt đủ 3 mức ở `PERF-050`, không phải gợi ý tuỳ chọn. Chi tiết trình bày cụ thể (nội dung câu chữ cảnh báo, dạng modal hay banner, có cần xác nhận thêm 1 lần nữa hay không...) không phải quyết định sản phẩm, để thiết kế ở `Architecture/`/implement ở `feature-dev` tự quyết định theo đúng tinh thần yêu cầu này.
+- Rủi ro cần lưu ý khi review: có nên cho phép chọn "Tiết kiệm pin" không, vì nó làm giảm hiệu quả bảo vệ — cần cân nhắc kỹ giữa tính linh hoạt và tránh phụ huynh vô tình tự làm yếu bảo vệ.
 
 ## 7. Benchmark & tiêu chí đo lường (để chốt trước khi code)
 
@@ -69,7 +69,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.6.0 | 2026-09-20 | **MINOR — vá gap quy trình phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI)**: `PERF-050` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.5.3 (cùng dạng gap 2-tầng-trạng-thái đã gặp ở `PAUSE-021`/`ANTI-060` trước đây). Chủ dự án xác nhận trực tiếp 2026-09-20: **DUYỆT đủ cả 3 mức** hiệu năng (Cân bằng/Tiết kiệm pin/Bảo vệ tối đa). Bổ sung `PERF-050a` mới: khi chọn "Tiết kiệm pin", UI **bắt buộc** hiển thị cảnh báo rõ ràng về giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn — ghi rõ vào requirement (không chỉ ngầm hiểu) vì đây là chi tiết UX quan trọng ảnh hưởng trực tiếp tới an toàn trẻ em. Rà soát toàn file `08`: không còn `PERF-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.5.3__2026-09-20.md` |
 | v0.5.3 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.5.2 | 2026-09-17 | Liên kết `PERF-032` tới model cụ thể đã chốt (`IMG-014` mới ở `09-image-processing-spec.md`: `GantMan/nsfw_model`, MobileNetV2, MIT) |
 | v0.5.1 | 2026-09-17 | Thêm liên kết chéo tại `PERF-021` tới `IMG-012` mới ở `09-image-processing-spec.md` (crop GPU-side về đúng cửa sổ, khác cấp với việc chọn màn hình ở `PERF-021`), tránh nhầm lẫn 2 khái niệm |

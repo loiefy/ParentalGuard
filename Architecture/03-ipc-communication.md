@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
 
 ## 1. Mục đích
 
@@ -83,13 +83,15 @@ message IpcPayload {
     ControlVisionCommand   control_vision  = 40;
     VisionInferenceResult  vision_result   = 41;
 
-    // --- Kênh Overlay (60-79, dành 66-79 cho nhu cầu tương lai) ---
+    // --- Kênh Overlay (60-79, dành 67-79 cho nhu cầu tương lai) ---
     OverlayRectListCommand overlay_rects        = 60;
     ForceCloseRequest      force_close          = 61;
     ShowToastCommand       show_toast           = 62; // dùng từ Đợt 0 (BE-061b) — xem 3.2; tổng quát cho mọi cảnh báo Overlay-channel, không riêng fail-secure
     MonitoringStatusUpdate monitoring_status     = 63; // Đợt 2, Service → Overlay — trạng thái icon (FE-021), 07-overlay-architecture.md mục 4.1.2
     IconPositionUpdate     icon_position_update = 64; // Đợt 2, Overlay → Service — kết quả kéo-thả icon (FE-020a), 07-overlay-architecture.md mục 4.1.4
     IconLayoutSync         icon_layout_sync     = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
+    OverlayMessageUpdate   overlay_message_update = 66; // Đợt 6, Service → Overlay — nội dung thông điệp overlay
+                                                          // tuỳ biến (FE-012), 07-overlay-architecture.md mục 4.4
 
     // --- Kênh UI (80-99) ---
     // Password & Authentication (80-91, Đợt 3) — 08-password-authentication-architecture.md mục 7
@@ -112,8 +114,9 @@ message IpcPayload {
     ResumeMonitoringResponse         resume_monitoring_resp    = 95;
     PauseStatusQuery                 pause_status_query        = 96;
     PauseStatusResponse              pause_status_resp         = 97;
-    // 98-99 dành cho Đợt 6 (Dashboard query khác — audit log history, config query...),
-    // chi tiết hoá khi thiết kế 10-ui-architecture.md
+    // 98-99 (Đợt 6) — 10-ui-architecture.md mục 5
+    DashboardStatusQuery    dashboard_status_query = 98;
+    DashboardStatusResponse dashboard_status_resp  = 99;
 
     // --- Kênh Watchdog (100-119), Đợt 4 — 09-anti-tamper-architecture.md mục 3 ---
     WatchdogReportEvent    watchdog_report_event     = 100;
@@ -125,6 +128,24 @@ message IpcPayload {
     // KHÔNG định nghĩa lại message đó ở khối 120-139 này.
     UninstallExecuteRequest  uninstall_execute_req  = 120;
     UninstallExecuteResponse uninstall_execute_resp = 121;
+
+    // --- Kênh UI Dashboard/Settings (140-159), Đợt 6 — 10-ui-architecture.md mục 5 ---
+    // Khối RIÊNG (không nhồi tiếp vào 80-99 vốn đã gần đầy) — cùng nguyên tắc "khối 20 field/domain"
+    // đã áp dụng cho Watchdog/Uninstaller (ADR-16/85), field 154-159 để ngỏ cho nhu cầu Đợt 7+.
+    AcknowledgePauseAnomalyRequest  ack_pause_anomaly_req   = 140;
+    AcknowledgePauseAnomalyResponse ack_pause_anomaly_resp  = 141;
+    AuditLogQuery                   audit_log_query         = 142;
+    AuditLogResponse                audit_log_resp          = 143;
+    AuditChartQuery                 audit_chart_query       = 144;
+    AuditChartResponse              audit_chart_resp        = 145;
+    MarkFalsePositiveRequest        mark_false_positive_req  = 146;
+    MarkFalsePositiveResponse       mark_false_positive_resp = 147;
+    ConfigQuery                     config_query             = 148;
+    ConfigResponse                  config_resp              = 149;
+    ConfigUpdateRequest             config_update_req        = 150;
+    ConfigUpdateResponse            config_update_resp       = 151;
+    RemoveWhitelistEntryRequest     remove_whitelist_req     = 152;
+    RemoveWhitelistEntryResponse    remove_whitelist_resp    = 153;
   }
 }
 
@@ -151,7 +172,7 @@ Mục 2.1 đã nêu nguyên tắc "mỗi pipe chỉ chấp nhận đúng nhóm m
 |---|---|---|
 | `ParentalGuard.Svc.Vision` | `VISION` | Handshake (10-19), Heartbeat (20-29), Lifecycle (30-39), Vision (40-59) |
 | `ParentalGuard.Svc.Overlay` | `OVERLAY` | Handshake, Heartbeat, Lifecycle, Overlay (60-79) |
-| `ParentalGuard.Svc.UI` | `UI` | Handshake, Heartbeat, UI (80-99) |
+| `ParentalGuard.Svc.UI` | `UI` | Handshake, Heartbeat, UI (80-99), UI Dashboard/Settings (140-159, Đợt 6) |
 | `ParentalGuard.Svc.Watchdog` | `WATCHDOG` | Handshake, Heartbeat, Lifecycle, Watchdog (100-119) |
 | `ParentalGuard.Svc.Uninstaller` | `UNINSTALLER` | Handshake, `AuthVerifyRequest`/`AuthVerifyResponse` (field 84/85 — tái dùng từ khối UI, không whitelist các message Password/Auth khác), Uninstaller (120-139) |
 
@@ -237,6 +258,12 @@ message VisionInferenceResult {
   float   risk_score           = 4;
   Rect    bbox                 = 5; // có thể rỗng nếu risk_score dưới ngưỡng đáng ghi toạ độ
   int64   captured_at_unix_ms  = 6;
+  string  process_name         = 7; // bổ sung v0.7.1 (Đợt 6, MISC-030) — tên file process (không full path,
+                                     // mẫu hình BE-073a), lấy từ ForegroundWindowTracker đã resolve sẵn cho
+                                     // exclude-list (05-image-pipeline-architecture.md mục 4.1), KHÔNG resolve
+                                     // thêm lần nào khác. Service lưu vào ContentBlocked.detail.processName
+                                     // (04-data-architecture.md mục 5.1) để UI dùng cho MarkFalsePositiveRequest
+                                     // (10-ui-architecture.md) — không dùng để rẽ nhánh nghiệp vụ nào khác.
 
   reserved 10 to 19; // để ngỏ nếu IMG-031 (phân tích temporal nhiều frame) được mở lại phạm vi ngoài Phase 1
 }
@@ -316,6 +343,12 @@ message IconPositionUpdate {
 
 message IconLayoutSync {
   repeated IconPositionUpdate positions = 1; // toàn bộ vị trí đã lưu, push ngay sau handshake (mục 4.3 file này)
+}
+
+// --- Đợt 6, FE-012: thông điệp overlay tuỳ biến (07-overlay-architecture.md mục 4.4) ---
+
+message OverlayMessageUpdate {
+  string text = 1; // rỗng = "dùng default cục bộ của Overlay" (ADR-110) — KHÔNG phải Service tự chèn default
 }
 ```
 
@@ -542,6 +575,134 @@ message PauseStatusResponse {
 
 Ghi chú traceability: hiện thực hoá `PAUSE-001`–`004`, `PAUSE-030` (đọc lại trạng thái đúng qua `PauseStatusQuery` khi `UI` vừa kết nối, không cần round-trip `AuthVerifyRequest` chỉ để xem trạng thái). Field `pause_expires_at_unix_ms` dùng lại đúng kiểu dữ liệu/đơn vị đã có sẵn ở `MonitoringStatusUpdate` (mục 3.3) — `Overlay` và `UI` cùng nhận 1 nguồn giá trị nhất quán từ `Service`, không có 2 công thức tính khác nhau. `ControlVisionCommand.reserved 20 to 29` (mục 3.2, để ngỏ từ Đợt 0 "cờ suspend/resume tần suất heartbeat riêng khi Pause") **cố tình vẫn để trống, không dùng ở Đợt 5** — cơ chế suspend/tần suất heartbeat khi Pause đã giải quyết đầy đủ mà không cần field IPC mới (`Vision` suspend qua `MonitoringEnabled` đã có sẵn, `05` ADR-40; cadence heartbeat do chính `Service` tự đổi lịch gửi `HeartbeatPing`, không cần báo cho `Vision` biết — `02` mục 3a.4), tránh gây hiểu nhầm cho người đọc sau này tưởng đây vẫn là gap chưa đóng.
 
+### 3.7 Message con — Đợt 6 (Dashboard/Settings, field 98-99 + 140-159 khối UI)
+
+Thiết kế nghiệp vụ đầy đủ (khi nào gọi, gate xác thực, giới hạn phân trang) ở `10-ui-architecture.md` mục 5 — file này chỉ định nghĩa schema on-the-wire, giữ nguyên nguyên tắc chung đã áp dụng xuyên suốt (field lớn phải phân trang — ADR-21; credential dùng `bytes` — không áp dụng ở khối này vì không message nào mang credential mới).
+
+```protobuf
+message DashboardStatusQuery {} // field 98
+
+message DashboardStatusResponse {                                 // field 99
+  bool   watchdog_alive             = 1; // Service↔Watchdog heartbeat còn trong ngưỡng 9s (09 mục 3.3)
+  bool   vision_connected           = 2; // Vision hiện có kết nối pipe active
+  string vision_diagnostic_state    = 3; // relay NGUYÊN VĂN HeartbeatAck.DiagnosticState mới nhất
+                                          // (vd "alive"/"ep=cpu-fallback", 05 ADR-45) — Service KHÔNG diễn
+                                          // giải/rẽ nhánh theo giá trị này (đúng giới hạn đã ghi ở mục 3.2),
+                                          // chỉ chuyển tiếp cho UI hiển thị (MISC-050/FE-041)
+  bool   overlay_connected          = 4;
+  bool   using_fallback_config      = 5; // MonitoringState.using_fallback_config (BE-061, 02 ADR-14)
+  int64  audit_log_free_disk_bytes  = 6; // dung lượng trống ổ đĩa chứa %ProgramData% (MISC-050)
+  bool   pause_anomaly_pending_ack  = 7; // pause_state.anomaly_pending_ack (PAUSE-021, 02 mục 3a.7)
+}
+
+message AcknowledgePauseAnomalyRequest {}                          // field 140
+
+message AcknowledgePauseAnomalyResponse { bool acknowledged = 1; } // field 141
+
+message AuditLogQuery {                                            // field 142
+  bytes  action_token = 1; // action_context="view_audit_log" (PWD-020, 08 mục 7.2 bảng hằng số)
+  uint32 page          = 2; // 0-based
+  uint32 page_size     = 3; // Service áp trần cứng bất kể UI truyền gì lớn hơn (10-ui-architecture.md mục 5)
+}
+
+message AuditLogResponse {                                         // field 143
+  AuditLogQueryResult    result   = 1;
+  repeated AuditLogEntry entries  = 2; // rỗng nếu result != SUCCESS
+  bool                   has_more = 3;
+}
+
+enum AuditLogQueryResult {
+  AUDIT_LOG_QUERY_RESULT_UNSPECIFIED = 0;
+  SUCCESS       = 1;
+  INVALID_TOKEN = 2;
+}
+
+message AuditLogEntry {
+  uint64 seq          = 1;
+  int64  ts_unix_ms    = 2;
+  string event_type    = 3; // literal theo bảng event_type ở 04-data-architecture.md mục 5.1 — CỐ Ý dùng
+                             // string thay vì enum proto (ADR-112, mục 7): tập event_type là 1 catalog dữ
+                             // liệu mở rộng dần theo từng domain/Đợt riêng ở 04, không phải tập lệnh điều
+                             // khiển luồng IPC cố định — ép vào enum sẽ buộc file này phải đồng bộ theo mọi
+                             // amendment của 04, tạo phụ thuộc chéo không cần thiết
+  string detail_json   = 4; // JSON thô của field "detail" trong record gốc (04 mục 5.1) — UI hiển thị
+                             // chung chung theo event_type, KHÔNG parse sâu trừ 2 field tiện dụng dưới đây
+  string process_name  = 5; // CHỈ set khi event_type="ContentBlocked" (04 mục 5.1) — tiện dụng cho
+                             // MarkFalsePositiveRequest, tránh UI phải tự parse detail_json
+  float  risk_score    = 6; // CHỈ set khi event_type="ContentBlocked"
+}
+
+message AuditChartQuery {                                          // field 144
+  uint32 range_days = 1; // 7 hoặc 30 (FE-071) — Phase 1 chỉ hỗ trợ đúng 2 giá trị này
+}
+
+message AuditChartResponse {                                       // field 145
+  repeated DailyBlockCount days = 1;
+}
+
+message DailyBlockCount {
+  string date_utc      = 1; // "YYYY-MM-DD"
+  uint32 blocked_count = 2; // đếm event_type="ContentBlocked" trong ngày đó
+}
+
+message MarkFalsePositiveRequest {                                 // field 146
+  bytes  action_token = 1; // action_context="manage_whitelist" (mới, amendment 08 mục 7.2)
+  string process_name = 2;
+}
+
+message MarkFalsePositiveResponse {                                // field 147
+  MarkFalsePositiveResult result = 1;
+}
+
+enum MarkFalsePositiveResult {
+  MARK_FALSE_POSITIVE_RESULT_UNSPECIFIED = 0;
+  SUCCESS        = 1;
+  INVALID_TOKEN  = 2;
+  ALREADY_LISTED = 3; // idempotent guard
+}
+
+message ConfigQuery {}                                             // field 148
+
+message ConfigResponse {                                           // field 149
+  string          overlay_message               = 1; // rỗng = đang dùng default cục bộ của Overlay
+  repeated string user_whitelisted_process_names = 2;
+}
+
+message ConfigUpdateRequest {                                      // field 150
+  string overlay_message = 1; // UI LUÔN gửi giá trị mong muốn đầy đủ (không phải partial update) —
+                               // rỗng = yêu cầu reset về default (nút "Khôi phục mặc định", FE-012)
+}
+
+message ConfigUpdateResponse {                                     // field 151
+  ConfigUpdateResult result = 1;
+}
+
+enum ConfigUpdateResult {
+  CONFIG_UPDATE_RESULT_UNSPECIFIED = 0;
+  SUCCESS            = 1;
+  INVALID_CHARACTERS = 2; // FE-012a
+  TOO_LONG           = 3; // > 255 ký tự, FE-012
+}
+
+message RemoveWhitelistEntryRequest {                               // field 152
+  bytes  action_token = 1; // action_context="manage_whitelist"
+  string process_name = 2;
+}
+
+message RemoveWhitelistEntryResponse {                              // field 153
+  RemoveWhitelistEntryResult result = 1;
+}
+
+enum RemoveWhitelistEntryResult {
+  REMOVE_WHITELIST_ENTRY_RESULT_UNSPECIFIED = 0;
+  SUCCESS       = 1;
+  INVALID_TOKEN = 2;
+  NOT_FOUND     = 3;
+}
+```
+
+Ghi chú traceability: `DashboardStatusQuery`/`Response` hiện thực hoá `MISC-050`/`FE-041`/`PAUSE-021` (đọc, không sửa state). `AuditLogQuery`/`AuditChartQuery` hiện thực hoá `FE-070`–`072`/`MISC-010` (đọc lịch sử/thống kê, có gate `view_audit_log` theo `PWD-020` cho danh sách chi tiết — biểu đồ tổng hợp trên `S2` không gate, xem lý do phân biệt ở `10-ui-architecture.md` mục 5). `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest` hiện thực hoá `MISC-030`. `ConfigQuery`/`ConfigUpdateRequest` hiện thực hoá `FE-012`/`FE-012a` (**không** có field ngưỡng risk score — `BE-091` cấm tường minh việc phơi ra UI).
+
 ## 4. Thứ tự gọi / handshake khi connect
 
 ### 4.1 Thời điểm connect
@@ -589,6 +750,8 @@ Client                                          Service (server, đã accept + x
   │                                           │ (trạng thái icon FE-021, 07-overlay-architecture.md 4.1.2)
   │  (chỉ kênh Overlay) ◀────────────────────│ push ngay IconLayoutSync (toàn bộ vị trí icon đã lưu,
   │                                           │  FE-020a, 07-overlay-architecture.md 4.1.4)
+  │  (chỉ kênh Overlay) ◀────────────────────│ push ngay OverlayMessageUpdate hiện hành (FE-012,
+  │                                           │  07-overlay-architecture.md mục 4.4, Đợt 6)
   │                                           │
   │◀════ HeartbeatPing (định kỳ) ════════════│
   │═════ HeartbeatAck ═══════════════════════▶│
@@ -667,16 +830,20 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-85 (v0.6.0) | 2 pipe mới `ParentalGuard.Svc.Watchdog`/`ParentalGuard.Svc.Uninstaller`, field block mới 100-119/120-139, `ProcessType.UNINSTALLER=6` | Thiết kế đầy đủ + lý do ở `09-anti-tamper-architecture.md` mục 3/5/8.3 (ADR-85/91/92/93 ở file đó) |
 | ADR-94 (v0.6.0) | Thêm bước 5 vào mục 4.2 — đối chiếu `Hello.process_type` khớp đúng loại tiến trình dự kiến của từng pipe, áp dụng hồi tố cho cả 3 pipe Đợt 0 | Defense-in-depth bổ sung khi thiết kế 2 pipe mới cho `Watchdog`/`Uninstaller` (`09-anti-tamper-architecture.md` ADR-94) — không đổi hành vi luồng hợp lệ hiện tại |
 | ADR-107 (v0.7.0) | Pause/Resume (Đợt 5) chiếm field 92-97 trong khối UI 80-99 đã dành sẵn (thu hẹp từ "92-99 dành cho Đợt 6" xuống còn "98-99"), 6 message riêng (không gộp Pause+Resume+Status vào 1 message tổng hợp) | Đúng quy ước "khối field/domain" đã có (ADR-16/ADR-80); mỗi message vẫn giữ 1 sự kiện nghiệp vụ riêng (activate/resume-sớm/query trạng thái), nhất quán cách tách message đã áp dụng cho icon trạng thái (ADR-69) |
+| ADR-111 (v0.7.1) | Thêm field `process_name` (field 7) vào `VisionInferenceResult` — lấy từ dữ liệu `ForegroundWindowTracker` đã resolve sẵn (`05` mục 4.1), không resolve thêm | `MISC-030` (whitelist false-positive) cần biết tên process của cửa sổ bị chặn để `UI` gửi `MarkFalsePositiveRequest` mà không phải tự tra cứu lại; additive, không đổi field cũ (đúng ADR-16) |
+| ADR-112 (v0.8.0) | `AuditLogEntry.event_type` dùng `string` (literal khớp bảng ở `04` mục 5.1), không dùng `enum` proto | Tập `event_type` là catalog dữ liệu mở rộng dần theo domain/Đợt ở `04`, không phải tập lệnh điều khiển luồng IPC cố định — dùng `enum` sẽ buộc file này đồng bộ theo mọi amendment của `04`, tạo phụ thuộc chéo không cần thiết cho 1 mục đích thuần hiển thị |
+| ADR-113 (v0.8.0) | Khối message Dashboard/Settings (Đợt 6) đặt field mới **140-159**, không nhồi tiếp vào 92-99 (chỉ còn 98-99 trống) | 9 cặp request/response cần thiết (mục 3.7) vượt xa 2 slot còn lại của khối UI 80-99; mở khối mới giữ đúng quy ước "20 field/domain" đã áp dụng cho Watchdog/Uninstaller (ADR-85), tách bạch rõ ràng hơn nhồi chật khối cũ |
 
 ## 8. Câu hỏi mở
 
 - [x] ~~Giao thức `Watchdog ↔ Service` (Named Pipe riêng hay SCM query) — đã ghi nhận là thuộc `09-anti-tamper-architecture.md`, không lặp lại ở đây (kế thừa từ câu hỏi mở ở `02-process-architecture.md` mục 8).~~ — **Đã xong** (`09` v0.1.0, Đợt 4: Named Pipe riêng, xem mục 2.1/3.1a/5.2).
-- [x] ~~Message type cụ thể cho phần còn lại của kênh `Service ↔ UI` (field 92-99 — query cấu hình, lịch sử audit log, trạng thái pause...)~~ — **Phần "trạng thái pause" đã xong** (field 92-97, Đợt 5, mục 3.6 — `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response`). Còn lại field **98-99** (query cấu hình, lịch sử audit log) vẫn để quyết định khi thiết kế `10-ui-architecture.md` ở Đợt 6, không phải thiếu sót của file này.
+- [x] ~~Message type cụ thể cho phần còn lại của kênh `Service ↔ UI` (field 92-99 — query cấu hình, lịch sử audit log, trạng thái pause...)~~ — **Đã xong toàn bộ**: "trạng thái pause" ở field 92-97 (Đợt 5, mục 3.6); "query cấu hình/lịch sử audit log/health check" ở field 98-99 + khối mới 140-159 (Đợt 6, mục 3.7).
 
 ## 9. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.0 | 2026-09-20 | MINOR — Đợt 6 (`ROADMAP.md`, Dashboard UI), viết `10-ui-architecture.md`. Thêm mục 3.7 (10 message mới, field 98-99 + khối mới 140-159): `DashboardStatusQuery`/`Response` (health check `MISC-050` + cờ `PAUSE-021`), `AcknowledgePauseAnomalyRequest`/`Response`, `AuditLogQuery`/`Response` (phân trang, gate `view_audit_log`), `AuditChartQuery`/`Response` (`FE-070`–`072`), `MarkFalsePositiveRequest`/`Response` + `RemoveWhitelistEntryRequest`/`Response` (`MISC-030`, gate `manage_whitelist` — hằng số mới, amendment `08` mục 7.2), `ConfigQuery`/`Response`/`ConfigUpdateRequest`/`Response` (`FE-012`, KHÔNG có field ngưỡng risk score theo `BE-091`). Thêm field `process_name` (field 7) vào `VisionInferenceResult` (mục 3.3, additive, `MISC-030`, ADR-111) — amendment cùng lượt `05-image-pipeline-architecture.md`. Thêm message `OverlayMessageUpdate` (field 66, kênh Overlay, `FE-012`) — amendment cùng lượt `07-overlay-architecture.md` mục 4.4 (ADR-110), cập nhật diagram handshake mục 4.3. 3 ADR mới (111-113). Đóng câu hỏi mở còn lại ở mục 8 (field 98-99). Toàn bộ additive, không đổi field/message cũ (đúng ADR-16). Theo chỉ đạo — không dừng chờ review |
 | v0.7.0 | 2026-09-20 | MINOR — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Thêm mục 3.6 (6 message mới, field 92-97 khối UI): `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response` — enum `PauseDuration` (5 lựa chọn `PAUSE-002`), `PauseResult`/`ResumeResult` (kèm `ALREADY_PAUSED`/`NOT_PAUSED` idempotent guard). Additive, không đổi field/message cũ (đúng ADR-16). Thu hẹp comment "92-99 dành cho Đợt 6" xuống còn "98-99" (đóng 1 phần open question mục 8 — phần "trạng thái pause" đã xong, phần audit log/config query vẫn để Đợt 6). Làm rõ tường minh `ControlVisionCommand.reserved 20 to 29` (để ngỏ từ Đợt 0 cho "cờ suspend/tần suất heartbeat Pause") **cố tình không dùng** ở Đợt 5 — cơ chế đã giải quyết đầy đủ không cần field IPC mới (`05` ADR-40 + `02` mục 3a.4), tránh hiểu nhầm là gap còn sót. 1 ADR mới (107). Theo chỉ đạo — không dừng chờ review |
 | v0.6.0 | 2026-09-19 | MINOR — Đợt 4 (`ROADMAP.md`), amendment cùng lượt viết `09-anti-tamper-architecture.md`. Thêm 2 pipe mới (`ParentalGuard.Svc.Watchdog`, `ParentalGuard.Svc.Uninstaller` — mục 2.1/2.2), field block mới 100-119 (Watchdog: `WatchdogReportEvent`/`Ack`)/120-139 (Uninstaller: `UninstallExecuteRequest`/`Response` — mục 3.5 mới), `ProcessType.UNINSTALLER=6` (`WATCHDOG=4` từ "reserved" chuyển sang dùng thật). Thêm mục 3.1a (bảng whitelist message theo pipe, hệ thống hoá lần đầu đầy đủ cho cả 5 pipe — trước đó chỉ có nguyên tắc chung ở mục 2.1). Thêm bước 5 vào mục 4.2 (đối chiếu `Hello.process_type` khớp đúng pipe, ADR-94, áp dụng hồi tố 3 pipe cũ). Mở rộng phạm vi ADR-19 (session key ephemeral) sang pipe `Watchdog`/`Uninstaller` (mục 5.3) — không cần bootstrap thứ 3. Sửa lỗi đồng bộ phát hiện khi viết `09`: 3 field `recovery_key_plaintext`/`new_recovery_key_plaintext`×2 (mục 3.4) đổi `string`→`bytes` cho khớp đúng `08-password-authentication-architecture.md` v0.3.0 (ADR-83, FAIL 1) — bản sao `.proto` ở file này trước đó chưa được đồng bộ dù changelog `08` có ghi đã đồng bộ. Đóng câu hỏi mở giao thức `Watchdog↔Service` (mục 8). 2 ADR mới (85, 94 — chi tiết đầy đủ ở `09`). Theo chỉ đạo — không dừng chờ review |
 | v0.5.1 | 2026-09-20 | PATCH — cụ thể hoá mục 5.3 (ADR-82): "chữ ký rỗng" của khung `Hello`/`HelloAck` đầu tiên kênh `UI` (trước khi có session key) nay đặc tả rõ bit-level = khoá HMAC hằng số 32-byte-zero biết trước cả 2 phía, không phải bỏ hẳn trailer HMAC hay thêm 1 chế độ framing riêng cho `IpcFrameTransport`. Gap `feature-dev` báo cáo lại sau khi implement `UiSessionServer` Đợt 3 (`docs/dependency-map.md` mục "Khoảng trống đã biết — Đợt 3") — xác nhận cách `UiSessionServer._unsignedHelloKey` đã tự chọn là lựa chọn kỹ thuật hợp lý (transport giữ đúng 1 định dạng frame duy nhất; an toàn vì xác thực danh tính thật của `UI` đã xảy ra ở mục 4.2 trước khi đọc `Hello`). Không đổi ý nghĩa ADR-19, không đổi hành vi/code, chỉ chính thức hoá quy ước để `ParentalGuard.UI` (Đợt 6) implement đúng khớp. Không kéo theo sửa `Specification/` hay file `Architecture/` khác |

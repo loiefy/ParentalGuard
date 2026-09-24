@@ -1,6 +1,6 @@
 # 04 — Data Architecture
 
-> Version: v0.2.4 | Trạng thái: Approved | Cập nhật: 2026-09-20
+> Version: v0.3.0 | Trạng thái: Approved | Cập nhật: 2026-09-20
 
 ## 1. Mục đích
 
@@ -63,6 +63,8 @@ JSON bên trong `data_encrypted`:
   "risk_threshold": 0.0,
   "capture_interval_baseline_ms": 0,
   "exclude_process_names": ["Taskmgr.exe", "regedit.exe", "..."],
+  "user_whitelisted_process_names": [],
+  "overlay_message": "",
   "using_fallback_config": false
 }
 ```
@@ -71,6 +73,8 @@ JSON bên trong `data_encrypted`:
 - `risk_threshold`: giá trị **placeholder** — con số cụ thể do benchmark thực tế quyết định ở Đợt 1 (`BE-090`, `09-image-processing-spec.md`), không chốt số ở đây.
 - `capture_interval_baseline_ms`: tần suất capture nền, con số cụ thể để tuning ở Đợt 7 (`PERF-010`/`011`), field có mặt từ Đợt 0 để tránh migration sau.
 - `exclude_process_names`: khởi tạo lúc **cài đặt lần đầu bình thường** bằng danh sách khởi điểm `BE-073a`. **Khi rơi vào nhánh fail-secure (`BE-061`/`ANTI-070`), field này reset về mảng rỗng** — đúng nguyên tắc "Whitelist rỗng (không có ngoại lệ nào được áp dụng khi chưa xác thực lại được cấu hình gốc)" đã chốt tường minh ở `ANTI-070`, không dùng lại `BE-073a` cho nhánh này dù có vẻ trực giác là "an toàn" (danh sách đó chỉ an toàn khi chính nó được xác thực toàn vẹn qua `config.db` hợp lệ).
+- `overlay_message` (mới v0.3.0, Đợt 6, `FE-012`): thông điệp overlay `S7` tuỳ biến, chuỗi rỗng nghĩa là "chưa tuỳ chỉnh — dùng default cục bộ của `Overlay`" (`07-overlay-architecture.md` mục 4.4/ADR-110, `OverlayMessageUpdate`). Ràng buộc ký tự (`FE-012a`)/độ dài tối đa 255 (`FE-012`) validate ở `Service` khi ghi field này (`10-ui-architecture.md`), không validate ở tầng lưu trữ này. Reset về `""` khi fail-secure (mục 6.2) — an toàn vì `""` = default, không phải giá trị "hỏng".
+- `user_whitelisted_process_names` (mới v0.3.0, Đợt 6, `MISC-030`): danh sách process name phụ huynh **tự thêm** qua Dashboard (đánh dấu 1 sự kiện `ContentBlocked` là false-positive ở `S3`, hoặc quản lý trực tiếp ở `S4` — thiết kế UI/IPC đầy đủ ở `10-ui-architecture.md`) — **tách biệt hoàn toàn** khỏi `exclude_process_names` (danh sách dev-maintained cho mục đích tối ưu hiệu năng, `BE-073a`) vì khác nguồn gốc/mục đích (phụ huynh chủ động loại trừ 1 app cụ thể khỏi giám sát do tin tưởng, không phải "app hệ thống chắc chắn không hiển thị media"). Cả 2 danh sách **cộng gộp (union)** khi `Vision`/`Service` áp dụng logic loại trừ thực tế (`PERF-020`) — 1 process nằm trong BẤT KỲ danh sách nào cũng được loại trừ. **Cùng chịu nguyên tắc fail-secure như `exclude_process_names`**: reset về mảng rỗng khi rơi vào nhánh `BE-061`/`ANTI-070` (mục 6.2) — 1 whitelist do phụ huynh tự thêm cũng không được tin cậy khi chưa xác thực lại được tính toàn vẹn của chính `config.db` chứa nó, đúng đúng nghĩa đen "không có ngoại lệ nào được áp dụng" ở `ANTI-070`. **Không giới hạn số lượng entry cứng ở tầng schema** (giới hạn UX nếu cần để `10-ui-architecture.md` quyết định, không phải giới hạn dữ liệu).
 - `using_fallback_config`: cờ runtime hiện thực hoá `ADR-14` ở `02-process-architecture.md` (song song với `Running·Monitoring`, không phải state loại trừ). Ghi vào đây để `Dashboard` (Đợt 6) hiển thị được kể cả sau khi `Service` đã restart bình thường, nhưng **`Service` tự đặt lại `false` ngay khi ghi đè `config.db` mới thành công** (mục 6) — chỉ giữ mốc lịch sử qua `schema_meta.last_fallback_event_unix_ms` (mục 3.2), không phải cờ "mãi mãi degraded".
 
 ### 3.4 Bảng `pause_state` (`PauseState` — `PAUSE-030`)
@@ -90,12 +94,14 @@ JSON:
 {
   "is_paused": false,
   "pause_started_at_unix_ms": null,
-  "pause_expires_at_unix_ms": null
+  "pause_expires_at_unix_ms": null,
+  "anomaly_pending_ack": false
 }
 ```
 
 - Đây là **trạng thái hiện tại duy nhất**, dùng để phục hồi đúng ở bước `Starting` (`02-process-architecture.md` mục 3: đọc lại timestamp để quyết định quay vào `Running·Paused` hay `Running·Monitoring`) — khớp `PAUSE-030`.
-- **Không lưu lịch sử/tần suất pause trong bảng này** — số lần và tổng thời lượng tạm dừng (`PAUSE-020`) lấy từ chính `audit.log` (mục 5, event `PauseActivated`/`PauseResumed`) khi cần tính (lúc kích hoạt pause mới, hoặc lúc Dashboard hiển thị) — tránh 2 nguồn sự thật song song cho cùng 1 dữ liệu lịch sử. Cảnh báo tần suất bất thường (`PAUSE-021`) cũng suy ra từ quét `audit.log` theo cửa sổ thời gian, không cache riêng ở Đợt 0 (tối ưu hoá nếu cần để Đợt 5/7).
+- **Không lưu lịch sử/tần suất pause trong bảng này** — số lần và tổng thời lượng tạm dừng (`PAUSE-020`) lấy từ chính `audit.log` (mục 5, event `PauseActivated`/`PauseResumed`) khi cần tính (lúc kích hoạt pause mới, hoặc lúc Dashboard hiển thị) — tránh 2 nguồn sự thật song song cho cùng 1 dữ liệu lịch sử. Cảnh báo tần suất bất thường (`PAUSE-021`) cũng suy ra từ quét `audit.log` theo cửa sổ thời gian, không cache riêng (cơ chế cụ thể ở `02-process-architecture.md` mục 3a.7, Đợt 6).
+- `anomaly_pending_ack` (mới v0.3.0, Đợt 6, `PAUSE-021`): `true` khi có 1 đợt `PauseFrequencyAnomalyDetected` (mục 5.1) chưa được phụ huynh xác nhận đã xem qua Dashboard — **đây LÀ ngoại lệ có chủ đích** với nguyên tắc "không lưu lịch sử/tần suất trong bảng này" ở trên: bản thân cờ này không phải dữ liệu lịch sử (không đếm được gì từ nó), chỉ là 1 bit trạng thái "chờ xác nhận đã đọc" cần sống sót qua restart `Service` (khác `PauseState.LastBannerShownAtUnixMs` ở mục 3a.3 — RAM-only vì chỉ là UX nhắc định kỳ không cần bền vững). Set `true` bởi `Service` (`02` mục 3a.7), set `false` chỉ khi `Service` nhận `AcknowledgePauseAnomalyRequest` từ `UI` (`10-ui-architecture.md`) — không có đường nào khác tự động tắt cờ này.
 
 ### 3.5 Bảng `ipc_keys` (khoá HMAC — `03-ipc-communication.md` mục 5.2)
 
@@ -235,6 +241,15 @@ File `%ProgramData%\ParentalGuard\auth.dat`: không phải SQLite (dữ liệu q
 - `PauseResumed.trigger`: đúng 1 trong 3 giá trị literal — `"manual"` (phụ huynh chủ động resume sớm, `PAUSE-004`), `"auto_expired"` (hết hạn tự nhiên trong lúc `Service` đang chạy, `PauseMonitor` tick phát hiện), `"auto_expired_while_offline"` (hết hạn trong lúc `Service` không chạy — máy tắt/`Service` bị dừng giữa lúc Pause, phát hiện ngay lúc `Starting` đọc lại `pause_state`) — 3 giá trị tách biệt để phụ huynh xem lịch sử qua Dashboard (Đợt 6) phân biệt được "tự resume đúng hạn" khỏi "chỉ phát hiện được lúc khởi động lại máy" (khác biệt hữu ích để chẩn đoán, không phải yêu cầu bảo mật).
 - `pause_expires_at_unix_ms` trong `PauseResumed` là **mốc dự kiến gốc** lúc kích hoạt (để đối chiếu với `actual_resumed_at_unix_ms` — chênh lệch dương nhỏ là bình thường do sai số tick `PauseMonitor` ≤ 30 giây, `02` mục 3a.3; chênh lệch âm hoặc rất lớn chỉ xảy ra ở nhánh `"manual"`).
 
+**`ContentBlocked.detail` (định nghĩa lần đầu, bổ sung v0.3.0, Đợt 6 — trước đó mục 5.1 chỉ mô tả khái quát "kèm risk_score, toạ độ", chưa có schema cụ thể; `event_type` này chưa từng được code Đợt 1 ghi thật, đây là lần đầu định nghĩa đủ để implement)**:
+
+```json
+{ "windowHandle": 123456, "processName": "chrome.exe", "riskScore": 0.87, "bbox": { "x": 100, "y": 200, "width": 800, "height": 600 } }
+```
+
+- `processName` (mới v0.3.0): tên file process (không path đầy đủ, đúng mẫu hình `BE-073a`) của cửa sổ vừa bị che — **cần thiết** để `MISC-030` (đánh dấu false-positive → thêm vào `user_whitelisted_process_names`, mục 3.3) hoạt động được: `UI` (`10-ui-architecture.md`) chỉ gửi `MarkFalsePositiveRequest{process_name}` lấy nguyên giá trị này từ audit log entry đang xem, không tự tra cứu lại. **Gap kỹ thuật phát hiện khi viết `10-ui-architecture.md`**: `VisionInferenceResult` (`03-ipc-communication.md` mục 3.3) hiện chỉ có `window_handle` (không có tên process) — amendment `03`/`05-image-pipeline-architecture.md` cùng lượt thêm field `process_name` (field 7, additive) vào `VisionInferenceResult`, lấy từ đúng dữ liệu `ForegroundWindowTracker` đã resolve sẵn cho mục đích exclude-list (`05` mục 4.1) — không cần resolve thêm lần nào khác, chỉ cần đưa giá trị đã có sẵn vào message gửi lên `Service`.
+- `riskScore`/`bbox`: đã có ý nghĩa từ trước ở `VisionInferenceResult` (mục 3.3 `03`), lưu nguyên vào audit log để `S3`/chart (`FE-070`) hiển thị được, không phục vụ tính năng nào khác ngoài hiển thị (không dùng lại để suy luận nghiệp vụ).
+
 **`ForceCloseRequested.detail` (bổ sung v0.2.0, `BE-089b`)**:
 
 ```json
@@ -293,9 +308,14 @@ Record kế tiếp dùng `hash` (chuỗi hex) của record này làm `prev_hash`
    - risk_threshold = DEFAULT_RISK_THRESHOLD (hằng số code, benchmark ở BE-090/Đợt 1)
    - capture_interval_baseline_ms = DEFAULT_CAPTURE_INTERVAL_MS (hằng số code, PERF-010/Đợt 7)
    - exclude_process_names = []   (rỗng — ANTI-070, KHÔNG dùng BE-073a ở nhánh này)
+   - user_whitelisted_process_names = []   (rỗng — bổ sung v0.3.0, CÙNG nguyên tắc ANTI-070,
+     whitelist do phụ huynh tự thêm cũng không được tin cậy khi chưa xác thực lại config.db)
+   - overlay_message = ""   (rỗng — bổ sung v0.3.0, an toàn vì đây là default, không phải mất dữ liệu nhạy cảm)
    - using_fallback_config = true (runtime, phiên hiện tại)
 
-3. Nạp PauseState vào RAM: is_paused = false (không tin bất kỳ timestamp cũ nào)
+3. Nạp PauseState vào RAM: is_paused = false (không tin bất kỳ timestamp cũ nào),
+   anomaly_pending_ack = false (bổ sung v0.3.0 — không có "đợt bất thường" nào đáng tin khi
+   chính audit trail đang dùng để tính nó có thể đã bị ghi vào 1 config.db không toàn vẹn)
 
 4. Sinh MỚI khoá HMAC 32 byte cho ipc_keys (không thể khôi phục khoá cũ nếu config.db hỏng toàn bộ, mục 3.5)
    — hệ quả: Vision/Overlay đang chạy (nếu có) phải được Service restart để nhận khoá mới qua
@@ -352,6 +372,7 @@ Toàn bộ luồng mục 6.2 **không đụng tới `audit.log`** — chỉ `con
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.0 | 2026-09-20 | MINOR — Đợt 6 (`ROADMAP.md`, Dashboard UI), amendment cùng lượt viết `10-ui-architecture.md`/`02-process-architecture.md` mục 3a.7/`07-overlay-architecture.md` mục 4.4. (1) Thêm field `user_whitelisted_process_names` vào `monitoring_state` JSON (mục 3.3, `MISC-030` — whitelist false-positive phụ huynh tự thêm qua Dashboard, tách biệt `exclude_process_names` dev-maintained, cộng gộp lúc áp dụng, cùng reset rỗng khi fail-secure). (2) Thêm field `overlay_message` vào `monitoring_state` JSON (mục 3.3, `FE-012` — thông điệp overlay tuỳ biến, rỗng = dùng default cục bộ `Overlay`, xem `07` mục 4.4/ADR-110). (3) Thêm field `anomaly_pending_ack` vào `pause_state` JSON (mục 3.4, `PAUSE-021` — cờ "chờ xác nhận đã xem" cảnh báo tần suất pause bất thường, persist qua restart, chỉ tắt qua `AcknowledgePauseAnomalyRequest` từ `UI`). (4) Cập nhật luồng fail-secure mục 6.2 bước 2/3 reset cả 3 field mới về giá trị an toàn (rỗng/false). (5) Định nghĩa lần đầu `ContentBlocked.detail` schema (mục 5.1 — trước đó chỉ mô tả khái quát, chưa có schema, `event_type` này chưa từng được code Đợt 1 ghi thật) — thêm `processName` (mới, cần cho `MISC-030`, kéo theo amendment `03-ipc-communication.md`/`05-image-pipeline-architecture.md` thêm field `process_name` vào `VisionInferenceResult`), `riskScore`/`bbox` (đã có ý nghĩa sẵn, chỉ định nghĩa lại vào audit log). Không đổi cấu trúc bảng/`schema_version` (thêm field JSON thuần, đúng nguyên tắc mục 3.7) |
 | v0.2.4 | 2026-09-20 | PATCH — Đợt 5, bổ sung sau khi feature-dev báo cáo gap câu chữ: thêm `event_type` mới `PauseFrequencyAnomalyDetected` vào bảng mục 5.1 (`PAUSE-021`, ngưỡng `>5 lần/ngày` đã ĐÃ CHỐT qua `07-pause-resume-spec.md` v0.2.2) — trước đó ngưỡng đã chốt ở spec nhưng bảng event_type ở đây chưa có dòng tương ứng. Không đổi cấu trúc bảng/schema nào khác |
 | v0.2.3 | 2026-09-20 | PATCH — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Định nghĩa lần đầu `detail` schema cho 2 `event_type` đã có sẵn từ trước nhưng chưa có cấu trúc cụ thể (`PauseActivated`/`PauseResumed`, mục 5.1): field `duration` (map trực tiếp `PauseDuration` enum), `trigger` (`"manual"`/`"auto_expired"`/`"auto_expired_while_offline"` — phân biệt 3 nguồn gốc resume), `pause_expires_at_unix_ms`/`actual_resumed_at_unix_ms`. Không thêm `event_type` mới, không đổi cấu trúc bảng — thuần bổ sung chi tiết còn thiếu (cùng mẫu hình đã làm cho `ForceCloseRequested.detail` ở v0.2.0). Xác nhận (không sửa): schema `pause_state` (mục 3.4) đã đủ cho Đợt 5 từ Đợt 0, không cần thêm cột/bảng nào |
 | v0.2.2 | 2026-09-19 | MINOR — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Thêm 4 dòng `event_type` mới vào mục 5.1: `TamperDetected` (`ANTI-031`, phát hiện+tự phục hồi registry tamper), `UninstallInitiated`/`UninstallPartialFailure`/`WFPFiltersRemoved` (`ANTI-020`, luồng custom uninstaller). Mở rộng ghi chú ngữ nghĩa (không đổi cấu trúc) cho 2 event đã có: `ProcessRestarted` nay bao gồm `process ∈ {"Service","Watchdog"}` (trước chỉ Vision/Overlay); `AttackPatternDetected` nay bao gồm `trigger ∈ {process_restart_loop, registry_tamper_loop}` — thiết kế bộ đếm `ANTI-060` đầy đủ (lần đầu tiên, 2 bộ đếm độc lập RAM-only, không persist ở đây) ở `09` mục 6. Không đổi schema `config.db`/`auth.dat`/layout file nào — `Watchdog` không đụng `config.db` theo thiết kế (ADR-86 ở `09`) |
