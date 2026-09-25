@@ -19,6 +19,7 @@ public partial class App : Application
     private Window? _window;
     private OnboardingViewModel? _activeOnboardingViewModel;
     private SettingsViewModel? _activeSettingsViewModel;
+    private RecoveryViewModel? _activeRecoveryViewModel;
 
     public App()
     {
@@ -88,6 +89,21 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Gọi bởi <see cref="RecoveryPage"/> (mục 6.6, `S6`) — safety net BUG B tương tự Onboarding/Settings:
+    /// đóng app giữa chừng trong khi Recovery Key mới còn hiển thị vẫn phải zero buffer.
+    /// </summary>
+    public void RegisterActiveRecoveryViewModel(RecoveryViewModel viewModel) => _activeRecoveryViewModel = viewModel;
+
+    /// <summary>Gọi bởi <see cref="RecoveryPage.OnNavigatedFrom"/> khi rời `S6`.</summary>
+    public void UnregisterActiveRecoveryViewModel(RecoveryViewModel viewModel)
+    {
+        if (ReferenceEquals(_activeRecoveryViewModel, viewModel))
+        {
+            _activeRecoveryViewModel = null;
+        }
+    }
+
     private async Task ConnectAndRouteAsync()
     {
         var uiIpcClient = Services.GetRequiredService<UiIpcClient>();
@@ -132,9 +148,19 @@ public partial class App : Application
         _activeOnboardingViewModel?.Dispose();
         _activeOnboardingViewModel = null;
 
+        // Security audit Đợt 6 S6 (bug đã sửa) — đánh dấu mồ côi TRƯỚC Dispose: nếu ChangePasswordAsync/
+        // SubmitAsync còn treo IPC (gate của UiIpcClient chặn DisconnectAsync bên dưới tới khi request
+        // đó xong), Success đến sau thời điểm này sẽ tự zero ở ViewModel, không publish lên instance mồ côi.
+        _activeSettingsViewModel?.MarkDiscarded();
+        _activeRecoveryViewModel?.MarkDiscarded();
+
         // Cùng lý do BUG B — đóng app giữa chừng trong khi Recovery Key mới (S4 đổi mật khẩu) còn hiển thị.
         _activeSettingsViewModel?.Dispose();
         _activeSettingsViewModel = null;
+
+        // Cùng lý do BUG B — đóng app giữa chừng ở S6 trong khi Recovery Key mới còn hiển thị.
+        _activeRecoveryViewModel?.Dispose();
+        _activeRecoveryViewModel = null;
 
         var uiIpcClient = Services.GetRequiredService<UiIpcClient>();
         await uiIpcClient.DisconnectAsync().ConfigureAwait(false);

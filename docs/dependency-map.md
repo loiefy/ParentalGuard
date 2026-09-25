@@ -553,7 +553,7 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
 |---|---|---|---|
 | `NavigationService.Initialize` | `NavigationService.cs` | `App.OnLaunched` | — (lưu `Frame` root) |
 | `NavigationService.NavigateToConnectionError`/`.NavigateToOnboarding`/`.NavigateToMainShell` | `NavigationService.cs` | `App.ConnectAndRouteAsync`, `Views/OnboardingPage.*` | `Frame.Navigate` (BCL) |
-| `NavigationService.NavigateToRecovery` (**CHƯA implement — throw NotImplementedException có chủ đích, `S6` giai đoạn sau**) | `NavigationService.cs` | `ShowAuthPromptAsync` (khi `AuthPromptDialog.ForgotPasswordRequested`), `Views/SettingsPage` (giai đoạn 4, chưa gọi) | — |
+| `NavigationService.NavigateToRecovery` (**implement thật, giai đoạn 5 (`S6`)** — trước là `throw NotImplementedException` tạm) | `NavigationService.cs` | `ShowAuthPromptAsync` (khi `AuthPromptDialog.ForgotPasswordRequested`), `Views/SettingsPage.OnForgotOldPasswordClick` | `Frame.Navigate` (→ `Views/RecoveryPage`) |
 | `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5, implement `IAuthPromptService`) | `NavigationService.cs` | `DashboardViewModel.PauseAsync`/`.ResumeAsync`/`.PauseWithTokenAsync`/`.ResumeWithTokenAsync` (giai đoạn 2), `AuditLogViewModel.InitializeAsync`/`.MarkFalsePositiveAsync`/`.MarkFalsePositiveWithTokenAsync` (**mới giai đoạn 3**, qua interface `IAuthPromptService`), `S4` (giai đoạn sau) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
 | `IAuthPromptService` (**mới**, `Services/IAuthPromptService.cs` — seam test-only, sửa gap `test-runner` 2026-09-24) | — (interface) | `NavigationService` (implement thật), `tests/ParentalGuard.UI.Tests/DashboardViewModelTests.cs` (`FakeAuthPromptService`, fake token/CallCount) |
 | `LocalizationService.Get`/`.GetFormatted` | `LocalizationService.cs` | mọi `Views/*.xaml.cs`, `ViewModels/*.cs` | `ResourceManager.GetString` (BCL) |
@@ -808,8 +808,9 @@ cuối khối `oneof`, không sửa/xoá dòng nào của giai đoạn 3.
 | `SettingsViewModel.SetPerformanceModeAsync` | `Views/SettingsPage.OnPerformanceModeSelectionChanged` | `IConfigFacade.UpdatePerformanceModeAsync` (kèm `_lastSavedOverlayMessage` ĐÃ LƯU — KHÔNG phải `OverlayMessage` đang gõ dở, tránh vô tình lưu draft khi user chỉ đổi mode) — thất bại: revert `PerformanceMode` về giá trị trước đó |
 | `SettingsViewModel.RemoveWhitelistEntryAsync` | `Views/SettingsPage.OnRemoveWhitelistEntryClick` | `IAuthPromptService.ShowAuthPromptAsync("manage_whitelist", xamlRoot)` (gate TRƯỚC request thật, `MISC-030`/ADR-122), `RemoveWhitelistEntryWithTokenAsync` |
 | `SettingsViewModel.RemoveWhitelistEntryWithTokenAsync` (private, mục 6.5 — cùng mẫu hình `AuditLogViewModel.MarkFalsePositiveWithTokenAsync`) | `RemoveWhitelistEntryAsync`, chính nó (đệ quy đúng 1 lần khi retry) | `IConfigFacade.RemoveWhitelistEntryAsync`, `CryptographicOperations.ZeroMemory` — `Success`/`NotFound` (idempotent guard): xoá khỏi `WhitelistedProcessNames`; `InvalidToken`: tự mở lại `S5` NGAY (`allowRetry=true`→`false`) |
-| `SettingsViewModel.ChangePasswordAsync` | `Views/SettingsPage.OnChangePasswordClick` | `IAuthFacade.ChangePasswordAsync` (tự gate qua `old_password`, KHÔNG qua `S5`, `08` mục 7.4) — `Success`+có `NewRecoveryKeyPlaintextUtf8`: **zero `_newRecoveryKeyPlaintextBuffer` CŨ trước** (nếu chưa acknowledge, `CryptographicOperations.ZeroMemory` — fix bug security audit Đợt 6 S4, tránh plaintext cũ trôi nổi không zero khi đổi mật khẩu 2 lần liên tiếp) rồi mới ghi đè, decode UTF-8 1 lần → `NewRecoveryKeyDisplay` (cùng mẫu hình `OnboardingViewModel.SubmitPasswordAsync` bước 3) |
+| `SettingsViewModel.ChangePasswordAsync` | `Views/SettingsPage.OnChangePasswordClick` | `IAuthFacade.ChangePasswordAsync` (tự gate qua `old_password`, KHÔNG qua `S5`, `08` mục 7.4) — `Success`+có `NewRecoveryKeyPlaintextUtf8`: **fix bug security audit Đợt 6 S6** — nếu `_discarded` (tab đã bị rời/app đã đóng trong lúc chờ IPC), `CryptographicOperations.ZeroMemory` buffer mới nhận NGAY, KHÔNG publish; ngược lại zero `_newRecoveryKeyPlaintextBuffer` CŨ trước (fix bug security audit Đợt 6 S4, nếu chưa acknowledge) rồi mới ghi đè, decode UTF-8 1 lần → `NewRecoveryKeyDisplay` (cùng mẫu hình `OnboardingViewModel.SubmitPasswordAsync` bước 3) |
 | `SettingsViewModel.CanSubmitChangePassword` (mới, computed — fix bug security audit Đợt 6 S4) | `Views/SettingsPage.xaml` (`ChangePasswordButton.IsEnabled`, thay `IsNotChangingPassword`) | `IsNotChangingPassword && !HasNewRecoveryKeyDisplay` (defense in depth lớp 2 — khoá nút khi Recovery Key mới chưa acknowledge, chặn đường tái hiện qua UI thật) |
+| `SettingsViewModel.MarkDiscarded` (mới — fix bug security audit Đợt 6 S6, idempotent) | `Views/SettingsPage.OnNavigatedFrom`, `App.OnWindowClosed` (qua `_activeSettingsViewModel`) | set field `_discarded = true` (đọc bởi `ChangePasswordAsync` nhánh `Success`) |
 | `SettingsViewModel.AcknowledgeNewRecoveryKeyDisplayed`/`.Dispose` | `Views/SettingsPage.OnAcknowledgeNewRecoveryKeyClick`/`.OnNavigatedFrom`, `App.OnWindowClosed` (qua `RegisterActiveSettingsViewModel`, safety net BUG B) | `CryptographicOperations.ZeroMemory` (zero buffer Recovery Key mới ngay, idempotent) |
 | `OverlayMessageValidation.IsValid`/`.IsAllowedChar` (static, mới — cùng file) | `SaveOverlayMessageAsync`, `Views/SettingsPage.OnOverlayMessageBeforeTextChanging` | thuần logic `char.IsLetter`/`.IsDigit`/dấu câu cho phép (`FE-012a`) — dùng CẢ ở ViewModel (defense in depth) LẪN code-behind (chặn ngay khi nhập) |
 
@@ -819,13 +820,13 @@ cuối khối `oneof`, không sửa/xoá dòng nào của giai đoạn 3.
 |---|---|---|
 | `SettingsPage` ctor | `Views/MainShellPage` (`ContentFrame.Navigate`, lúc chọn tab) | `new SettingsViewModel` (Facade lấy qua `App.Services`), set label tĩnh qua `LocalizationService.Get` |
 | `SettingsPage.OnNavigatedTo` | Windows App SDK (`Frame` navigation lifecycle) | `App.RegisterActiveSettingsViewModel`, `SettingsViewModel.InitializeAsync` (không gate), set `PerformanceModeRadios.SelectedIndex` ban đầu (guard `_performanceModeInitialized` trước khi cho `OnPerformanceModeSelectionChanged` gọi facade) |
-| `SettingsPage.OnNavigatedFrom` | Windows App SDK (`Frame` navigation lifecycle) | `App.UnregisterActiveSettingsViewModel`, `SettingsViewModel.AcknowledgeNewRecoveryKeyDisplayed` (safety net rời tab khi Recovery Key mới còn hiển thị) |
+| `SettingsPage.OnNavigatedFrom` | Windows App SDK (`Frame` navigation lifecycle) | `App.UnregisterActiveSettingsViewModel`, `SettingsViewModel.MarkDiscarded` (fix bug security audit Đợt 6 S6 — TRƯỚC Acknowledge, phòng `ChangePasswordAsync` còn treo IPC), `.AcknowledgeNewRecoveryKeyDisplayed` (safety net rời tab khi Recovery Key mới còn hiển thị) |
 | `SettingsPage.OnOverlayMessageBeforeTextChanging` | `TextBox.BeforeTextChanging` (XAML event, `OverlayMessageInput`) | `OverlayMessageValidation.IsValid` — `args.Cancel=true` nếu chứa ký tự cấm (chặn CẢ gõ lẫn dán, `FE-012a`) |
 | `SettingsPage.OnPerformanceModeSelectionChanged` | `RadioButtons.SelectionChanged` (XAML event) | `SettingsViewModel.SetPerformanceModeAsync` (bỏ qua nếu `!_performanceModeInitialized`, tránh tự gọi lúc set giá trị ban đầu từ `OnNavigatedTo`) |
 | `SettingsPage.OnSaveOverlayMessageClick`/`.OnResetOverlayMessageClick` | nút "Lưu"/"Khôi phục mặc định" (XAML event) | `SettingsViewModel.SaveOverlayMessageAsync`/`.ResetOverlayMessageToDefaultAsync` |
 | `SettingsPage.OnRemoveWhitelistEntryClick`/`.OnRemoveWhitelistButtonLoaded` | nút Xoá mỗi dòng whitelist (`DataTemplate`, XAML event) | `SettingsViewModel.RemoveWhitelistEntryAsync`, `LocalizationService.Get` (set `Content` theo instance, cùng mẫu hình `AuditLogPage.OnMarkFalsePositiveButtonLoaded`) |
 | `SettingsPage.OnChangePasswordClick` | nút "Đổi mật khẩu" (XAML event) | đọc `PasswordBox.Password` × 3 → `byte[]` pinned NGAY, clear cả 3 `PasswordBox` TRƯỚC guard/validate (Architecture/08 mục 5.3, cùng mẫu hình `OnboardingSetPasswordPage.OnContinueClick`), `SettingsViewModel.ChangePasswordAsync` |
-| `SettingsPage.OnForgotOldPasswordClick` | link "Quên mật khẩu cũ?" (XAML event) | `NavigationService.NavigateToRecovery` (điều hướng thẳng `S6`, KHÔNG qua `S5` — vẫn `throw NotImplementedException` như giai đoạn 1, chưa implement `S6`) |
+| `SettingsPage.OnForgotOldPasswordClick` | link "Quên mật khẩu cũ?" (XAML event, `ForgotOldPasswordLink.IsEnabled` bind `ViewModel.IsNotChangingPassword` — thêm ở fix bug security audit Đợt 6 S6, tránh rời tab không cần thiết trong lúc `ChangePasswordAsync` đang treo IPC) | `NavigationService.NavigateToRecovery` (điều hướng thẳng `S6`, KHÔNG qua `S5` — implement thật từ giai đoạn 5, xem mục "Đợt 6 giai đoạn 5" cuối file) |
 | `SettingsPage.OnCopyNewRecoveryKeyClick` | nút "Sao chép" trên Recovery Key mới (XAML event) | `Clipboard.SetContent` (cùng residual risk đã ghi nhận ở `OnboardingRecoveryKeyPage`) |
 
 ### `src/ParentalGuard.UI/App.xaml.cs` (sửa — safety net BUG B cho `SettingsViewModel`)
@@ -833,7 +834,7 @@ cuối khối `oneof`, không sửa/xoá dòng nào của giai đoạn 3.
 | Hàm | Callers | Callees |
 |---|---|---|
 | `App.RegisterActiveSettingsViewModel`/`.UnregisterActiveSettingsViewModel` (mới) | `Views/SettingsPage.OnNavigatedTo`/`.OnNavigatedFrom` | set/clear field `_activeSettingsViewModel` |
-| `App.OnWindowClosed` (sửa — thêm nhánh Settings) | Windows App SDK (`Window.Closed`) | `SettingsViewModel.Dispose` (cùng lý do BUG B đã sửa cho `OnboardingViewModel` giai đoạn 1 — đóng app giữa chừng khi Recovery Key mới còn hiển thị vẫn phải zero buffer) |
+| `App.OnWindowClosed` (sửa — thêm nhánh Settings) | Windows App SDK (`Window.Closed`) | `SettingsViewModel.MarkDiscarded` (fix bug security audit Đợt 6 S6, TRƯỚC `Dispose` — `UiIpcClient.DisconnectAsync` bên dưới bị chặn chờ request `ChangePasswordAsync` đang treo xong nên vẫn có thể nhận `Success` thật sau khi window đã đóng), `.Dispose` (cùng lý do BUG B đã sửa cho `OnboardingViewModel` giai đoạn 1 — đóng app giữa chừng khi Recovery Key mới còn hiển thị vẫn phải zero buffer) |
 
 ### Quyết định implement tự chọn (giai đoạn 4)
 
@@ -1117,3 +1118,122 @@ symbol cấm/emoji/tab/control-char/quá 255 ký tự đều bị từ chối; c
   trên) — chạy trực tiếp `dotnet test tests/ParentalGuard.UI.Tests/ParentalGuard.UI.Tests.csproj` (build
   không-RID) thì pass sạch; `test-runner` cần chạy theo project riêng cho `ParentalGuard.UI.Tests`, không
   qua `dotnet test` ở mức `.sln`.
+
+- **2026-09-25 (audit fix)** — FAIL cứng (`security-privacy-auditor`, Đợt 6 giai đoạn 5 `S6` Recovery,
+  `PWD-032`/`033`): race Cancel/đóng app TRONG LÚC `RecoveryViewModel.SubmitAsync` còn treo IPC (Argon2id
+  hash + sinh Recovery Key mới ở Service mất thời gian) khiến `RecoveryViewModel` mồ côi — kịch bản: user
+  bấm "Huỷ, quay lại" (`CancelLink`, KHÔNG bị khoá theo `IsBusy` khác `SubmitButton`) → `OnCancelClick`
+  điều hướng ngay, không huỷ task đang chạy → `RecoveryPage.OnNavigatedFrom` chạy `AcknowledgeNewRecoveryKeyDisplayed()`
+  NGAY LÚC buffer CHƯA tồn tại (no-op) → Service sau đó trả `Success` thật, `SubmitAsync` vẫn set
+  `_newRecoveryKeyPlaintextBuffer`/`NewRecoveryKeyDisplay` trên instance đã mồ côi, KHÔNG CÒN ĐƯỜNG NÀO
+  zero buffer này nữa (`_activeRecoveryViewModel` đã bị `Unregister` trước đó) — plaintext Recovery Key
+  mới tồn tại vô thời hạn trên managed heap tới khi process thoát, vi phạm `PWD-032`/`TEST-001`. Xác nhận
+  qua `UiIpcClient.SendRequestAsync`/`DisconnectAsync` dùng chung 1 `SemaphoreSlim _gate`: `DisconnectAsync`
+  (gọi từ `App.OnWindowClosed`) BỊ CHẶN chờ request đang treo xong trước khi đóng pipe — nghĩa là đóng app
+  giữa chừng (X/Alt+F4) cũng KHÔNG cắt được request, Service vẫn trả `Success` thật vào ViewModel mồ côi
+  y hệt kịch bản Cancel (đã kiểm chứng logic thay vì chỉ suy đoán). Rà thêm thấy CÙNG LỚP LỖI đã tồn tại
+  từ trước (không do lượt S6 này gây ra) ở `SettingsViewModel.ChangePasswordAsync` qua
+  `SettingsPage.ForgotOldPasswordLink` (điều hướng thẳng `S6`, không khoá theo `IsChangingPassword` khác
+  `ChangePasswordButton`) — sửa cùng lúc. Sửa theo 2 lớp phòng thủ trên CẢ 2 ViewModel:
+  (1) **UI lock** (tránh mất Recovery Key một cách không cần thiết ở đường có thể tránh — Success nghĩa
+  là mật khẩu/Recovery Key ĐÃ đổi thật ở Service, huỷ client-side không rollback được, phải hiển thị được
+  chứ không được lặng lẽ zero): `RecoveryPage.xaml` `CancelLink.IsEnabled` từ không-bind sang
+  `{x:Bind ViewModel.IsNotBusy}` (property mới); `SettingsPage.xaml` `ForgotOldPasswordLink.IsEnabled`
+  thêm bind `{x:Bind ViewModel.IsNotChangingPassword}` (property có sẵn). (2) **Fail-secure backstop**
+  (bịt kín cả đường UI lock không chặn được — đóng app giữa chừng): thêm field `_discarded`
+  (`volatile bool`) + method `MarkDiscarded()` (idempotent) trên CẢ `RecoveryViewModel`/`SettingsViewModel`
+  — gọi TRƯỚC mọi điểm rời trang/đóng app hiện có (`RecoveryPage.OnNavigatedFrom`,
+  `SettingsPage.OnNavigatedFrom`, `App.OnWindowClosed` cho cả 2 ViewModel); nhánh `Success` trong
+  `SubmitAsync`/`ChangePasswordAsync` kiểm tra `_discarded` NGAY khi nhận response — nếu `true`,
+  `CryptographicOperations.ZeroMemory` buffer mới nhận ngay lập tức, KHÔNG publish lên
+  `NewRecoveryKeyDisplay`. Test mới (cả 2 file, dùng `TaskCompletionSource`/`PendingResult` mới thêm vào
+  `FakeAuthFacade` để giữ request "treo" cho tới khi test tự `MarkDiscarded()` rồi mới `SetResult`):
+  `RecoveryViewModelTests.SubmitAsync_MarkDiscardedWhilePending_LateSuccessZeroesBufferWithoutPublishing`,
+  `SettingsViewModelTests.ChangePasswordAsync_MarkDiscardedWhilePending_LateSuccessZeroesBufferWithoutPublishing`.
+  Build 0 Warning/0 Error toàn `.sln`; `dotnet test tests/ParentalGuard.UI.Tests/ParentalGuard.UI.Tests.csproj`
+  (per-project, tránh WDAC false-positive đã ghi nhận ở mục trên) 110/110 pass (108 → 110, +2 test mới).
+
+## Đợt 6 (Architecture/10-ui-architecture.md mục 6.6) — `ParentalGuard.UI` giai đoạn 5 (`S6` Recovery)
+
+Phạm vi lượt này: `IAuthFacade`/`AuthFacade` thêm `RecoveryResetAsync` (Service-side `AuthCoordinator`/
+proto `RecoveryResetRequest`/`Response` đã có sẵn từ Đợt 3 — chỉ nối dây phía `UI` Facade lần đầu),
+`RecoveryViewModel`/`RecoveryPage.xaml(.cs)` mới, `NavigationService.NavigateToRecovery` chuyển từ
+`throw NotImplementedException` (stub giai đoạn 1) sang implement thật (`Frame.Navigate` root frame tới
+`RecoveryPage`). Không sửa `.proto` (field 88/89 đã đúng khớp Architecture/08 mục 7.5 từ trước, chỉ xác
+nhận lại). Cả 2 caller cũ của `NavigateToRecovery` (`AuthPromptDialog` qua `ShowAuthPromptAsync`,
+`SettingsPage.OnForgotOldPasswordClick`) không cần sửa vì signature không đổi ngữ nghĩa (`void`→`bool`,
+caller đều gọi dạng statement, discard giá trị trả về hợp lệ).
+
+### `src/ParentalGuard.UI/Services/IpcClient/IAuthFacade.cs`, `AuthFacade.cs` (thêm `RecoveryResetAsync`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuthFacade.RecoveryResetAsync` (mới) | `RecoveryViewModel.SubmitAsync` | `UiIpcClient.NewEnvelope`/`.SendRequestAsync`, `MapRecoveryResetResponse`, `CryptographicOperations.ZeroMemory`/`CredentialBytes.Zero` (zero cả 2 buffer pinned gốc + 2 `ByteString` nội bộ trong `finally`, Architecture/08 mục 5.3) |
+| `AuthFacade.MapRecoveryResetResponse` (private static, mới) | `RecoveryResetAsync` | `CredentialBytes.UnsafeGetBuffer` (chỉ khi `Success` + `new_recovery_key_plaintext` không rỗng, `PWD-032`/ADR-83) |
+
+Tên POCO record `RecoveryResult`/enum `RecoveryOutcome` (không phải `RecoveryResetResult`/`RecoveryResetOutcome`)
+— tránh trùng tên với enum proto `ParentalGuard.Ipc.Protocol.RecoveryResetResult` cùng `using` trong file
+(khác namespace nên không lỗi runtime, nhưng cùng tên sẽ khiến type cục bộ che khuất type proto trong các
+`switch` cần so khớp giá trị enum proto — đặt tên khác ngay từ đầu để tránh nhầm lẫn khi đọc code).
+
+### `src/ParentalGuard.UI/ViewModels/RecoveryViewModel.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `RecoveryViewModel.NormalizeRecoveryKey` (static, mục 6.2) | `Views/RecoveryPage.OnSubmitClick` (TRƯỚC khi build buffer pinned) | thuần logic bỏ `-`/khoảng trắng + `ToUpperInvariant` — Service vẫn chuẩn hoá lại lần nữa, không tin input UI |
+| `RecoveryViewModel.SubmitAsync` | `Views/RecoveryPage.OnSubmitClick` | `IAuthFacade.RecoveryResetAsync` — `Success`: **fix bug security audit Đợt 6 S6** — nếu `_discarded` (trang đã bị rời/app đã đóng trong lúc chờ IPC), `CryptographicOperations.ZeroMemory` buffer mới nhận NGAY, KHÔNG publish; ngược lại zero buffer CŨ trước nếu còn (cùng fix bug security audit đã áp dụng `SettingsViewModel`), decode UTF-8 1 lần → `NewRecoveryKeyDisplay`; `WrongRecoveryKey`/`NewPasswordTooLong`: set `ErrorMessage`; `LockedOut`: khoá `IsSubmitEnabled` + đếm ngược `lockout_until_unix_ms` (đọc trực tiếp field response, không tự tính lại rate-limit, `08` mục 7.7, cùng mẫu hình `AuthPromptViewModel.SubmitAsync`) |
+| `RecoveryViewModel.MarkDiscarded` (mới — fix bug security audit Đợt 6 S6, idempotent) | `Views/RecoveryPage.OnNavigatedFrom`, `App.OnWindowClosed` (qua `_activeRecoveryViewModel`) | set field `_discarded = true` (đọc bởi `SubmitAsync` nhánh `Success`) |
+| `RecoveryViewModel.AcknowledgeNewRecoveryKeyDisplayed`/`.Dispose` | `Views/RecoveryPage.OnAcknowledgeClick`/`.OnNavigatedFrom`, `App.OnWindowClosed` (qua `RegisterActiveRecoveryViewModel`, safety net BUG B) | `CryptographicOperations.ZeroMemory` (zero buffer Recovery Key mới ngay, idempotent) |
+| `RecoveryViewModel.IsFormVisible`/`.HasNewRecoveryKeyDisplay`/`.HasError` (computed) | `Views/RecoveryPage.xaml` (`Visibility` binding) | — |
+| `RecoveryViewModel.CanSubmit` (computed, defense in depth chống double-submit — cùng mẫu hình `SettingsViewModel.CanSubmitChangePassword`) | `Views/RecoveryPage.xaml` (`SubmitButton.IsEnabled`, thay `IsSubmitEnabled` đơn thuần) | `IsSubmitEnabled && !IsBusy` |
+| `RecoveryViewModel.IsNotBusy` (mới, computed — fix bug security audit Đợt 6 S6) | `Views/RecoveryPage.xaml` (`CancelLink.IsEnabled`) | `!IsBusy` (tránh Cancel huỷ 1 request đã commit thành công server-side, làm mất Recovery Key mới không cần thiết) |
+
+### `src/ParentalGuard.UI/Views/RecoveryPage.xaml(.cs)` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `RecoveryPage` ctor | `NavigationService.NavigateToRecovery` (`Frame.Navigate`) | `new RecoveryViewModel` (Facade lấy qua `App.Services`), set label tĩnh qua `LocalizationService.Get` |
+| `RecoveryPage.OnNavigatedTo`/`.OnNavigatedFrom` | Windows App SDK (`Frame` navigation lifecycle) | `App.RegisterActiveRecoveryViewModel`/`.UnregisterActiveRecoveryViewModel`, `RecoveryViewModel.MarkDiscarded` (fix bug security audit Đợt 6 S6 — TRƯỚC Acknowledge, phòng `SubmitAsync` còn treo IPC), `.AcknowledgeNewRecoveryKeyDisplayed` (safety net rời trang khi Recovery Key mới còn hiển thị) |
+| `RecoveryPage.OnSubmitClick` | nút "Khôi phục" (XAML event) | đọc `RecoveryKeyInput.Text`/2 `PasswordBox` → biến cục bộ, clear cả 3 input NGAY (Architecture/08 mục 5.3, cùng mẫu hình `SettingsPage.OnChangePasswordClick`) TRƯỚC guard rỗng/khớp mật khẩu, `RecoveryViewModel.NormalizeRecoveryKey`, `RecoveryViewModel.SubmitAsync` (byte[] pinned) |
+| `RecoveryPage.OnCancelClick` (mới, không mô tả tường minh ở Architecture mục 6.6 — bổ sung tối thiểu để có lối thoát khỏi `S6` nếu vào nhầm, tránh kẹt màn hình toàn cửa sổ không có back button nào khác; `CancelLink.IsEnabled` bind `ViewModel.IsNotBusy` — thêm ở fix bug security audit Đợt 6 S6) | HyperlinkButton "Huỷ, quay lại" (XAML event) | `NavigationService.NavigateToMainShell` |
+| `RecoveryPage.OnAcknowledgeClick` | nút "Đã lưu" trên Recovery Key mới (XAML event) | `RecoveryViewModel.AcknowledgeNewRecoveryKeyDisplayed`, `NavigationService.NavigateToMainShell` (mục 6.6: "SUCCESS → ... → quay lại Main Shell") |
+| `RecoveryPage.OnCopyClick` | nút "Sao chép" (XAML event) | `Clipboard.SetContent` (cùng residual risk đã ghi nhận ở `OnboardingRecoveryKeyPage`) |
+
+Không tạo `UserControl RecoveryKeyDisplayControl` riêng — cùng lý do đã ghi nhận ở giai đoạn 4
+(`SettingsPage`): không có `UserControl` như vậy trong code thật, chỉ inline `TextBlock`/`Button`, lặp lại
+đúng pattern đã dùng ở `OnboardingRecoveryKeyPage`/`SettingsPage` (DEV-026).
+
+### `src/ParentalGuard.UI/Services/NavigationService.cs` (sửa — implement `NavigateToRecovery`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `NavigationService.NavigateToRecovery` (sửa, trả `bool` khớp các `Navigate*` khác thay vì `void`) | `ShowAuthPromptAsync`, `Views/SettingsPage.OnForgotOldPasswordClick` | `Navigate(typeof(RecoveryPage))` |
+
+### `src/ParentalGuard.UI/App.xaml.cs` (sửa — safety net BUG B cho `RecoveryViewModel`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `App.RegisterActiveRecoveryViewModel`/`.UnregisterActiveRecoveryViewModel` (mới) | `Views/RecoveryPage.OnNavigatedTo`/`.OnNavigatedFrom` | set/clear field `_activeRecoveryViewModel` |
+| `App.OnWindowClosed` (sửa — thêm nhánh Recovery) | Windows App SDK (`Window.Closed`) | `RecoveryViewModel.MarkDiscarded` (fix bug security audit Đợt 6 S6, TRƯỚC `Dispose` — `UiIpcClient.DisconnectAsync` bên dưới bị chặn chờ request `SubmitAsync` đang treo xong nên vẫn có thể nhận `Success` thật sau khi window đã đóng), `.Dispose` (cùng lý do BUG B đã sửa cho `OnboardingViewModel`/`SettingsViewModel` — đóng app giữa chừng khi Recovery Key mới còn hiển thị vẫn phải zero buffer) |
+
+### Test mới (`tests/ParentalGuard.UI.Tests/`)
+
+`AuthFacadeTests.cs` — thêm mapping 4 outcome `RecoveryResetResult` (proto) → `RecoveryOutcome`, verify
+request gửi đúng `recovery_key`/`new_password`, `lockout_until_unix_ms` đọc đúng khi `LockedOut`,
+`NewRecoveryKeyPlaintextUtf8` giải mã đúng UTF-8 khi `Success`. `RecoveryViewModelTests.cs` (mới) —
+`NormalizeRecoveryKey` (bỏ `-`/khoảng trắng, hoa hoá, 3 case); `SubmitAsync` 4 outcome (`Success` ẩn form/
+hiện Recovery Key mới, `WrongRecoveryKey` giữ form, `LockedOut` khoá `IsSubmitEnabled`, `NewPasswordTooLong`
+set lỗi) + lỗi kết nối (`UiIpcConnectionException`); `AcknowledgeNewRecoveryKeyDisplayed` zero buffer;
+`Dispose` (safety net BUG B — có buffer chưa acknowledge phải zero, không buffer thì no-op, cùng mẫu hình
+regression test `OnboardingViewModelTests`/`SettingsViewModelTests`); `CanSubmit` `false` khi `IsBusy=true`
+(defense in depth chống double-submit). 3 `FakeAuthFacade` sẵn có
+(`OnboardingViewModelTests`/`DashboardViewModelTests`/`SettingsViewModelTests`) đều phải thêm implement
+`RecoveryResetAsync` (`throw NotSupportedException`) do `IAuthFacade` có thêm method mới — không đổi hành
+vi test hiện có, chỉ để interface biên dịch được. Build 0 Warning/0 Error toàn `.sln`; per-project
+(tránh WDAC false-positive đã ghi nhận ở mục trên): `ParentalGuard.UI.Tests` 108/108 pass (+17 so với
+baseline 91 trước lượt này), `ParentalGuard.Service.Tests` 183/183, `ParentalGuard.Watchdog.Tests` 2/2,
+`ParentalGuard.Overlay.Tests` 18/18, `ParentalGuard.Uninstaller.Tests` 9/9 — không regression.
+`ParentalGuard.Vision.Tests` vẫn gặp đúng WDAC/Smart App Control false-positive đã ghi nhận (không liên
+quan lượt này, không đụng tới `ParentalGuard.Vision`): 3/45 pass qua được trước khi
+`FileLoadException 0x800711C7` chặn phần còn lại — môi trường, không phải regression thật. Tổng test
+toàn solution: 348 → **365** (+17, đúng số test mới thêm).

@@ -62,6 +62,9 @@ public sealed partial class SettingsPage : Page
     {
         base.OnNavigatedFrom(e);
         ((App)Application.Current).UnregisterActiveSettingsViewModel(ViewModel);
+        // Security audit Đợt 6 S6 (bug đã sửa) — đánh dấu mồ côi TRƯỚC, phòng trường hợp ChangePasswordAsync
+        // còn treo IPC ("Quên mật khẩu cũ?" → S6 giữa chừng): Success đến sau sẽ tự zero, không publish.
+        ViewModel.MarkDiscarded();
         // Safety net (BUG B, học từ giai đoạn 1) — rời tab trong khi Recovery Key mới còn hiển thị vẫn phải zero buffer.
         ViewModel.AcknowledgeNewRecoveryKeyDisplayed();
     }

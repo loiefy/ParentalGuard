@@ -87,7 +87,8 @@
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <Button x:Name="ChangePasswordButton" Click="OnChangePasswordClick"
                                 IsEnabled="{x:Bind ViewModel.CanSubmitChangePassword, Mode=OneWay}" />
-                        <HyperlinkButton x:Name="ForgotOldPasswordLink" Click="OnForgotOldPasswordClick" />
+                        <HyperlinkButton x:Name="ForgotOldPasswordLink" Click="OnForgotOldPasswordClick"
+                                         IsEnabled="{x:Bind ViewModel.IsNotChangingPassword, Mode=OneWay}" />
                     </StackPanel>
 
                     <!-- Architecture/10 mục 6.4 — hiển thị Recovery Key mới đúng 1 lần, cùng mẫu hình S1 bước 3. -->

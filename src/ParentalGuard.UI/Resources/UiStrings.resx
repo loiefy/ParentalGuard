@@ -422,4 +422,30 @@
   <data name="SettingsRecoveryKeyAcknowledgeButton" xml:space="preserve">
     <value>Đã lưu</value>
   </data>
+
+  <!-- S6 Recovery (Architecture/10 mục 6.6, PWD-032/033). -->
+  <data name="RecoveryTitle" xml:space="preserve">
+    <value>Khôi phục qua Recovery Key</value>
+  </data>
+  <data name="RecoveryBody" xml:space="preserve">
+    <value>Nhập Recovery Key đã lưu lúc thiết lập ban đầu và đặt mật khẩu mới.</value>
+  </data>
+  <data name="RecoveryKeyLabel" xml:space="preserve">
+    <value>Recovery Key</value>
+  </data>
+  <data name="RecoveryKeyEmpty" xml:space="preserve">
+    <value>Vui lòng nhập Recovery Key.</value>
+  </data>
+  <data name="RecoverySubmitButton" xml:space="preserve">
+    <value>Khôi phục</value>
+  </data>
+  <data name="RecoveryCancelLink" xml:space="preserve">
+    <value>Huỷ, quay lại</value>
+  </data>
+  <data name="RecoveryWrongKey" xml:space="preserve">
+    <value>Recovery Key không đúng.</value>
+  </data>
+  <data name="RecoveryLockedOutFormat" xml:space="preserve">
+    <value>Đã khoá tạm thời do nhập sai nhiều lần. Vui lòng thử lại sau {0}.</value>
+  </data>
 </root>

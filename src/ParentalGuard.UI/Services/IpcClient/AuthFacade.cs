@@ -159,4 +159,50 @@ public sealed class AuthFacade(UiIpcClient client) : IAuthFacade
             : null;
         return new ChangePasswordResult(outcome, newRecoveryKeyPlaintext);
     }
+
+    public async Task<RecoveryResult> RecoveryResetAsync(byte[] recoveryKeyUtf8Pinned, byte[] newPasswordUtf8Pinned, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(recoveryKeyUtf8Pinned);
+        ArgumentNullException.ThrowIfNull(newPasswordUtf8Pinned);
+
+        IpcPayload request = client.NewEnvelope();
+        var req = new RecoveryResetRequest
+        {
+            RecoveryKey = ByteString.CopyFrom(recoveryKeyUtf8Pinned),
+            NewPassword = ByteString.CopyFrom(newPasswordUtf8Pinned),
+        };
+        request.RecoveryResetReq = req;
+        try
+        {
+            return await client.SendRequestAsync(request, MapRecoveryResetResponse, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Architecture/08 mục 5.3 — zero cả 2 buffer pinned gốc + 2 buffer ByteString vừa build.
+            CryptographicOperations.ZeroMemory(recoveryKeyUtf8Pinned);
+            CryptographicOperations.ZeroMemory(newPasswordUtf8Pinned);
+            CredentialBytes.Zero(CredentialBytes.UnsafeGetBuffer(req.RecoveryKey));
+            CredentialBytes.Zero(CredentialBytes.UnsafeGetBuffer(req.NewPassword));
+        }
+    }
+
+    private static RecoveryResult MapRecoveryResetResponse(IpcPayload response)
+    {
+        RecoveryResetResponse resp = response.RecoveryResetResp;
+        RecoveryOutcome outcome = resp.Result switch
+        {
+            RecoveryResetResult.Success => RecoveryOutcome.Success,
+            RecoveryResetResult.WrongRecoveryKey => RecoveryOutcome.WrongRecoveryKey,
+            RecoveryResetResult.LockedOut => RecoveryOutcome.LockedOut,
+            RecoveryResetResult.NewPasswordTooLong => RecoveryOutcome.NewPasswordTooLong,
+            _ => throw new UiIpcConnectionException($"Unexpected RecoveryResetResult: {resp.Result}."),
+        };
+
+        // Mục 5.2 — lấy trực tiếp buffer ByteString nội bộ (không copy thêm); caller (RecoveryViewModel)
+        // sở hữu vòng đời zero từ đây, đúng ADR-83 (chỉ set khi Success, PWD-032: luôn sinh key mới).
+        byte[]? newRecoveryKeyPlaintext = outcome == RecoveryOutcome.Success && resp.NewRecoveryKeyPlaintext.Length > 0
+            ? CredentialBytes.UnsafeGetBuffer(resp.NewRecoveryKeyPlaintext)
+            : null;
+        return new RecoveryResult(outcome, newRecoveryKeyPlaintext, resp.LockoutUntilUnixMs);
+    }
 }

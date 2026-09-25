@@ -87,6 +87,78 @@ public sealed class AuthFacadeTests
         await client.DisconnectAsync();
     }
 
+    [Theory]
+    [InlineData(RecoveryResetResult.Success, RecoveryOutcome.Success)]
+    [InlineData(RecoveryResetResult.WrongRecoveryKey, RecoveryOutcome.WrongRecoveryKey)]
+    [InlineData(RecoveryResetResult.LockedOut, RecoveryOutcome.LockedOut)]
+    [InlineData(RecoveryResetResult.NewPasswordTooLong, RecoveryOutcome.NewPasswordTooLong)]
+    public async Task RecoveryResetAsync_MapsResultCorrectly(RecoveryResetResult protoResult, RecoveryOutcome expectedOutcome)
+    {
+        string pipeName = "test-auth-facade-" + Guid.NewGuid().ToString("N");
+        using var serverPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        Task serverTask = RunServerAsync(serverPipe, async (sessionKey, next) =>
+        {
+            IpcPayload req = await next();
+            Assert.Equal(IpcPayload.BodyOneofCase.RecoveryResetReq, req.BodyCase);
+            Assert.Equal(new byte[] { 5, 6 }, req.RecoveryResetReq.RecoveryKey.ToByteArray());
+            Assert.Equal(new byte[] { 7, 8 }, req.RecoveryResetReq.NewPassword.ToByteArray());
+            await RespondAsync(serverPipe, sessionKey, req.MessageId, r => r.RecoveryResetResp = new RecoveryResetResponse { Result = protoResult, LockoutUntilUnixMs = 12345 });
+        });
+
+        var client = new UiIpcClient(pipeName);
+        await client.ConnectAsync(CancellationToken.None);
+        var facade = new AuthFacade(client);
+
+        byte[] recoveryKeyPinned = GC.AllocateArray<byte>(2, pinned: true);
+        recoveryKeyPinned[0] = 5;
+        recoveryKeyPinned[1] = 6;
+        byte[] newPasswordPinned = GC.AllocateArray<byte>(2, pinned: true);
+        newPasswordPinned[0] = 7;
+        newPasswordPinned[1] = 8;
+
+        RecoveryResult result = await facade.RecoveryResetAsync(recoveryKeyPinned, newPasswordPinned, CancellationToken.None);
+
+        Assert.Equal(expectedOutcome, result.Outcome);
+        if (expectedOutcome == RecoveryOutcome.LockedOut)
+        {
+            Assert.Equal(12345, result.LockoutUntilUnixMs);
+        }
+
+        await serverTask;
+        await client.DisconnectAsync();
+    }
+
+    [Fact]
+    public async Task RecoveryResetAsync_Success_ReturnsNewRecoveryKeyPlaintext()
+    {
+        string pipeName = "test-auth-facade-" + Guid.NewGuid().ToString("N");
+        using var serverPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        Task serverTask = RunServerAsync(serverPipe, async (sessionKey, next) =>
+        {
+            IpcPayload req = await next();
+            await RespondAsync(serverPipe, sessionKey, req.MessageId, r => r.RecoveryResetResp = new RecoveryResetResponse
+            {
+                Result = RecoveryResetResult.Success,
+                NewRecoveryKeyPlaintext = ByteString.CopyFromUtf8("WXYZ-2345-IJKL-6789"),
+            });
+        });
+
+        var client = new UiIpcClient(pipeName);
+        await client.ConnectAsync(CancellationToken.None);
+        var facade = new AuthFacade(client);
+
+        RecoveryResult result = await facade.RecoveryResetAsync(
+            GC.AllocateArray<byte>(1, pinned: true),
+            GC.AllocateArray<byte>(1, pinned: true),
+            CancellationToken.None);
+
+        Assert.Equal(RecoveryOutcome.Success, result.Outcome);
+        Assert.Equal("WXYZ-2345-IJKL-6789", System.Text.Encoding.UTF8.GetString(result.NewRecoveryKeyPlaintextUtf8!));
+
+        await serverTask;
+        await client.DisconnectAsync();
+    }
+
     private static async Task RunServerAsync(NamedPipeServerStream serverPipe, Func<byte[], Func<Task<IpcPayload>>, Task> handle)
     {
         await serverPipe.WaitForConnectionAsync();

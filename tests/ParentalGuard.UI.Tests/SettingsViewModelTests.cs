@@ -331,6 +331,34 @@ public sealed class SettingsViewModelTests
         Assert.Null(viewModel.NewRecoveryKeyDisplay);
     }
 
+    /// <summary>
+    /// Regression security audit Đợt 6 S6 (bug đã sửa, cùng lớp lỗi race của <c>RecoveryViewModelTests</c>)
+    /// — rời tab (vd "Quên mật khẩu cũ?" → S6, <c>MarkDiscarded</c>) TRONG LÚC <c>ChangePasswordAsync</c>
+    /// còn treo IPC: Success đến SAU thời điểm đó không được publish, buffer Recovery Key mới phải zero
+    /// ngay (trước bug fix, buffer này KHÔNG BAO GIỜ bị zero — không còn ai để "Acknowledge" nữa).
+    /// </summary>
+    [Fact]
+    public async Task ChangePasswordAsync_MarkDiscardedWhilePending_LateSuccessZeroesBufferWithoutPublishing()
+    {
+        var pendingResult = new TaskCompletionSource<ChangePasswordResult>();
+        var authFacade = new FakeAuthFacade { PendingResult = pendingResult.Task };
+        var viewModel = CreateViewModel(authFacade: authFacade);
+
+        Task changeTask = viewModel.ChangePasswordAsync(GC.AllocateArray<byte>(4, pinned: true), GC.AllocateArray<byte>(4, pinned: true), CancellationToken.None);
+        Assert.True(viewModel.IsChangingPassword);
+
+        // Cùng thời điểm SettingsPage.OnNavigatedFrom/App.OnWindowClosed gọi khi rời tab/đóng app giữa chừng.
+        viewModel.MarkDiscarded();
+
+        byte[] newKeyBytes = "ORPHANED-KEY-5678"u8.ToArray();
+        pendingResult.SetResult(new ChangePasswordResult(ChangeOutcome.Success, newKeyBytes));
+        await changeTask;
+
+        Assert.Null(viewModel.NewRecoveryKeyDisplay);
+        Assert.False(viewModel.HasNewRecoveryKeyDisplay);
+        Assert.All(newKeyBytes, b => Assert.Equal(0, b));
+    }
+
     private sealed class FakeConfigFacade : IConfigFacade
     {
         private int _updateIndex;
@@ -383,6 +411,8 @@ public sealed class SettingsViewModelTests
 
         public ChangePasswordResult? Result { get; set; }
 
+        public Task<ChangePasswordResult>? PendingResult { get; set; }
+
         /// <summary>Cho phép giả lập nhiều lần gọi liên tiếp (mỗi lần trả 1 kết quả khác nhau) — dùng khi <see cref="Result"/> không đủ.</summary>
         public void EnqueueResult(ChangePasswordResult result) => _results.Enqueue(result);
 
@@ -398,7 +428,10 @@ public sealed class SettingsViewModelTests
             => throw new NotSupportedException();
 
         public Task<ChangePasswordResult> ChangePasswordAsync(byte[] oldPasswordUtf8Pinned, byte[] newPasswordUtf8Pinned, bool regenerateRecoveryKey, CancellationToken cancellationToken)
-            => Task.FromResult(_results.Count > 0 ? _results.Dequeue() : Result ?? throw new InvalidOperationException("Result not configured"));
+            => PendingResult ?? Task.FromResult(_results.Count > 0 ? _results.Dequeue() : Result ?? throw new InvalidOperationException("Result not configured"));
+
+        public Task<RecoveryResult> RecoveryResetAsync(byte[] recoveryKeyUtf8Pinned, byte[] newPasswordUtf8Pinned, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 
     /// <summary>Trả lần lượt token trong <c>_tokens</c> mỗi lần <c>ShowAuthPromptAsync</c> được gọi (null = user huỷ dialog) — cùng mẫu hình <see cref="AuditLogViewModelTests"/>.</summary>

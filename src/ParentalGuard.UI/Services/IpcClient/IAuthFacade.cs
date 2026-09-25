@@ -36,6 +36,18 @@ public interface IAuthFacade
         byte[] newPasswordUtf8Pinned,
         bool regenerateRecoveryKey,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <c>RecoveryResetRequest</c> (mục 6.6, `S6`, Architecture/08 mục 7.5) — tự gate qua
+    /// <paramref name="recoveryKeyUtf8Pinned"/>, KHÔNG qua `S5`. Cả 2 buffer pinned bị zero trong
+    /// <c>finally</c> (Architecture/08 mục 5.3), caller KHÔNG được dùng lại sau khi gọi.
+    /// <paramref name="recoveryKeyUtf8Pinned"/> PHẢI đã chuẩn hoá client-side (mục 6.2) trước khi gọi
+    /// — Service vẫn chuẩn hoá lại lần nữa, không tin input UI.
+    /// </summary>
+    Task<RecoveryResult> RecoveryResetAsync(
+        byte[] recoveryKeyUtf8Pinned,
+        byte[] newPasswordUtf8Pinned,
+        CancellationToken cancellationToken);
 }
 
 public enum SetupOutcome
@@ -90,3 +102,18 @@ public enum ChangeOutcome
 /// <see cref="SetInitialPasswordResult.RecoveryKeyPlaintextUtf8"/> (Architecture/08 mục 5.2/ADR-83).
 /// </summary>
 public sealed record ChangePasswordResult(ChangeOutcome Outcome, byte[]? NewRecoveryKeyPlaintextUtf8);
+
+public enum RecoveryOutcome
+{
+    Success,
+    WrongRecoveryKey,
+    LockedOut,
+    NewPasswordTooLong,
+}
+
+/// <summary>
+/// <paramref name="NewRecoveryKeyPlaintextUtf8"/> chỉ set khi <see cref="RecoveryOutcome.Success"/>
+/// (`PWD-032`: luôn sinh key mới) — cùng quy tắc sở hữu/zero như
+/// <see cref="ChangePasswordResult.NewRecoveryKeyPlaintextUtf8"/> (Architecture/08 mục 5.2/ADR-83).
+/// </summary>
+public sealed record RecoveryResult(RecoveryOutcome Outcome, byte[]? NewRecoveryKeyPlaintextUtf8, long LockoutUntilUnixMs);

@@ -27,6 +27,14 @@ public sealed partial class SettingsViewModel(
     private string _lastSavedOverlayMessage = string.Empty;
     private byte[]? _newRecoveryKeyPlaintextBuffer;
 
+    /// <summary>
+    /// Security audit Đợt 6 S6 (bug đã sửa, cùng lớp lỗi race của <c>RecoveryViewModel</c>) — <c>true</c>
+    /// sau khi tab bị rời (vd "Quên mật khẩu cũ?" → `S6`) trong lúc <see cref="ChangePasswordAsync"/> còn
+    /// treo IPC. Nếu Service vẫn trả Success SAU thời điểm đó, Recovery Key mới bị zero ngay thay vì
+    /// publish lên <see cref="NewRecoveryKeyDisplay"/> của 1 ViewModel mồ côi.
+    /// </summary>
+    private volatile bool _discarded;
+
     /// <summary>Giá trị <c>performance_mode</c> đã LƯU ở Service (không phải lựa chọn UI đang chờ xác nhận — đổi có hiệu lực ngay, không có trạng thái "chờ").</summary>
     public PerformanceModeOption PerformanceMode { get; private set; } = PerformanceModeOption.Balanced;
 
@@ -289,16 +297,27 @@ public sealed partial class SettingsViewModel(
                 case ChangeOutcome.Success:
                     if (result.NewRecoveryKeyPlaintextUtf8 is not null)
                     {
-                        // Security audit Đợt 6 S4 — nếu Recovery Key trước đó chưa được acknowledge, zero
-                        // ngay trước khi ghi đè, không để plaintext cũ trôi nổi không zero trên managed heap.
-                        if (_newRecoveryKeyPlaintextBuffer is not null)
+                        if (_discarded)
                         {
-                            CryptographicOperations.ZeroMemory(_newRecoveryKeyPlaintextBuffer);
+                            // Security audit Đợt 6 S6 (bug đã sửa) — tab đã bị rời (vd "Quên mật khẩu
+                            // cũ?" → S6) trong lúc chờ IPC. Mật khẩu/Recovery Key mới ĐÃ đổi thật ở
+                            // Service nhưng không còn ai hiển thị/acknowledge được nữa — zero ngay, không
+                            // publish lên ViewModel mồ côi (fail-secure, PWD-032/TEST-001).
+                            CryptographicOperations.ZeroMemory(result.NewRecoveryKeyPlaintextUtf8);
                         }
+                        else
+                        {
+                            // Security audit Đợt 6 S4 — nếu Recovery Key trước đó chưa được acknowledge, zero
+                            // ngay trước khi ghi đè, không để plaintext cũ trôi nổi không zero trên managed heap.
+                            if (_newRecoveryKeyPlaintextBuffer is not null)
+                            {
+                                CryptographicOperations.ZeroMemory(_newRecoveryKeyPlaintextBuffer);
+                            }
 
-                        _newRecoveryKeyPlaintextBuffer = result.NewRecoveryKeyPlaintextUtf8;
-                        // Mục 6.1 bước 3 — UTF-8 decode ĐÚNG 1 LẦN từ bytes nhận được để hiển thị.
-                        NewRecoveryKeyDisplay = Encoding.UTF8.GetString(_newRecoveryKeyPlaintextBuffer);
+                            _newRecoveryKeyPlaintextBuffer = result.NewRecoveryKeyPlaintextUtf8;
+                            // Mục 6.1 bước 3 — UTF-8 decode ĐÚNG 1 LẦN từ bytes nhận được để hiển thị.
+                            NewRecoveryKeyDisplay = Encoding.UTF8.GetString(_newRecoveryKeyPlaintextBuffer);
+                        }
                     }
 
                     ChangePasswordStatus = LocalizationService.Get("SettingsChangePasswordSuccess");
@@ -335,6 +354,12 @@ public sealed partial class SettingsViewModel(
 
         NewRecoveryKeyDisplay = null;
     }
+
+    /// <summary>
+    /// Security audit Đợt 6 S6 (bug đã sửa) — gọi TRƯỚC khi rời tab `S4` (<c>SettingsPage.OnNavigatedFrom</c>,
+    /// <c>App.OnWindowClosed</c>), kể cả khi <see cref="ChangePasswordAsync"/> chưa hoàn tất; idempotent.
+    /// </summary>
+    public void MarkDiscarded() => _discarded = true;
 
     /// <summary>Safety net (BUG B, mục "học từ giai đoạn 1") — rời tab/đóng app trước khi bấm "Đã lưu" vẫn phải zero buffer; idempotent.</summary>
     public void Dispose() => AcknowledgeNewRecoveryKeyDisplayed();

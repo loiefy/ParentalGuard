@@ -21,8 +21,8 @@ public sealed class NavigationService(IAuthFacade authFacade) : IAuthPromptServi
 
     public bool NavigateToMainShell() => Navigate(typeof(MainShellPage));
 
-    /// <summary>`S6` Recovery — CHƯA implement (giai đoạn sau Đợt 6, mục "Không làm ở giai đoạn này").</summary>
-    public void NavigateToRecovery() => throw new NotImplementedException("S6 Recovery chưa implement ở giai đoạn này.");
+    /// <summary>`S6` Recovery (mục 4/6.6) — điều hướng trên root <c>Frame</c>, gọi từ `S5` ("Quên mật khẩu?") và `S4` (link trực tiếp).</summary>
+    public bool NavigateToRecovery() => Navigate(typeof(RecoveryPage));
 
     /// <summary>Mục 6.5 — hiện <see cref="AuthPromptDialog"/>, trả <c>action_token</c> (null nếu huỷ). Điều hướng <c>S6</c> nếu người dùng bấm "Quên mật khẩu?".</summary>
     public async Task<byte[]?> ShowAuthPromptAsync(string actionContext, XamlRoot xamlRoot)
