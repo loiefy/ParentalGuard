@@ -20,6 +20,19 @@ secrets.json
 *credential*
 *key*.json
 
+# The 3 wildcard patterns above are name-substring matches, not extension
+# matches — they can accidentally swallow legitimate source files whose
+# class/file name merely contains "secret"/"credential"/"key" (e.g.
+# src/ParentalGuard.Ipc/Security/CredentialBytes.cs, silently untracked
+# since Đợt 3 until caught by security-privacy-auditor 2026-09-25). Source
+# code must never be excluded by these patterns — only real secret payloads
+# (.pfx/.p12/.snk/.cer/.env/secrets.json/etc. above) are.
+!*.cs
+!*.xaml
+!*.csproj
+!*.sln
+!*.proto
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
