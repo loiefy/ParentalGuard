@@ -25,6 +25,17 @@ public interface IAuthFacade
     /// zero như <see cref="SetInitialPasswordAsync"/>.
     /// </summary>
     Task<AuthVerifyResult> AuthVerifyAsync(byte[] passwordUtf8Pinned, string actionContext, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <c>ChangePasswordRequest</c> (mục 6.4, `PWD-040`/`041`, Architecture/08 mục 7.4) — tự gate qua
+    /// <paramref name="oldPasswordUtf8Pinned"/>, KHÔNG qua `S5`. Cả 2 buffer pinned bị zero trong
+    /// <c>finally</c> (Architecture/08 mục 5.3), caller KHÔNG được dùng lại sau khi gọi.
+    /// </summary>
+    Task<ChangePasswordResult> ChangePasswordAsync(
+        byte[] oldPasswordUtf8Pinned,
+        byte[] newPasswordUtf8Pinned,
+        bool regenerateRecoveryKey,
+        CancellationToken cancellationToken);
 }
 
 public enum SetupOutcome
@@ -64,3 +75,18 @@ public sealed record AuthVerifyResult(
     long ActionTokenExpiresAtUnixMs,
     long LockoutUntilUnixMs,
     uint ConsecutiveFailures);
+
+public enum ChangeOutcome
+{
+    Success,
+    WrongOldPassword,
+    LockedOut,
+    NewPasswordTooLong,
+}
+
+/// <summary>
+/// <paramref name="NewRecoveryKeyPlaintextUtf8"/> chỉ set khi <see cref="ChangeOutcome.Success"/> VÀ
+/// <c>regenerate_recovery_key=true</c> — cùng quy tắc sở hữu/zero như
+/// <see cref="SetInitialPasswordResult.RecoveryKeyPlaintextUtf8"/> (Architecture/08 mục 5.2/ADR-83).
+/// </summary>
+public sealed record ChangePasswordResult(ChangeOutcome Outcome, byte[]? NewRecoveryKeyPlaintextUtf8);

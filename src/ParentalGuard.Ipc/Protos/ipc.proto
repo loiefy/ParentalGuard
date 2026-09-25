@@ -76,12 +76,21 @@ message IpcPayload {
     UninstallExecuteResponse uninstall_execute_resp = 121;
 
     // --- Kênh UI Dashboard/Settings (140-159), Đợt 6 — Architecture/03 mục 3.7/10-ui-architecture.md mục 5 ---
-    // Field 142/143 (AuditLogQuery/Response) và 146-153 (MarkFalsePositive/Config/RemoveWhitelistEntry)
-    // thuộc S3/S4 — ngoài phạm vi lượt implement S2 này, chưa định nghĩa message tương ứng ở đây.
     AcknowledgePauseAnomalyRequest ack_pause_anomaly_req = 140;
     AcknowledgePauseAnomalyResponse ack_pause_anomaly_resp = 141;
+    AuditLogQuery audit_log_query = 142;
+    AuditLogResponse audit_log_resp = 143;
     AuditChartQuery audit_chart_query = 144;
     AuditChartResponse audit_chart_resp = 145;
+    MarkFalsePositiveRequest mark_false_positive_req = 146;
+    MarkFalsePositiveResponse mark_false_positive_resp = 147;
+    // S4 Cài đặt nâng cao (148-153) — Architecture/03 mục 3.7, 10-ui-architecture.md mục 6.4
+    ConfigQuery config_query = 148;
+    ConfigResponse config_resp = 149;
+    ConfigUpdateRequest config_update_req = 150;
+    ConfigUpdateResponse config_update_resp = 151;
+    RemoveWhitelistEntryRequest remove_whitelist_req = 152;
+    RemoveWhitelistEntryResponse remove_whitelist_resp = 153;
   }
 }
 
@@ -444,8 +453,8 @@ enum UninstallResult {
 // --- Đợt 6, `S2` Dashboard: DashboardStatusQuery/Response, xác nhận cảnh báo pause bất thường,
 // biểu đồ audit tổng hợp (field 98-99 + 140-141 + 144-145 của khối UI) ---
 // Nguồn: Architecture/03-ipc-communication.md mục 3.7, Architecture/10-ui-architecture.md mục 5/6.2
-// (Approved). Field 142/143/146-153 (AuditLogQuery/Response, MarkFalsePositive, Config,
-// RemoveWhitelistEntry) thuộc S3/S4 — ngoài phạm vi lượt này, chưa định nghĩa message ở đây.
+// (Approved). Field 148-153 (Config, RemoveWhitelistEntry) thuộc S4 — ngoài phạm vi lượt này, chưa
+// định nghĩa message ở đây.
 
 message DashboardStatusQuery {} // field 98
 
@@ -476,4 +485,116 @@ message AuditChartResponse { // field 145
 message DailyBlockCount {
   string date_utc = 1; // "YYYY-MM-DD"
   uint32 blocked_count = 2; // đếm event_type="ContentBlocked" trong ngày đó
+}
+
+// --- Đợt 6, `S3` Lịch sử / Audit log (field 142/143/146/147 của khối UI 140-159) ---
+// Nguồn: Architecture/03-ipc-communication.md mục 3.7, Architecture/10-ui-architecture.md mục 5/6.3
+// (Approved). Giá trị enum *Result đặt tiền tố tên type (cùng lý do đã ghi ở khối Password/Auth và
+// Uninstaller phía trên — UninstallResult đã chiếm bare SUCCESS/INVALID_TOKEN trong file này).
+
+message AuditLogQuery { // field 142
+  bytes action_token = 1; // action_context="view_audit_log" (PWD-020) — chỉ bắt buộc hợp lệ ở request
+                          // ĐẦU TIÊN của 1 phiên xem; các trang kế tiếp (page>=1) có thể để rỗng, Service
+                          // tự nhớ "đã qua gate" theo session pipe hiện tại (10-ui-architecture.md mục 6.3)
+  uint32 page = 2; // 0-based
+  uint32 page_size = 3; // Service áp trần cứng bất kể UI truyền gì lớn hơn
+}
+
+message AuditLogResponse { // field 143
+  AuditLogQueryResult result = 1;
+  repeated AuditLogEntry entries = 2; // rỗng nếu result != SUCCESS
+  bool has_more = 3;
+}
+
+enum AuditLogQueryResult {
+  AUDIT_LOG_QUERY_RESULT_UNSPECIFIED = 0;
+  AUDIT_LOG_QUERY_RESULT_SUCCESS = 1;
+  AUDIT_LOG_QUERY_RESULT_INVALID_TOKEN = 2;
+}
+
+message AuditLogEntry {
+  uint64 seq = 1;
+  int64 ts_unix_ms = 2;
+  string event_type = 3; // literal theo bảng event_type (04-data-architecture.md mục 5.1) — CỐ Ý dùng
+                          // string thay vì enum (ADR-112, cùng lý do đã áp dụng cho khối này ở 03 mục 3.7)
+  string detail_json = 4; // JSON thô của field "detail" trong record gốc — UI hiển thị chung chung
+                           // theo event_type, KHÔNG parse sâu trừ 2 field tiện dụng dưới đây
+  string process_name = 5; // CHỈ set khi event_type="ContentBlocked"
+  float risk_score = 6; // CHỈ set khi event_type="ContentBlocked"
+}
+
+message MarkFalsePositiveRequest { // field 146
+  bytes action_token = 1; // action_context="manage_whitelist"
+  string process_name = 2;
+}
+
+message MarkFalsePositiveResponse { // field 147
+  MarkFalsePositiveResult result = 1;
+}
+
+enum MarkFalsePositiveResult {
+  MARK_FALSE_POSITIVE_RESULT_UNSPECIFIED = 0;
+  MARK_FALSE_POSITIVE_RESULT_SUCCESS = 1;
+  MARK_FALSE_POSITIVE_RESULT_INVALID_TOKEN = 2;
+  MARK_FALSE_POSITIVE_RESULT_ALREADY_LISTED = 3; // idempotent guard
+}
+
+// --- Đợt 6, `S4` Cài đặt nâng cao (field 148-153 của khối UI 140-159) ---
+// Nguồn: Architecture/03-ipc-communication.md mục 3.7, Architecture/10-ui-architecture.md mục 5/6.4
+// (Approved). Giá trị enum *Result đặt tiền tố tên type (cùng lý do đã ghi ở các khối *Result phía
+// trên — UninstallResult đã chiếm bare SUCCESS/INVALID_TOKEN trong file này).
+
+message ConfigQuery {} // field 148
+
+message ConfigResponse { // field 149
+  string overlay_message = 1; // rỗng = đang dùng default cục bộ của Overlay
+  repeated string user_whitelisted_process_names = 2;
+  PerformanceMode performance_mode = 3; // PERF-050b — Service luôn trả về giá trị cụ thể
+                                         // (BALANCED/MAXIMUM_PROTECTION), không bao giờ UNSPECIFIED
+}
+
+// PERF-050b — tập giá trị ĐÓNG, cố định bởi chính hợp đồng IPC này (khác event_type ở AuditLogEntry,
+// ADR-112: đó là catalog dữ liệu mở rộng dần ở 04, còn đây là 2 mức duy nhất do
+// Specification/08-performance-cpu-spec.md PERF-050b định nghĩa).
+enum PerformanceMode {
+  PERFORMANCE_MODE_UNSPECIFIED = 0; // chỉ xuất hiện trong request không hợp lệ — Service không bao giờ
+                                     // set giá trị này trong response
+  BALANCED = 1; // mặc định, PERF-050b
+  MAXIMUM_PROTECTION = 2; // PERF-050b
+}
+
+message ConfigUpdateRequest { // field 150
+  string overlay_message = 1; // UI LUÔN gửi giá trị mong muốn đầy đủ (không phải partial update) —
+                               // rỗng = yêu cầu reset về default (nút "Khôi phục mặc định", FE-012)
+  PerformanceMode performance_mode = 2; // UI (RadioButtons, luôn có 1 lựa chọn được chọn sẵn) gửi kèm
+                                         // giá trị hiện hành mỗi lần Save, cùng nguyên tắc "full update"
+                                         // như overlay_message. UNSPECIFIED (client lỗi/cũ) → Service
+                                         // giữ nguyên performance_mode hiện có, KHÔNG ghi đè
+}
+
+message ConfigUpdateResponse { // field 151
+  ConfigUpdateResult result = 1;
+}
+
+enum ConfigUpdateResult {
+  CONFIG_UPDATE_RESULT_UNSPECIFIED = 0;
+  CONFIG_UPDATE_RESULT_SUCCESS = 1;
+  CONFIG_UPDATE_RESULT_INVALID_CHARACTERS = 2; // FE-012a
+  CONFIG_UPDATE_RESULT_TOO_LONG = 3; // > 255 ký tự, FE-012
+}
+
+message RemoveWhitelistEntryRequest { // field 152
+  bytes action_token = 1; // action_context="manage_whitelist"
+  string process_name = 2;
+}
+
+message RemoveWhitelistEntryResponse { // field 153
+  RemoveWhitelistEntryResult result = 1;
+}
+
+enum RemoveWhitelistEntryResult {
+  REMOVE_WHITELIST_ENTRY_RESULT_UNSPECIFIED = 0;
+  REMOVE_WHITELIST_ENTRY_RESULT_SUCCESS = 1;
+  REMOVE_WHITELIST_ENTRY_RESULT_INVALID_TOKEN = 2;
+  REMOVE_WHITELIST_ENTRY_RESULT_NOT_FOUND = 3;
 }

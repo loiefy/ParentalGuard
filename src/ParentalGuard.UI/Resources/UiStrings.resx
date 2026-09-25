@@ -254,4 +254,172 @@
   <data name="DashboardChartSummaryFormat" xml:space="preserve">
     <value>{0} ngày qua: {1} lần chặn</value>
   </data>
+
+  <!-- S3 Lịch sử / Audit log (mục 6.3). -->
+  <data name="AuditLogEmptyText" xml:space="preserve">
+    <value>Chưa phát hiện nội dung nào cần chặn</value>
+  </data>
+  <data name="AuditLogSessionExpired" xml:space="preserve">
+    <value>Phiên xem đã hết hạn, vui lòng rời và mở lại mục Lịch sử.</value>
+  </data>
+  <data name="AuditLoadMoreButton" xml:space="preserve">
+    <value>Tải thêm</value>
+  </data>
+  <data name="AuditProcessNameFormat" xml:space="preserve">
+    <value>Ứng dụng: {0}</value>
+  </data>
+  <data name="AuditRiskScoreFormat" xml:space="preserve">
+    <value>Điểm rủi ro: {0:0.00}</value>
+  </data>
+  <data name="AuditMarkFalsePositiveButton" xml:space="preserve">
+    <value>Đánh dấu sai</value>
+  </data>
+  <data name="AuditMarkFalsePositiveSuccessFormat" xml:space="preserve">
+    <value>Đã thêm {0} vào danh sách loại trừ.</value>
+  </data>
+  <data name="AuditMarkFalsePositiveAlreadyListedFormat" xml:space="preserve">
+    <value>{0} đã có trong danh sách loại trừ.</value>
+  </data>
+
+  <!-- S3 — mapping event_type → text hiển thị (Architecture/04-data-architecture.md mục 5.1). -->
+  <data name="AuditEventTypeServiceStarted" xml:space="preserve">
+    <value>Khởi động dịch vụ</value>
+  </data>
+  <data name="AuditEventTypeMonitoringToggled" xml:space="preserve">
+    <value>Bật/tắt giám sát</value>
+  </data>
+  <data name="AuditEventTypePauseActivated" xml:space="preserve">
+    <value>Tạm dừng giám sát</value>
+  </data>
+  <data name="AuditEventTypePauseResumed" xml:space="preserve">
+    <value>Tiếp tục giám sát</value>
+  </data>
+  <data name="AuditEventTypePauseFrequencyAnomalyDetected" xml:space="preserve">
+    <value>Phát hiện tần suất tạm dừng bất thường</value>
+  </data>
+  <data name="AuditEventTypeContentBlocked" xml:space="preserve">
+    <value>Nội dung bị chặn</value>
+  </data>
+  <data name="AuditEventTypeForceCloseRequested" xml:space="preserve">
+    <value>Đóng cửa sổ vi phạm</value>
+  </data>
+  <data name="AuditEventTypeAuthAttempt" xml:space="preserve">
+    <value>Xác thực mật khẩu</value>
+  </data>
+  <data name="AuditEventTypeProcessRestarted" xml:space="preserve">
+    <value>Khởi động lại tiến trình</value>
+  </data>
+  <data name="AuditEventTypeConfigChanged" xml:space="preserve">
+    <value>Thay đổi cấu hình</value>
+  </data>
+  <data name="AuditEventTypeConfigFallbackTriggered" xml:space="preserve">
+    <value>Chuyển sang cấu hình an toàn dự phòng</value>
+  </data>
+  <data name="AuditEventTypeAttackPatternDetected" xml:space="preserve">
+    <value>Phát hiện mẫu tấn công</value>
+  </data>
+  <data name="AuditEventTypeAuditChainBrokenDetected" xml:space="preserve">
+    <value>Phát hiện nhật ký bị đứt chuỗi</value>
+  </data>
+  <data name="AuditEventTypeSoftwareUpdated" xml:space="preserve">
+    <value>Cập nhật phần mềm</value>
+  </data>
+  <data name="AuditEventTypeVisionNetworkBlocked" xml:space="preserve">
+    <value>Chặn kết nối mạng trái phép</value>
+  </data>
+  <data name="AuditEventTypeAuthBruteForceThresholdReached" xml:space="preserve">
+    <value>Cảnh báo dò mật khẩu</value>
+  </data>
+  <data name="AuditEventTypeTamperDetected" xml:space="preserve">
+    <value>Phát hiện can thiệp trái phép</value>
+  </data>
+  <data name="AuditEventTypeUninstallInitiated" xml:space="preserve">
+    <value>Bắt đầu gỡ cài đặt</value>
+  </data>
+  <data name="AuditEventTypeUninstallPartialFailure" xml:space="preserve">
+    <value>Gỡ cài đặt gặp lỗi một phần</value>
+  </data>
+  <data name="AuditEventTypeWfpFiltersRemoved" xml:space="preserve">
+    <value>Gỡ bộ lọc mạng</value>
+  </data>
+
+  <!-- S4 Cài đặt nâng cao (Architecture/10 mục 6.4) — Thông điệp overlay (FE-012/FE-012a). -->
+  <data name="SettingsOverlayMessageLabel" xml:space="preserve">
+    <value>Thông điệp hiển thị trên overlay chặn nội dung</value>
+  </data>
+  <data name="SettingsSaveButton" xml:space="preserve">
+    <value>Lưu</value>
+  </data>
+  <data name="SettingsResetToDefaultButton" xml:space="preserve">
+    <value>Khôi phục mặc định</value>
+  </data>
+  <data name="SettingsOverlayMessageSaved" xml:space="preserve">
+    <value>Đã lưu thông điệp overlay.</value>
+  </data>
+  <data name="SettingsOverlayMessageInvalidCharacters" xml:space="preserve">
+    <value>Thông điệp chứa ký tự không được phép.</value>
+  </data>
+  <data name="SettingsOverlayMessageTooLong" xml:space="preserve">
+    <value>Thông điệp vượt quá 255 ký tự.</value>
+  </data>
+
+  <!-- S4 — Quản lý whitelist (MISC-030). -->
+  <data name="SettingsWhitelistHeader" xml:space="preserve">
+    <value>Danh sách ứng dụng được loại trừ khỏi giám sát</value>
+  </data>
+  <data name="SettingsWhitelistRemoveButton" xml:space="preserve">
+    <value>Xoá</value>
+  </data>
+  <data name="SettingsWhitelistRemovedFormat" xml:space="preserve">
+    <value>Đã xoá "{0}" khỏi danh sách loại trừ.</value>
+  </data>
+
+  <!-- S4 — Chế độ hiệu năng (PERF-050b, ADR-125). -->
+  <data name="SettingsPerformanceModeHeader" xml:space="preserve">
+    <value>Chế độ hiệu năng</value>
+  </data>
+  <data name="SettingsPerformanceModeBalanced" xml:space="preserve">
+    <value>Cân bằng</value>
+  </data>
+  <data name="SettingsPerformanceModeMaximumProtection" xml:space="preserve">
+    <value>Bảo vệ tối đa</value>
+  </data>
+  <data name="SettingsPerformanceModeSaveFailed" xml:space="preserve">
+    <value>Không thể lưu chế độ hiệu năng, vui lòng thử lại.</value>
+  </data>
+
+  <!-- S4 — Đổi mật khẩu (PWD-040/041). -->
+  <data name="SettingsChangePasswordHeader" xml:space="preserve">
+    <value>Đổi mật khẩu</value>
+  </data>
+  <data name="SettingsOldPasswordLabel" xml:space="preserve">
+    <value>Mật khẩu hiện tại</value>
+  </data>
+  <data name="SettingsNewPasswordLabel" xml:space="preserve">
+    <value>Mật khẩu mới</value>
+  </data>
+  <data name="SettingsConfirmNewPasswordLabel" xml:space="preserve">
+    <value>Xác nhận mật khẩu mới</value>
+  </data>
+  <data name="SettingsRegenerateRecoveryKeyCheckbox" xml:space="preserve">
+    <value>Sinh Recovery Key mới?</value>
+  </data>
+  <data name="SettingsChangePasswordButton" xml:space="preserve">
+    <value>Đổi mật khẩu</value>
+  </data>
+  <data name="SettingsForgotOldPasswordLink" xml:space="preserve">
+    <value>Quên mật khẩu cũ? Dùng Recovery Key</value>
+  </data>
+  <data name="SettingsChangePasswordSuccess" xml:space="preserve">
+    <value>Đã đổi mật khẩu thành công.</value>
+  </data>
+  <data name="SettingsChangePasswordWrongOldPassword" xml:space="preserve">
+    <value>Mật khẩu hiện tại không đúng.</value>
+  </data>
+  <data name="SettingsChangePasswordLockedOut" xml:space="preserve">
+    <value>Tài khoản tạm thời bị khoá do nhập sai quá nhiều lần.</value>
+  </data>
+  <data name="SettingsRecoveryKeyAcknowledgeButton" xml:space="preserve">
+    <value>Đã lưu</value>
+  </data>
 </root>

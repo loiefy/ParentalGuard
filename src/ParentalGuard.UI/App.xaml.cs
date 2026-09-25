@@ -18,6 +18,7 @@ public partial class App : Application
     private SingleInstanceGuard? _singleInstanceGuard;
     private Window? _window;
     private OnboardingViewModel? _activeOnboardingViewModel;
+    private SettingsViewModel? _activeSettingsViewModel;
 
     public App()
     {
@@ -72,6 +73,21 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Gọi bởi <see cref="SettingsPage"/> (mục 6.4) — safety net BUG B tương tự Onboarding: đóng app
+    /// giữa chừng trong khi Recovery Key mới (đổi mật khẩu) còn hiển thị vẫn phải zero buffer.
+    /// </summary>
+    public void RegisterActiveSettingsViewModel(SettingsViewModel viewModel) => _activeSettingsViewModel = viewModel;
+
+    /// <summary>Gọi bởi <see cref="SettingsPage.OnNavigatedFrom"/> khi rời tab `S4`.</summary>
+    public void UnregisterActiveSettingsViewModel(SettingsViewModel viewModel)
+    {
+        if (ReferenceEquals(_activeSettingsViewModel, viewModel))
+        {
+            _activeSettingsViewModel = null;
+        }
+    }
+
     private async Task ConnectAndRouteAsync()
     {
         var uiIpcClient = Services.GetRequiredService<UiIpcClient>();
@@ -115,6 +131,10 @@ public partial class App : Application
         // phải vẫn zero plaintext buffer — ConfirmRecoveryKeySavedAsync bình thường không được gọi.
         _activeOnboardingViewModel?.Dispose();
         _activeOnboardingViewModel = null;
+
+        // Cùng lý do BUG B — đóng app giữa chừng trong khi Recovery Key mới (S4 đổi mật khẩu) còn hiển thị.
+        _activeSettingsViewModel?.Dispose();
+        _activeSettingsViewModel = null;
 
         var uiIpcClient = Services.GetRequiredService<UiIpcClient>();
         await uiIpcClient.DisconnectAsync().ConfigureAwait(false);

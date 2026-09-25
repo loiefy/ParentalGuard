@@ -108,4 +108,55 @@ public sealed class AuthFacade(UiIpcClient client) : IAuthFacade
         byte[]? actionToken = outcome == AuthOutcome.Success ? resp.ActionToken.ToByteArray() : null;
         return new AuthVerifyResult(outcome, actionToken, resp.ActionTokenExpiresAtUnixMs, resp.LockoutUntilUnixMs, resp.ConsecutiveFailures);
     }
+
+    public async Task<ChangePasswordResult> ChangePasswordAsync(
+        byte[] oldPasswordUtf8Pinned,
+        byte[] newPasswordUtf8Pinned,
+        bool regenerateRecoveryKey,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(oldPasswordUtf8Pinned);
+        ArgumentNullException.ThrowIfNull(newPasswordUtf8Pinned);
+
+        IpcPayload request = client.NewEnvelope();
+        var req = new ChangePasswordRequest
+        {
+            OldPassword = ByteString.CopyFrom(oldPasswordUtf8Pinned),
+            NewPassword = ByteString.CopyFrom(newPasswordUtf8Pinned),
+            RegenerateRecoveryKey = regenerateRecoveryKey,
+        };
+        request.ChangePasswordReq = req;
+        try
+        {
+            return await client.SendRequestAsync(request, MapChangePasswordResponse, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Architecture/08 mục 5.3 — zero cả 2 buffer pinned gốc + 2 buffer ByteString vừa build.
+            CryptographicOperations.ZeroMemory(oldPasswordUtf8Pinned);
+            CryptographicOperations.ZeroMemory(newPasswordUtf8Pinned);
+            CredentialBytes.Zero(CredentialBytes.UnsafeGetBuffer(req.OldPassword));
+            CredentialBytes.Zero(CredentialBytes.UnsafeGetBuffer(req.NewPassword));
+        }
+    }
+
+    private static ChangePasswordResult MapChangePasswordResponse(IpcPayload response)
+    {
+        ChangePasswordResponse resp = response.ChangePasswordResp;
+        ChangeOutcome outcome = resp.Result switch
+        {
+            ChangeResult.Success => ChangeOutcome.Success,
+            ChangeResult.WrongOldPassword => ChangeOutcome.WrongOldPassword,
+            ChangeResult.LockedOut => ChangeOutcome.LockedOut,
+            ChangeResult.NewPasswordTooLong => ChangeOutcome.NewPasswordTooLong,
+            _ => throw new UiIpcConnectionException($"Unexpected ChangeResult: {resp.Result}."),
+        };
+
+        // Mục 5.2 — lấy trực tiếp buffer ByteString nội bộ (không copy thêm); caller (SettingsViewModel)
+        // sở hữu vòng đời zero từ đây, đúng ADR-83 (chỉ set khi Success + regenerate_recovery_key=true).
+        byte[]? newRecoveryKeyPlaintext = outcome == ChangeOutcome.Success && resp.NewRecoveryKeyPlaintext.Length > 0
+            ? CredentialBytes.UnsafeGetBuffer(resp.NewRecoveryKeyPlaintext)
+            : null;
+        return new ChangePasswordResult(outcome, newRecoveryKeyPlaintext);
+    }
 }

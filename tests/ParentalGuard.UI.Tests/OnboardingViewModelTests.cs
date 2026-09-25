@@ -56,5 +56,8 @@ public sealed class OnboardingViewModelTests
 
         public Task<AuthVerifyResult> AuthVerifyAsync(byte[] passwordUtf8Pinned, string actionContext, CancellationToken cancellationToken)
             => throw new NotSupportedException();
+
+        public Task<ChangePasswordResult> ChangePasswordAsync(byte[] oldPasswordUtf8Pinned, byte[] newPasswordUtf8Pinned, bool regenerateRecoveryKey, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
     }
 }

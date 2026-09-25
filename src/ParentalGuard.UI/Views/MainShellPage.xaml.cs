@@ -18,6 +18,12 @@ public sealed partial class MainShellPage : Page
             Nav.SelectedItem = DashboardItem;
             ContentFrame.Navigate(typeof(DashboardPage));
         };
+
+        // S3 huỷ gate S5 tự điều hướng lại S2 (mục 6.3) bằng Frame.Navigate trực tiếp (không qua
+        // OnSelectionChanged) — đồng bộ lại NavigationViewItem đang chọn cho khớp trang thật sự hiển thị.
+        ContentFrame.Navigated += (_, e) => Nav.SelectedItem = e.SourcePageType == typeof(AuditLogPage)
+            ? AuditLogItem
+            : e.SourcePageType == typeof(SettingsPage) ? SettingsItem : DashboardItem;
     }
 
     private void OnSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -33,6 +39,9 @@ public sealed partial class MainShellPage : Page
             "Settings" => typeof(SettingsPage),
             _ => typeof(DashboardPage),
         };
-        ContentFrame.Navigate(pageType);
+        if (ContentFrame.CurrentSourcePageType != pageType)
+        {
+            ContentFrame.Navigate(pageType);
+        }
     }
 }

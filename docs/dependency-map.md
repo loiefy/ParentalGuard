@@ -538,7 +538,9 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
 | `AuthFacade.ConfirmRecoveryKeySavedAsync` | `AuthFacade.cs` | `OnboardingViewModel.ConfirmRecoveryKeySavedAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
 | `AuthFacade.AuthVerifyAsync` | `AuthFacade.cs` | `AuthPromptViewModel.SubmitAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync`, `MapAuthVerifyResponse`, `CredentialBytes.UnsafeGetBuffer/.Zero`, `CryptographicOperations.ZeroMemory` |
 | `AuthFacade.MapAuthVerifyResponse` (private static) | `AuthFacade.cs` | `AuthVerifyAsync` | `CredentialBytes` (nếu cần), `resp.ActionToken.ToByteArray` |
-| `AuditFacade`/`ConfigFacade` (stub rỗng, **CHƯA có method** — placeholder DI cho `S3`/`S4`, giai đoạn 3-4) | `AuditFacade.cs`/`ConfigFacade.cs` | đăng ký DI ở `App.BuildServiceProvider`, chưa ai gọi | — |
+| `ConfigFacade` (stub rỗng, **CHƯA có method** — placeholder DI cho `S4`, giai đoạn 4) | `ConfigFacade.cs` | đăng ký DI ở `App.BuildServiceProvider`, chưa ai gọi | — |
+| `AuditFacade.GetAuditLogAsync`/`.MapResponse` (**mới giai đoạn 3**) | `AuditFacade.cs` | `AuditLogViewModel.LoadPageAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
+| `AuditFacade.MarkFalsePositiveAsync`/`.MapMarkFalsePositiveResponse` (**mới giai đoạn 3**) | `AuditFacade.cs` | `AuditLogViewModel.MarkFalsePositiveWithTokenAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
 | `DashboardFacade.GetStatusAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.PollAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` ×2 liên tiếp (`DashboardStatusQuery` rồi `PauseStatusQuery`, mục 3.3/ADR-120) |
 | `DashboardFacade.AcknowledgePauseAnomalyAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.AcknowledgeAnomalyAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
 | `DashboardFacade.GetAuditChartAsync` (**mới giai đoạn 2**) | `DashboardFacade.cs` | `DashboardViewModel.LoadChartAsync` | `UiIpcClient.NewEnvelope/SendRequestAsync` |
@@ -552,7 +554,7 @@ trên), Facade layer (`IAuthFacade` implement đầy đủ, 4 facade còn lại 
 | `NavigationService.Initialize` | `NavigationService.cs` | `App.OnLaunched` | — (lưu `Frame` root) |
 | `NavigationService.NavigateToConnectionError`/`.NavigateToOnboarding`/`.NavigateToMainShell` | `NavigationService.cs` | `App.ConnectAndRouteAsync`, `Views/OnboardingPage.*` | `Frame.Navigate` (BCL) |
 | `NavigationService.NavigateToRecovery` (**CHƯA implement — throw NotImplementedException có chủ đích, `S6` giai đoạn sau**) | `NavigationService.cs` | `ShowAuthPromptAsync` (khi `AuthPromptDialog.ForgotPasswordRequested`), `Views/SettingsPage` (giai đoạn 4, chưa gọi) | — |
-| `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5, implement `IAuthPromptService`) | `NavigationService.cs` | `DashboardViewModel.PauseAsync`/`.ResumeAsync`/`.PauseWithTokenAsync`/`.ResumeWithTokenAsync` (qua interface `IAuthPromptService`, giai đoạn 2), `S3`/`S4` (giai đoạn sau) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
+| `NavigationService.ShowAuthPromptAsync` (`S5`, mục 6.5, implement `IAuthPromptService`) | `NavigationService.cs` | `DashboardViewModel.PauseAsync`/`.ResumeAsync`/`.PauseWithTokenAsync`/`.ResumeWithTokenAsync` (giai đoạn 2), `AuditLogViewModel.InitializeAsync`/`.MarkFalsePositiveAsync`/`.MarkFalsePositiveWithTokenAsync` (**mới giai đoạn 3**, qua interface `IAuthPromptService`), `S4` (giai đoạn sau) | `Views/AuthPromptDialog` ctor + `.RequestActionTokenAsync`, `NavigateToRecovery` (nếu bấm "Quên mật khẩu?") |
 | `IAuthPromptService` (**mới**, `Services/IAuthPromptService.cs` — seam test-only, sửa gap `test-runner` 2026-09-24) | — (interface) | `NavigationService` (implement thật), `tests/ParentalGuard.UI.Tests/DashboardViewModelTests.cs` (`FakeAuthPromptService`, fake token/CallCount) |
 | `LocalizationService.Get`/`.GetFormatted` | `LocalizationService.cs` | mọi `Views/*.xaml.cs`, `ViewModels/*.cs` | `ResourceManager.GetString` (BCL) |
 | `SingleInstanceGuard` ctor/`.Dispose` | `SingleInstanceGuard.cs` | `App.OnLaunched`, `App.OnWindowClosed` | `Mutex` (BCL) |
@@ -635,7 +637,8 @@ Phạm vi lượt này: `DashboardFacade`/`PauseFacade` implement đầy đủ (
 (poll 5s, ADR-120), `DashboardPage.xaml` layout thật (5 phần mục 6.2). Amendment `ParentalGuard.Ipc/Protos/ipc.proto`
 — thêm message Đợt 6 field 98/99 (`DashboardStatusQuery`/`Response`) + 140/141/144/145
 (`AcknowledgePauseAnomalyRequest`/`Response`, `AuditChartQuery`/`Response`, `DailyBlockCount`) đúng
-`03-ipc-communication.md` mục 3.7 — field 142/143/146-153 (`S3`/`S4`) CHƯA định nghĩa, để dành giai đoạn sau.
+`03-ipc-communication.md` mục 3.7 — field 142/143/146-153 (`S3`/`S4`) CHƯA định nghĩa, để dành giai đoạn sau
+(142/143/146/147 đã định nghĩa ở giai đoạn 3 — xem bên dưới; 148-153 vẫn để dành `S4`).
 
 ### `src/ParentalGuard.UI/ViewModels/DashboardViewModel.cs`
 
@@ -688,6 +691,192 @@ toàn trong unit test). 5 test mới: `PauseAsync`/`ResumeAsync` × (retry thàn
 huỷ dialog retry → giữ `ErrorMessage`, retry cũng `InvalidToken` → dừng sau đúng 1 lần — không test
 riêng nhánh cuối cho Resume vì logic `ResumeWithTokenAsync` giống hệt `PauseWithTokenAsync`, đã cover
 qua `PauseAsync` tương ứng).
+
+## Đợt 6 (Architecture/10-ui-architecture.md) — `ParentalGuard.UI` giai đoạn 3 (`S3` Lịch sử / Audit log)
+
+Phạm vi lượt này: `AuditFacade` implement đầy đủ (trước là stub rỗng), `AuditLogViewModel` mới (gate
+`S5` bắt buộc mỗi lần vào tab, phân trang, mapping `event_type`→tiếng Việt, "Đánh dấu sai"),
+`AuditLogPage.xaml` layout thật (mục 6.3), đồng bộ `NavigationView.SelectedItem` khi điều hướng nội bộ
+`ContentFrame` (không qua `OnSelectionChanged`). Amendment `ParentalGuard.Ipc/Protos/ipc.proto` — định
+nghĩa message field 142/143 (`AuditLogQuery`/`Response`, `AuditLogEntry`, enum `AuditLogQueryResult`) và
+146/147 (`MarkFalsePositiveRequest`/`Response`, enum `MarkFalsePositiveResult`) đúng
+`03-ipc-communication.md` mục 3.7 — field number xác nhận lại từ file đó (không tin comment placeholder
+cũ trong `.proto`, khớp chính xác). 2 enum `*Result` dùng tiền tố tên type (`AUDIT_LOG_QUERY_RESULT_*`/
+`MARK_FALSE_POSITIVE_RESULT_*`) vì `SUCCESS`/`INVALID_TOKEN` bare đã bị `UninstallResult` chiếm trong
+cùng file (cùng quy ước đã áp dụng cho `SetupResult`/`ConfirmResult`/`PauseResult`/`ResumeResult`) — xác
+nhận qua build thật `protoc-gen-csharp` rút gọn đúng thành `AuditLogQueryResult.Success`/`.InvalidToken`,
+`MarkFalsePositiveResult.Success`/`.InvalidToken`/`.AlreadyListed`. Field 148-153 (`ConfigQuery`/
+`ConfigUpdateRequest`/`RemoveWhitelistEntry`, `S4`) vẫn CHƯA định nghĩa, để dành giai đoạn 4.
+
+### `src/ParentalGuard.UI/ViewModels/AuditLogViewModel.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuditLogViewModel.InitializeAsync` | `Views/AuditLogPage.OnNavigatedTo` | `IAuthPromptService.ShowAuthPromptAsync("view_audit_log", xamlRoot)` (mục 6.3 — gate TRƯỚC khi render bất kỳ nội dung nào), `LoadPageAsync(page=0)` — huỷ hoặc `InvalidToken` không phục hồi được (mở lại `S5` 1 lần, mục 6.5) → `GateCancelled=true` |
+| `AuditLogViewModel.LoadMoreAsync` | `Views/AuditLogPage.OnLoadMoreClick` | `LoadPageAsync(_noToken, _nextPage)` — trang ≥1 gửi `action_token` RỖNG (mục 6.3: Service tự nhớ "đã qua gate" theo session pipe), `InvalidToken` ở trang này → `HasMore=false` + `ErrorMessage` (không mở lại `S5`, khác race token trang đầu) |
+| `AuditLogViewModel.LoadPageAsync` (private) | `InitializeAsync`, `LoadMoreAsync` | `IAuditFacade.GetAuditLogAsync`, `ToRowViewData` (mỗi entry), `CryptographicOperations.ZeroMemory` (zero `action_token` ngay sau khi facade dùng xong, kể cả khi `InvalidToken`) |
+| `AuditLogViewModel.MarkFalsePositiveAsync` | `Views/AuditLogPage.OnMarkFalsePositiveClick` | `IAuthPromptService.ShowAuthPromptAsync("manage_whitelist", xamlRoot)` (gate RIÊNG, khác token `view_audit_log`), `MarkFalsePositiveWithTokenAsync` |
+| `AuditLogViewModel.MarkFalsePositiveWithTokenAsync` (private, mục 6.5 — cùng mẫu hình `DashboardViewModel.PauseWithTokenAsync`) | `MarkFalsePositiveAsync`, chính nó (đệ quy đúng 1 lần khi retry) | `IAuditFacade.MarkFalsePositiveAsync`, `CryptographicOperations.ZeroMemory` — `Success`/`AlreadyListed`: set `StatusMessage`; `InvalidToken`: set `ErrorMessage` rồi tự mở lại `S5` NGAY (`allowRetry=true`→`false`) |
+| `AuditLogViewModel.ToRowViewData` (private static) | `LoadPageAsync` | `EventTypeDisplay.ToText`, `LocalizationService.Get/.GetFormatted` (`AuditProcessNameFormat`/`AuditRiskScoreFormat`, chỉ khi `event_type="ContentBlocked"`) |
+| `EventTypeDisplay.ToText` (internal static, `04-data-architecture.md` mục 5.1) | `ToRowViewData` | `LocalizationService.Get` — `event_type` không có trong bảng tra cứu → trả nguyên văn literal (không rớt lỗi, không ẩn thông tin) |
+
+### `src/ParentalGuard.UI/Services/IpcClient/AuditFacade.cs` (implement đầy đủ, xem bảng ở trên)
+
+### `src/ParentalGuard.UI/Views/AuditLogPage.xaml(.cs)`
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuditLogPage` ctor | `Views/MainShellPage` (`ContentFrame.Navigate`, lúc chọn tab hoặc `OnNavigatedTo` tự điều hướng lại `S2`) | `new AuditLogViewModel` (Facade lấy qua `App.Services`), set `EmptyText.Text`/`LoadMoreButton.Content` |
+| `AuditLogPage.OnNavigatedTo` | Windows App SDK (`Frame` navigation lifecycle) | `AuditLogViewModel.InitializeAsync(XamlRoot)` |
+| `AuditLogPage.OnViewModelPropertyChanged` | `AuditLogViewModel.PropertyChanged` (đăng ký ở ctor) | `Frame.Navigate(typeof(DashboardPage))` khi `GateCancelled=true` (mục 6.3 — huỷ `S5` → quay lại `S2`) |
+| `AuditLogPage.OnLoadMoreClick`/`.OnMarkFalsePositiveClick` | nút "Tải thêm"/"Đánh dấu sai" (XAML event) | `AuditLogViewModel.LoadMoreAsync`/`.MarkFalsePositiveAsync` |
+| `AuditLogPage.OnMarkFalsePositiveButtonLoaded` | `Button.Loaded` trong `DataTemplate` (mỗi dòng `ContentBlocked`, XAML event) | `LocalizationService.Get` (set `Content` — nút nằm trong `DataTemplate` lặp lại theo dòng, không có nơi "static label" chung như control đơn lẻ) |
+
+### `src/ParentalGuard.UI/Views/MainShellPage.xaml.cs` (sửa, đồng bộ `NavigationView.SelectedItem`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `MainShellPage` ctor — thêm `ContentFrame.Navigated` handler (**mới giai đoạn 3**) | `Views/MainShellPage.xaml.cs` | đồng bộ `Nav.SelectedItem` theo `e.SourcePageType` — cần thiết vì `AuditLogPage.OnViewModelPropertyChanged` điều hướng `Frame.Navigate` trực tiếp (không qua `OnSelectionChanged`), nếu không đồng bộ thì `NavigationViewItem` đang chọn sẽ sai sau khi huỷ gate `S5` |
+| `MainShellPage.OnSelectionChanged` (sửa — thêm guard `CurrentSourcePageType != pageType`) | `NavigationView.SelectionChanged` (XAML event) | `ContentFrame.Navigate` — tránh Navigate lặp vô ích khi `Navigated` handler vừa set lại `SelectedItem` cho đúng trang đang hiển thị |
+
+### Quyết định implement tự chọn (giai đoạn 3)
+
+- **`ListView`/`DataTemplate` cho danh sách audit log** (Architecture/10 mục 6.3 chỉ nói "danh sách" —
+  không chỉ định control cụ thể) — chuẩn WinUI 3, có accessibility/keyboard nav sẵn (mục 8), không tự vẽ.
+- **Nút "Đánh dấu sai" set `Content` qua `Button.Loaded` trong `DataTemplate`** thay vì `x:Bind` gọi hàm
+  tĩnh `LocalizationService.Get` trực tiếp trong markup — đơn giản hơn, không cần khai báo hàm
+  `x:Bind`-compatible, nhất quán cách các control khác trong dự án set text qua `LocalizationService`
+  ở code-behind (`ApplyStaticLabels` các trang khác), chỉ khác là set theo từng instance vì nằm trong
+  `DataTemplate` lặp lại.
+- **`IsNotLoadingMore` property phủ định tường minh** trên `AuditLogViewModel` — cùng lý do đã ghi ở
+  giai đoạn 2 (`x:Bind` không hỗ trợ `!` trong markup ở bản Windows App SDK đang dùng).
+- **Zero `action_token`** cho cả luồng `view_audit_log` (trang đầu — trang sau không có gì để zero vì
+  gửi mảng rỗng) và `manage_whitelist` — nhất quán mẫu hình `AuthFacade`, dù `PauseFacade`/
+  `DashboardViewModel` giai đoạn 2 KHÔNG làm việc này (không phải regression — bổ sung thêm an toàn ở
+  giai đoạn 3 theo đúng nhắc nhở lúc giao việc, "an toàn là ưu tiên nếu dễ làm mà không tốn công";
+  không sửa lại `PauseFacade`/`DashboardViewModel` giai đoạn 2 vì ngoài phạm vi lượt này).
+
+### Test mới (`tests/ParentalGuard.UI.Tests/`)
+
+`AuditFacadeTests.cs` — loopback named pipe thật (cùng mẫu hình `DashboardFacadeTests`/`PauseFacadeTests`),
+verify mapping cả 2 outcome (`Success`/`InvalidToken`) của `AuditLogQuery` và cả 3 outcome
+(`Success`/`InvalidToken`/`AlreadyListed`) của `MarkFalsePositiveRequest`. `AuditLogViewModelTests.cs` —
+qua `FakeAuditFacade`/`FakeAuthPromptService` (không cần `XamlRoot`/`ContentDialog` thật, cùng mẫu hình
+`DashboardViewModelTests`): gate S5 thành công → `IsGated=true` + `Entries` populated; huỷ dialog →
+`GateCancelled=true`; `InvalidToken` ở trang đầu → tự mở lại `S5` 1 lần (thành công/huỷ/vẫn `InvalidToken`
+— 3 nhánh, cùng mẫu hình `PauseAsync` giai đoạn 2); `LoadMoreAsync` gửi `action_token` RỖNG cho trang
+≥1 + nối thêm `Entries` (không thay thế); `IsEmpty`/`ShowEntries` (`FE-040`) đúng theo `IsGated`/`IsBusy`/
+số lượng `Entries`; `MarkFalsePositiveAsync` set `StatusMessage` đúng (`Success`/`AlreadyListed`) hoặc
+tự mở lại `S5` khi `InvalidToken`.
+
+## Đợt 6 (Architecture/10-ui-architecture.md) — `ParentalGuard.UI` giai đoạn 4 (`S4` Cài đặt nâng cao)
+
+Phạm vi lượt này: `ConfigFacade` implement đầy đủ (trước là stub rỗng), `IAuthFacade`/`AuthFacade` thêm
+`ChangePasswordAsync` (trước chưa có), `SettingsViewModel` mới (đổi thông điệp overlay `FE-012`/`012a`,
+quản lý whitelist `MISC-030`, chế độ hiệu năng `PERF-050b`/ADR-125, đổi mật khẩu `PWD-040`/`041`),
+`SettingsPage.xaml` layout thật (mục 6.4). Amendment `ParentalGuard.Ipc/Protos/ipc.proto` — định nghĩa
+nốt field 148-153 (`ConfigQuery`/`ConfigResponse`/`ConfigUpdateRequest`/`ConfigUpdateResponse`/
+`RemoveWhitelistEntryRequest`/`RemoveWhitelistEntryResponse`, enum `PerformanceMode`/`ConfigUpdateResult`/
+`RemoveWhitelistEntryResult`) đúng `03-ipc-communication.md` mục 3.7 — khối 140-159 (UI Dashboard/Settings)
+nay đã dùng hết. Xác nhận không xung đột với giai đoạn 3 (`S3`, chạy song song): field 140-147 đã có sẵn
+trong `.proto` lúc bắt đầu lượt này (`AcknowledgePauseAnomalyRequest/Response`, `AuditLogQuery/Response`,
+`AuditChartQuery/Response`, `MarkFalsePositiveRequest/Response`) — giữ nguyên, chỉ nối thêm 148-153 vào
+cuối khối `oneof`, không sửa/xoá dòng nào của giai đoạn 3.
+
+### `src/ParentalGuard.UI/Services/IpcClient/ConfigFacade.cs`, `IConfigFacade.cs` (implement đầy đủ)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `ConfigFacade.GetConfigAsync` | `SettingsViewModel.InitializeAsync` | `UiIpcClient.NewEnvelope`/`.SendRequestAsync`, `MapConfigResponse` |
+| `ConfigFacade.UpdateOverlayMessageAsync`/`.UpdatePerformanceModeAsync` (cả 2 gọi chung `UpdateConfigAsync` private — "full update", mục 6.4) | `SettingsViewModel.SaveOverlayMessageAsync`/`.ResetOverlayMessageToDefaultAsync`/`.SetPerformanceModeAsync` | `UiIpcClient.SendRequestAsync`, `MapConfigUpdateResponse`, `MapPerformanceMode` (2 overload, POCO↔proto) |
+| `ConfigFacade.RemoveWhitelistEntryAsync` | `SettingsViewModel.RemoveWhitelistEntryWithTokenAsync` | `UiIpcClient.SendRequestAsync`, `MapRemoveWhitelistResponse` |
+
+### `src/ParentalGuard.UI/Services/IpcClient/IAuthFacade.cs`, `AuthFacade.cs` (thêm `ChangePasswordAsync`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuthFacade.ChangePasswordAsync` (mới) | `SettingsViewModel.ChangePasswordAsync` | `UiIpcClient.NewEnvelope`/`.SendRequestAsync`, `MapChangePasswordResponse`, `CryptographicOperations.ZeroMemory`/`CredentialBytes.Zero` (zero cả 2 buffer pinned gốc + 2 `ByteString` nội bộ trong `finally`, Architecture/08 mục 5.3) |
+| `AuthFacade.MapChangePasswordResponse` (private static, mới) | `ChangePasswordAsync` | `CredentialBytes.UnsafeGetBuffer` (chỉ khi `Success` + `new_recovery_key_plaintext` không rỗng, ADR-83) |
+
+### `src/ParentalGuard.UI/ViewModels/SettingsViewModel.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `SettingsViewModel.InitializeAsync` | `Views/SettingsPage.OnNavigatedTo` | `IConfigFacade.GetConfigAsync` (không gate, mục 6.4) — set `OverlayMessage`/`_lastSavedOverlayMessage`/`PerformanceMode`/`WhitelistedProcessNames` |
+| `SettingsViewModel.SaveOverlayMessageAsync` | `Views/SettingsPage.OnSaveOverlayMessageClick`, `ResetOverlayMessageToDefaultAsync` | `OverlayMessageValidation.IsValid` (defense in depth trước khi gửi), `IConfigFacade.UpdateOverlayMessageAsync` (kèm `PerformanceMode` hiện hành — "full update") — `InvalidCharacters`/`TooLong`: revert `OverlayMessage` về `_lastSavedOverlayMessage` (giữ nguyên giá trị cũ đã lưu, mục 6.4) |
+| `SettingsViewModel.ResetOverlayMessageToDefaultAsync` | `Views/SettingsPage.OnResetOverlayMessageClick` | set `OverlayMessage=""`, `SaveOverlayMessageAsync` (gửi luôn, không cần xác nhận thêm) |
+| `SettingsViewModel.SetPerformanceModeAsync` | `Views/SettingsPage.OnPerformanceModeSelectionChanged` | `IConfigFacade.UpdatePerformanceModeAsync` (kèm `_lastSavedOverlayMessage` ĐÃ LƯU — KHÔNG phải `OverlayMessage` đang gõ dở, tránh vô tình lưu draft khi user chỉ đổi mode) — thất bại: revert `PerformanceMode` về giá trị trước đó |
+| `SettingsViewModel.RemoveWhitelistEntryAsync` | `Views/SettingsPage.OnRemoveWhitelistEntryClick` | `IAuthPromptService.ShowAuthPromptAsync("manage_whitelist", xamlRoot)` (gate TRƯỚC request thật, `MISC-030`/ADR-122), `RemoveWhitelistEntryWithTokenAsync` |
+| `SettingsViewModel.RemoveWhitelistEntryWithTokenAsync` (private, mục 6.5 — cùng mẫu hình `AuditLogViewModel.MarkFalsePositiveWithTokenAsync`) | `RemoveWhitelistEntryAsync`, chính nó (đệ quy đúng 1 lần khi retry) | `IConfigFacade.RemoveWhitelistEntryAsync`, `CryptographicOperations.ZeroMemory` — `Success`/`NotFound` (idempotent guard): xoá khỏi `WhitelistedProcessNames`; `InvalidToken`: tự mở lại `S5` NGAY (`allowRetry=true`→`false`) |
+| `SettingsViewModel.ChangePasswordAsync` | `Views/SettingsPage.OnChangePasswordClick` | `IAuthFacade.ChangePasswordAsync` (tự gate qua `old_password`, KHÔNG qua `S5`, `08` mục 7.4) — `Success`+có `NewRecoveryKeyPlaintextUtf8`: **zero `_newRecoveryKeyPlaintextBuffer` CŨ trước** (nếu chưa acknowledge, `CryptographicOperations.ZeroMemory` — fix bug security audit Đợt 6 S4, tránh plaintext cũ trôi nổi không zero khi đổi mật khẩu 2 lần liên tiếp) rồi mới ghi đè, decode UTF-8 1 lần → `NewRecoveryKeyDisplay` (cùng mẫu hình `OnboardingViewModel.SubmitPasswordAsync` bước 3) |
+| `SettingsViewModel.CanSubmitChangePassword` (mới, computed — fix bug security audit Đợt 6 S4) | `Views/SettingsPage.xaml` (`ChangePasswordButton.IsEnabled`, thay `IsNotChangingPassword`) | `IsNotChangingPassword && !HasNewRecoveryKeyDisplay` (defense in depth lớp 2 — khoá nút khi Recovery Key mới chưa acknowledge, chặn đường tái hiện qua UI thật) |
+| `SettingsViewModel.AcknowledgeNewRecoveryKeyDisplayed`/`.Dispose` | `Views/SettingsPage.OnAcknowledgeNewRecoveryKeyClick`/`.OnNavigatedFrom`, `App.OnWindowClosed` (qua `RegisterActiveSettingsViewModel`, safety net BUG B) | `CryptographicOperations.ZeroMemory` (zero buffer Recovery Key mới ngay, idempotent) |
+| `OverlayMessageValidation.IsValid`/`.IsAllowedChar` (static, mới — cùng file) | `SaveOverlayMessageAsync`, `Views/SettingsPage.OnOverlayMessageBeforeTextChanging` | thuần logic `char.IsLetter`/`.IsDigit`/dấu câu cho phép (`FE-012a`) — dùng CẢ ở ViewModel (defense in depth) LẪN code-behind (chặn ngay khi nhập) |
+
+### `src/ParentalGuard.UI/Views/SettingsPage.xaml(.cs)` (thay placeholder bằng layout thật)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `SettingsPage` ctor | `Views/MainShellPage` (`ContentFrame.Navigate`, lúc chọn tab) | `new SettingsViewModel` (Facade lấy qua `App.Services`), set label tĩnh qua `LocalizationService.Get` |
+| `SettingsPage.OnNavigatedTo` | Windows App SDK (`Frame` navigation lifecycle) | `App.RegisterActiveSettingsViewModel`, `SettingsViewModel.InitializeAsync` (không gate), set `PerformanceModeRadios.SelectedIndex` ban đầu (guard `_performanceModeInitialized` trước khi cho `OnPerformanceModeSelectionChanged` gọi facade) |
+| `SettingsPage.OnNavigatedFrom` | Windows App SDK (`Frame` navigation lifecycle) | `App.UnregisterActiveSettingsViewModel`, `SettingsViewModel.AcknowledgeNewRecoveryKeyDisplayed` (safety net rời tab khi Recovery Key mới còn hiển thị) |
+| `SettingsPage.OnOverlayMessageBeforeTextChanging` | `TextBox.BeforeTextChanging` (XAML event, `OverlayMessageInput`) | `OverlayMessageValidation.IsValid` — `args.Cancel=true` nếu chứa ký tự cấm (chặn CẢ gõ lẫn dán, `FE-012a`) |
+| `SettingsPage.OnPerformanceModeSelectionChanged` | `RadioButtons.SelectionChanged` (XAML event) | `SettingsViewModel.SetPerformanceModeAsync` (bỏ qua nếu `!_performanceModeInitialized`, tránh tự gọi lúc set giá trị ban đầu từ `OnNavigatedTo`) |
+| `SettingsPage.OnSaveOverlayMessageClick`/`.OnResetOverlayMessageClick` | nút "Lưu"/"Khôi phục mặc định" (XAML event) | `SettingsViewModel.SaveOverlayMessageAsync`/`.ResetOverlayMessageToDefaultAsync` |
+| `SettingsPage.OnRemoveWhitelistEntryClick`/`.OnRemoveWhitelistButtonLoaded` | nút Xoá mỗi dòng whitelist (`DataTemplate`, XAML event) | `SettingsViewModel.RemoveWhitelistEntryAsync`, `LocalizationService.Get` (set `Content` theo instance, cùng mẫu hình `AuditLogPage.OnMarkFalsePositiveButtonLoaded`) |
+| `SettingsPage.OnChangePasswordClick` | nút "Đổi mật khẩu" (XAML event) | đọc `PasswordBox.Password` × 3 → `byte[]` pinned NGAY, clear cả 3 `PasswordBox` TRƯỚC guard/validate (Architecture/08 mục 5.3, cùng mẫu hình `OnboardingSetPasswordPage.OnContinueClick`), `SettingsViewModel.ChangePasswordAsync` |
+| `SettingsPage.OnForgotOldPasswordClick` | link "Quên mật khẩu cũ?" (XAML event) | `NavigationService.NavigateToRecovery` (điều hướng thẳng `S6`, KHÔNG qua `S5` — vẫn `throw NotImplementedException` như giai đoạn 1, chưa implement `S6`) |
+| `SettingsPage.OnCopyNewRecoveryKeyClick` | nút "Sao chép" trên Recovery Key mới (XAML event) | `Clipboard.SetContent` (cùng residual risk đã ghi nhận ở `OnboardingRecoveryKeyPage`) |
+
+### `src/ParentalGuard.UI/App.xaml.cs` (sửa — safety net BUG B cho `SettingsViewModel`)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `App.RegisterActiveSettingsViewModel`/`.UnregisterActiveSettingsViewModel` (mới) | `Views/SettingsPage.OnNavigatedTo`/`.OnNavigatedFrom` | set/clear field `_activeSettingsViewModel` |
+| `App.OnWindowClosed` (sửa — thêm nhánh Settings) | Windows App SDK (`Window.Closed`) | `SettingsViewModel.Dispose` (cùng lý do BUG B đã sửa cho `OnboardingViewModel` giai đoạn 1 — đóng app giữa chừng khi Recovery Key mới còn hiển thị vẫn phải zero buffer) |
+
+### Quyết định implement tự chọn (giai đoạn 4)
+
+- **"Full update" cho `ConfigUpdateRequest` luôn gửi giá trị ĐÃ LƯU của field không phải mục đích chính
+  của lần Save** (`_lastSavedOverlayMessage` khi đổi `performance_mode`; `PerformanceMode` hiện hành khi
+  lưu `overlay_message`) — Architecture/10 mục 6.4 chỉ nói "luôn gửi đầy đủ giá trị hiện hành của cả 2
+  field", không nói rõ "hiện hành" là bản đang gõ dở hay bản đã lưu; chọn bản ĐÃ LƯU để tránh tác dụng phụ
+  bất ngờ (đổi radio hiệu năng vô tình lưu luôn 1 câu overlay đang gõ dở, chưa bấm Lưu).
+- **`RadioButtons` (WinUI 3, ADR-125) đọc/ghi qua guard `_performanceModeInitialized` ở code-behind**
+  (không dùng `x:Bind` `SelectedIndex` hai chiều) — `SelectionChanged` fire cả khi set giá trị ban đầu từ
+  `OnNavigatedTo` lẫn khi user tự chọn; guard đơn giản hơn phân biệt nguồn gốc sự kiện qua binding.
+- **`TextBox.BeforeTextChanging` cho `FE-012a`** — chặn TOÀN BỘ `NewText` (không chỉ ký tự vừa gõ) nên
+  cùng logic xử lý đúng cả gõ tay lẫn dán (paste) trong 1 chỗ, không cần xử lý `Paste` event riêng.
+- **Không tạo `UserControl` `RecoveryKeyDisplayControl` riêng** dù mục 6.4 văn bản Architecture gợi ý
+  "tái dùng" — xác nhận qua đọc code thật `OnboardingRecoveryKeyPage.xaml` (giai đoạn 1): không có
+  `UserControl` nào như vậy, chỉ có inline `TextBlock`/`Button` bind thẳng property `ViewModel`. Lặp lại
+  đúng pattern inline tương tự ở `SettingsPage.xaml` (không phát minh abstraction mới ngoài phạm vi,
+  DEV-026) — chấp nhận trùng lặp nhỏ layout giữa 2 trang, cùng tinh thần các trùng lặp nhỏ khác đã chấp
+  nhận trong dự án (vd default overlay message giữa `UI`/`Overlay`).
+- **`OverlayMessageValidation` là `public static class` top-level trong `SettingsViewModel.cs`** (không
+  file riêng) — dùng chung ở cả `SettingsViewModel` (defense in depth) và `SettingsPage.xaml.cs`
+  (`BeforeTextChanging`), đặt cạnh nơi dùng chính, tránh tạo thêm 1 file chỉ cho 1 lớp nhỏ.
+
+### Test mới (`tests/ParentalGuard.UI.Tests/`)
+
+`ConfigFacadeTests.cs` — loopback named pipe thật (cùng mẫu hình `DashboardFacadeTests`/`PauseFacadeTests`),
+verify `GetConfigAsync` mapping + `UpdateOverlayMessageAsync`/`UpdatePerformanceModeAsync` luôn gửi ĐỦ CẢ
+2 field ("full update", assert trực tiếp trên request nhận được ở server giả) + mapping 3 outcome
+`ConfigUpdateResult`/3 outcome `RemoveWhitelistEntryResult`. `AuthFacadeTests.cs` (mới — trước đây chưa
+có file này, chỉ phủ `ChangePasswordAsync` vừa thêm) — mapping 4 outcome `ChangeResult`, verify
+`NewRecoveryKeyPlaintextUtf8` giải mã đúng UTF-8 khi `Success`+`regenerate_recovery_key=true`.
+`SettingsViewModelTests.cs` — qua `FakeConfigFacade`/`FakeAuthFacade`/`FakeAuthPromptService` (cùng mẫu
+hình `AuditLogViewModelTests`): load config đúng field; lỗi kết nối → `LoadErrorMessage`; Save overlay
+message thành công gửi kèm `PerformanceMode` hiện hành; Service từ chối (`InvalidCharacters`/`TooLong`) →
+revert về giá trị đã lưu; Reset-to-default; đổi `performance_mode` gửi kèm overlay message ĐÃ LƯU (không
+phải draft), bỏ qua nếu trùng giá trị hiện tại, revert khi thất bại; xoá whitelist entry (`Success`/
+`NotFound` idempotent/huỷ gate/retry `InvalidToken` đúng 1 lần — cùng 3 nhánh mẫu hình giai đoạn 3); đổi
+mật khẩu (`Success` có/không `regenerate`, `WrongOldPassword`), `Dispose` idempotent zero buffer Recovery
+Key mới; **fix bug security audit Đợt 6 S4**: gọi `ChangePasswordAsync` 2 lần liên tiếp TRƯỚC khi
+acknowledge → buffer Recovery Key #1 phải bị zero khi ghi đè bằng #2; `CanSubmitChangePassword` phải
+`false` trong lúc `HasNewRecoveryKeyDisplay=true`, `true` lại sau `AcknowledgeNewRecoveryKeyDisplayed`.
+`OverlayMessageValidationTests.cs` — `FE-012a`: câu mặc định + chữ/số/dấu câu cho phép hợp lệ;
+symbol cấm/emoji/tab/control-char/quá 255 ký tự đều bị từ chối; chữ tiếng Việt có dấu hợp lệ.
 
 ## Ghi chú khoảng trống đã biết (xem báo cáo bàn giao)
 
@@ -905,3 +1094,26 @@ qua `PauseAsync` tương ứng).
   `PauseCoordinatorTests.HandlePause_ActionTokenIssuedForDifferentActionContext_ReturnsInvalidToken`
   (permanent hoá kịch bản action_context mismatch security-privacy-auditor đã xác nhận adhoc). Build 0
   Warning/0 Error, không còn file test tạm nào sót lại.
+
+- **2026-09-25 (audit fix)** — FAIL cứng (`security-privacy-auditor`, Đợt 6 giai đoạn 4 `S4` Settings):
+  `SettingsViewModel.ChangePasswordAsync` ghi đè `_newRecoveryKeyPlaintextBuffer` bằng Recovery Key mới
+  KHÔNG zero buffer CŨ trước — nút "Đổi mật khẩu" không bị khoá lúc Recovery Key mới đang hiển thị chưa
+  acknowledge, nên đổi mật khẩu 2 lần liên tiếp (trước khi bấm "Đã lưu" lần đầu) làm plaintext Recovery
+  Key #1 trôi nổi không zero trên managed heap vô thời hạn (đọc được qua RAM dump). Sửa 2 lớp: (1)
+  `ChangePasswordAsync` — `CryptographicOperations.ZeroMemory` buffer cũ NGAY trước khi ghi đè nếu chưa
+  `null`; (2) defense in depth — thêm `SettingsViewModel.CanSubmitChangePassword` (computed
+  `IsNotChangingPassword && !HasNewRecoveryKeyDisplay`), đổi `SettingsPage.xaml`
+  `ChangePasswordButton.IsEnabled` từ `IsNotChangingPassword` sang `CanSubmitChangePassword` — khoá hẳn
+  nút qua UI thật, không chỉ dựa vào lớp 1. Test mới trong `SettingsViewModelTests.cs`:
+  `ChangePasswordAsync_CalledTwiceBeforeAcknowledge_ZeroesPreviousRecoveryKeyBuffer` (assert buffer #1
+  zero hết sau lần đổi thứ 2, dùng `FakeAuthFacade.EnqueueResult` mới thêm để giả lập 2 lần gọi liên
+  tiếp trả 2 kết quả khác nhau), `ChangePasswordAsync_SuccessWithRegenerate_LocksSubmitUntilAcknowledged`
+  (assert `CanSubmitChangePassword` `false` lúc hiển thị, `true` lại sau acknowledge). Build 0 Warning/0
+  Error, 20/20 `SettingsViewModelTests` pass, 91/91 `ParentalGuard.UI.Tests` pass, không regression (346
+  → 348 tổng test toàn solution). **Lưu ý môi trường** (không liên quan bug này): `dotnet test
+  ParentalGuard.sln` ở mức solution load nhầm bản build RID-specific
+  (`bin\x64\Debug\...\win-x64\ParentalGuard.UI.dll`) bị WDAC/Smart App Control chặn
+  (`FileLoadException 0x800711C7`, cùng họ vấn đề đã ghi nhận ở mục `ParentalGuard.Vision.Tests` phía
+  trên) — chạy trực tiếp `dotnet test tests/ParentalGuard.UI.Tests/ParentalGuard.UI.Tests.csproj` (build
+  không-RID) thì pass sạch; `test-runner` cần chạy theo project riêng cho `ParentalGuard.UI.Tests`, không
+  qua `dotnet test` ở mức `.sln`.
