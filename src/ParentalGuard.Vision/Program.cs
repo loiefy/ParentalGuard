@@ -71,6 +71,13 @@ var pipeline = new FrameClassificationPipeline(classifier);
 
 var configHolder = new VisionRuntimeConfigHolder();
 var captureLoop = new CaptureLoopWorker(configHolder, pipeline, client, initialOutputContext);
+
+// Architecture/05 mục 3.6 (ADR-133): Thread thứ 3, đánh thức captureLoop ngay khi đổi cửa sổ
+// foreground (PERF-020) — tái dùng đúng wakeEvent hiện có qua WakeUp(), không thêm cơ chế mới.
+var messagePump = new WindowMessagePump(captureLoop.WakeUp);
+captureLoop.AttachMessagePump(messagePump);
+messagePump.Start();
+
 captureLoop.Start(cts.Token);
 
 try

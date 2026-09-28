@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.8.1 | Trạng thái: Approved | Cập nhật: 2026-09-24
+> Version: v0.8.2 | Trạng thái: Approved | Cập nhật: 2026-09-25
 
 ## 1. Mục đích
 
@@ -264,6 +264,16 @@ message VisionInferenceResult {
                                      // thêm lần nào khác. Service lưu vào ContentBlocked.detail.processName
                                      // (04-data-architecture.md mục 5.1) để UI dùng cho MarkFalsePositiveRequest
                                      // (10-ui-architecture.md) — không dùng để rẽ nhánh nghiệp vụ nào khác.
+  bool    content_changed      = 8; // bổ sung v0.8.2 (Đợt 7, PERF-010/011, IMG-011) — kết quả so sánh pHash
+                                     // (dHash 64-bit) giữa frame này và frame trước đó CÙNG window_handle
+                                     // (05-image-pipeline-architecture.md mục 3.8). LUÔN điền (không optional).
+                                     // Service dùng field này làm tín hiệu DUY NHẤT cho state machine Adaptive
+                                     // Frame Rate (05 mục 3.7) — Vision không tự diễn giải/quyết định tần suất
+                                     // (đúng ROADMAP.md mục 2: chỉ Service được đổi capture_interval_ms).
+                                     // false = risk_score ở message này là giá trị TÁI DÙNG từ lần inference
+                                     // gần nhất cho cùng cửa sổ (PERF-011, inference bị skip chu kỳ này), KHÔNG
+                                     // phải kết quả tính mới — Service vẫn dùng risk_score bình thường để so
+                                     // ngưỡng (ADR-12 không đổi), field này chỉ là tín hiệu PHỤ cho tần suất.
 
   reserved 10 to 19; // để ngỏ nếu IMG-031 (phân tích temporal nhiều frame) được mở lại phạm vi ngoài Phase 1
 }
@@ -858,6 +868,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-112 (v0.8.0) | `AuditLogEntry.event_type` dùng `string` (literal khớp bảng ở `04` mục 5.1), không dùng `enum` proto | Tập `event_type` là catalog dữ liệu mở rộng dần theo domain/Đợt ở `04`, không phải tập lệnh điều khiển luồng IPC cố định — dùng `enum` sẽ buộc file này đồng bộ theo mọi amendment của `04`, tạo phụ thuộc chéo không cần thiết cho 1 mục đích thuần hiển thị |
 | ADR-113 (v0.8.0) | Khối message Dashboard/Settings (Đợt 6) đặt field mới **140-159**, không nhồi tiếp vào 92-99 (chỉ còn 98-99 trống) | 9 cặp request/response cần thiết (mục 3.7) vượt xa 2 slot còn lại của khối UI 80-99; mở khối mới giữ đúng quy ước "20 field/domain" đã áp dụng cho Watchdog/Uninstaller (ADR-85), tách bạch rõ ràng hơn nhồi chật khối cũ |
 | ADR-126 (v0.8.1) | `performance_mode` (`PERF-050b`) dùng `enum PerformanceMode` (proto), không dùng `string` như `AuditLogEntry.event_type` (ADR-112) | Tập giá trị **đóng, cố định bởi chính hợp đồng IPC này** (chỉ 2 mức do `PERF-050b` định nghĩa, không phải catalog mở rộng dần theo domain khác như `event_type` ở `04`) — dùng `enum` an toàn kiểu hơn (compile-time check), không có rủi ro phụ thuộc chéo mà ADR-112 lo ngại vì không domain nào khác cần thêm giá trị vào tập này |
+| ADR-134 (v0.8.2) | Thêm field `content_changed` (field 8, `bool`) vào `VisionInferenceResult` thay vì tạo message riêng | Additive (đúng ADR-16); đúng nhóm dữ liệu "kết quả 1 chu kỳ capture" đã có sẵn trong message này (`risk_score`/`bbox`/`captured_at_unix_ms`), không cần round-trip IPC riêng cho 1 boolean phụ trợ; thiết kế đầy đủ ở `05-image-pipeline-architecture.md` mục 3.7/3.8 (Đợt 7, `PERF-010`/`011`) |
 
 ## 8. Câu hỏi mở
 
@@ -868,6 +879,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.2 | 2026-09-25 | PATCH — amendment cùng lượt viết `05-image-pipeline-architecture.md` v0.3.0 (Đợt 7, `PERF-010`/`011`). Thêm field `content_changed` (field 8, `bool`) vào `VisionInferenceResult` (mục 3.3) — tín hiệu pHash duy nhất `Service` dùng cho state machine Adaptive Frame Rate (`05` mục 3.7/3.8); additive, không đổi field/message nào khác (đúng ADR-16). 1 ADR mới (134). Phụ thuộc kỹ thuật bắt buộc của `05` (không có field này, `Service` không có cách nào biết nội dung có đổi hay không để quyết định `capture_interval_ms` theo đúng `ROADMAP.md` mục 2). Theo chỉ đạo — không dừng chờ review giữa chừng |
 | v0.8.1 | 2026-09-24 | PATCH — amendment cùng lượt cập nhật `10-ui-architecture.md` v0.2.0 sau khi `spec-maintainer` chốt `PERF-050b` (`Specification/08-performance-cpu-spec.md` v0.7.0, 2 mức "Cân bằng"/"Bảo vệ tối đa"). Thêm `enum PerformanceMode` (`UNSPECIFIED`/`BALANCED`/`MAXIMUM_PROTECTION`) + field `performance_mode` vào `ConfigResponse` (field 3) và `ConfigUpdateRequest` (field 2) — dùng field number nội bộ tiếp theo trong 2 message đã có sẵn ở khối 140-159 (không cần mở field top-level mới, additive, đúng ADR-16). 1 ADR mới (126, giải thích vì sao dùng `enum` thay vì `string` như `event_type`). Không đổi field/message nào khác |
 | v0.8.0 | 2026-09-20 | MINOR — Đợt 6 (`ROADMAP.md`, Dashboard UI), viết `10-ui-architecture.md`. Thêm mục 3.7 (10 message mới, field 98-99 + khối mới 140-159): `DashboardStatusQuery`/`Response` (health check `MISC-050` + cờ `PAUSE-021`), `AcknowledgePauseAnomalyRequest`/`Response`, `AuditLogQuery`/`Response` (phân trang, gate `view_audit_log`), `AuditChartQuery`/`Response` (`FE-070`–`072`), `MarkFalsePositiveRequest`/`Response` + `RemoveWhitelistEntryRequest`/`Response` (`MISC-030`, gate `manage_whitelist` — hằng số mới, amendment `08` mục 7.2), `ConfigQuery`/`Response`/`ConfigUpdateRequest`/`Response` (`FE-012`, KHÔNG có field ngưỡng risk score theo `BE-091`). Thêm field `process_name` (field 7) vào `VisionInferenceResult` (mục 3.3, additive, `MISC-030`, ADR-111) — amendment cùng lượt `05-image-pipeline-architecture.md`. Thêm message `OverlayMessageUpdate` (field 66, kênh Overlay, `FE-012`) — amendment cùng lượt `07-overlay-architecture.md` mục 4.4 (ADR-110), cập nhật diagram handshake mục 4.3. 3 ADR mới (111-113). Đóng câu hỏi mở còn lại ở mục 8 (field 98-99). Toàn bộ additive, không đổi field/message cũ (đúng ADR-16). Theo chỉ đạo — không dừng chờ review |
 | v0.7.0 | 2026-09-20 | MINOR — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Thêm mục 3.6 (6 message mới, field 92-97 khối UI): `PauseMonitoringRequest`/`Response`, `ResumeMonitoringRequest`/`Response`, `PauseStatusQuery`/`Response` — enum `PauseDuration` (5 lựa chọn `PAUSE-002`), `PauseResult`/`ResumeResult` (kèm `ALREADY_PAUSED`/`NOT_PAUSED` idempotent guard). Additive, không đổi field/message cũ (đúng ADR-16). Thu hẹp comment "92-99 dành cho Đợt 6" xuống còn "98-99" (đóng 1 phần open question mục 8 — phần "trạng thái pause" đã xong, phần audit log/config query vẫn để Đợt 6). Làm rõ tường minh `ControlVisionCommand.reserved 20 to 29` (để ngỏ từ Đợt 0 cho "cờ suspend/tần suất heartbeat Pause") **cố tình không dùng** ở Đợt 5 — cơ chế đã giải quyết đầy đủ không cần field IPC mới (`05` ADR-40 + `02` mục 3a.4), tránh hiểu nhầm là gap còn sót. 1 ADR mới (107). Theo chỉ đạo — không dừng chờ review |

@@ -28,6 +28,7 @@ public sealed class CaptureLoopWorker
     private readonly FrameClassificationPipeline _pipeline;
     private readonly IpcChildClient _ipcClient;
     private readonly OutputCaptureContextPool _contextPool;
+    private WindowMessagePump? _messagePump;
     private readonly ManualResetEventSlim _wakeEvent = new(initialState: false);
     private ulong _frameId;
     private Thread? _thread;
@@ -46,6 +47,14 @@ public sealed class CaptureLoopWorker
         _ipcClient = ipcClient;
         _contextPool = new OutputCaptureContextPool(CreateOutputCaptureContext, _idleDisposeThreshold, seedOutputIndex: 0, initialOutputContext);
     }
+
+    /// <summary>
+    /// Architecture/05 mục 3.6 (ADR-133) — gán SAU khi tạo (vì <see cref="WindowMessagePump"/> cần
+    /// <see cref="WakeUp"/> của chính instance này để khởi tạo, phá vòng phụ thuộc constructor). Gọi
+    /// trước <see cref="Start"/>; bỏ qua (giữ <c>null</c>) hợp lệ cho test — chỉ mất tối ưu re-enumerate
+    /// theo <c>WM_DISPLAYCHANGE</c>, không ảnh hưởng tính đúng đắn.
+    /// </summary>
+    public void AttachMessagePump(WindowMessagePump messagePump) => _messagePump = messagePump;
 
     private static OutputCaptureContext? CreateOutputCaptureContext()
     {
@@ -91,8 +100,24 @@ public sealed class CaptureLoopWorker
                 continue;
             }
 
+            // Mục 3.6 (ADR-133): tiêu thụ cờ WM_DISPLAYCHANGE trước khi enumerate — hiện tại
+            // MonitorSelector.EnumerateOutputs đã chạy lại MỖI chu kỳ (không cache), nên bản thân việc
+            // tiêu thụ cờ ở đây không đổi hành vi enumerate hiện có, chỉ giữ đúng hợp đồng thiết kế
+            // (không để cờ tồn đọng) cho lúc enumerate được cache trong tương lai.
+            _messagePump?.ConsumeDisplayChanged();
+
             IReadOnlyList<MonitorSelector.OutputInfo> outputs = MonitorSelector.EnumerateOutputs(factory);
-            ProcessCycle(outputs, config.ExcludeProcessNames);
+            bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames);
+            if (foregroundExcludedNoCandidates)
+            {
+                // Đợt 7 (Architecture/05 mục 3.3 v0.3.0, PERF-010 dòng 1): foreground đang bị exclude-list
+                // VÀ không còn candidate nào khác (kể cả trên các màn hình khác) để giám sát — park hẳn,
+                // chỉ WindowMessagePump (EVENT_SYSTEM_FOREGROUND) hoặc ControlVisionCommand mới đánh thức.
+                // KHÔNG áp dụng khi candidates vẫn còn (multi-monitor, BE-073a) hay khi lý do rỗng candidate
+                // là tạm thời/khác (vd không có cửa sổ foreground) — các case đó tự phục hồi ở interval kế tiếp.
+                WaitOnEvent(Timeout.Infinite, cancellationToken);
+                continue;
+            }
 
             WaitOnEvent(config.CaptureIntervalMs, cancellationToken);
         }
@@ -100,11 +125,13 @@ public sealed class CaptureLoopWorker
         _contextPool.DisposeAll();
     }
 
-    private void ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames)
+    /// <returns><c>true</c> nếu foreground bị exclude-list và chu kỳ này không có candidate nào — caller nên park vô hạn (mục 3.3/3.6).</returns>
+    private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames)
     {
         IntPtr fgHwnd = ForegroundWindowTracker.GetForegroundWindowHandle();
         string? fgProcessName = ForegroundWindowTracker.ResolveProcessName(fgHwnd);
-        bool fgExcluded = fgHwnd == IntPtr.Zero || ExcludeProcessMatcher.IsExcluded(fgProcessName, excludeProcessNames);
+        bool fgInExcludeList = fgHwnd != IntPtr.Zero && ExcludeProcessMatcher.IsExcluded(fgProcessName, excludeProcessNames);
+        bool fgExcluded = fgHwnd == IntPtr.Zero || fgInExcludeList;
 
         // BE-082/PERF-020: nhánh EnumWindows chỉ chạy khi thật sự có > 1 màn hình — outputs.Count == 1
         // (phổ biến nhất) giữ nguyên chi phí y hệt Đợt 1 (Architecture/05 mục 3.5).
@@ -121,6 +148,7 @@ public sealed class CaptureLoopWorker
             w => CandidateWindowChecks.IsVisibleTopLevelWindow(w) && !ExcludeProcessMatcher.IsExcluded(ForegroundWindowTracker.ResolveProcessName(w), excludeProcessNames));
 
         var usedOutputIndexes = new HashSet<int>();
+        var usedWindowHandles = new HashSet<IntPtr>();
         foreach (IntPtr hwnd in candidates)
         {
             MonitorSelector.OutputInfo? output = MonitorSelector.ResolveOutputForWindow(outputs, hwnd);
@@ -136,11 +164,26 @@ public sealed class CaptureLoopWorker
             }
 
             usedOutputIndexes.Add(output.Value.OutputIndex);
+            usedWindowHandles.Add(hwnd);
             ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex);
         }
 
+        // Mục 3.8.2 (cùng ngưỡng ADR-65): evict hash của cửa sổ không còn candidate sau 5 chu kỳ liên tiếp.
+        _pipeline.EndCaptureCycle(usedWindowHandles);
+
         _contextPool.EndCycle(usedOutputIndexes);
+
+        return ShouldParkInfinitely(fgInExcludeList, candidates.Count);
     }
+
+    /// <summary>
+    /// Hàm thuần (Architecture/05 mục 3.3 v0.3.0): chỉ park vô hạn khi foreground THẬT SỰ nằm trong
+    /// exclude-list VÀ chu kỳ này không còn candidate nào khác (kể cả trên màn hình khác) — phân biệt
+    /// với case rỗng candidate vì lý do khác (vd tạm thời không có cửa sổ foreground) vốn có thể tự
+    /// phục hồi ở interval kế tiếp mà không cần <c>EVENT_SYSTEM_FOREGROUND</c>.
+    /// </summary>
+    internal static bool ShouldParkInfinitely(bool foregroundInExcludeList, int candidateCount) =>
+        foregroundInExcludeList && candidateCount == 0;
 
     private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex)
     {

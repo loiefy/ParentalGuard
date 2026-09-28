@@ -75,6 +75,51 @@ public class AuditLogWriterTests : IDisposable
         Assert.False(File.Exists(otherPath));
     }
 
+    /// <summary>`10-ui-architecture.md` mục 6.3 (gap fix Đợt 7) — mới nhất trước, `has_more` đúng khi còn trang kế tiếp.</summary>
+    [Fact]
+    public async Task ReadPageAsync_ReturnsNewestFirst_WithHasMore()
+    {
+        AuditLogWriter writer = await AuditLogWriter.InitializeAsync(_logPath, CancellationToken.None); // seq=1 ServiceStarted
+        await writer.AppendAsync("MonitoringToggled", new { enabled = true }, CancellationToken.None); // seq=2
+        await writer.AppendAsync("MonitoringToggled", new { enabled = false }, CancellationToken.None); // seq=3
+
+        (IReadOnlyList<AuditLogEntryRaw> page0, bool hasMore0) = await writer.ReadPageAsync(page: 0, pageSize: 2, CancellationToken.None);
+        Assert.Equal(2, page0.Count);
+        Assert.Equal(3, page0[0].Seq); // mới nhất trước
+        Assert.Equal(2, page0[1].Seq);
+        Assert.True(hasMore0);
+
+        (IReadOnlyList<AuditLogEntryRaw> page1, bool hasMore1) = await writer.ReadPageAsync(page: 1, pageSize: 2, CancellationToken.None);
+        Assert.Single(page1);
+        Assert.Equal(1, page1[0].Seq);
+        Assert.False(hasMore1);
+    }
+
+    [Fact]
+    public async Task ReadPageAsync_ContentBlockedEvent_ExtractsProcessNameAndRiskScore()
+    {
+        AuditLogWriter writer = await AuditLogWriter.InitializeAsync(_logPath, CancellationToken.None);
+        await writer.AppendAsync("ContentBlocked", new { windowHandle = 123456L, processName = "chrome.exe", riskScore = 0.87f, bbox = new { x = 0, y = 0, width = 10, height = 10 } }, CancellationToken.None);
+
+        (IReadOnlyList<AuditLogEntryRaw> page, _) = await writer.ReadPageAsync(page: 0, pageSize: 10, CancellationToken.None);
+
+        AuditLogEntryRaw entry = Assert.Single(page, e => e.EventType == "ContentBlocked");
+        Assert.Equal("chrome.exe", entry.ProcessName);
+        Assert.Equal(0.87f, entry.RiskScore, precision: 2);
+    }
+
+    [Fact]
+    public async Task ReadPageAsync_NonContentBlockedEvent_LeavesProcessNameEmpty()
+    {
+        AuditLogWriter writer = await AuditLogWriter.InitializeAsync(_logPath, CancellationToken.None);
+
+        (IReadOnlyList<AuditLogEntryRaw> page, _) = await writer.ReadPageAsync(page: 0, pageSize: 10, CancellationToken.None);
+
+        AuditLogEntryRaw entry = Assert.Single(page);
+        Assert.Equal("ServiceStarted", entry.EventType);
+        Assert.Equal("", entry.ProcessName);
+    }
+
     public void Dispose()
     {
         if (File.Exists(_logPath))

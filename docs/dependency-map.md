@@ -1237,3 +1237,339 @@ baseline 91 trước lượt này), `ParentalGuard.Service.Tests` 183/183, `Pare
 quan lượt này, không đụng tới `ParentalGuard.Vision`): 3/45 pass qua được trước khi
 `FileLoadException 0x800711C7` chặn phần còn lại — môi trường, không phải regression thật. Tổng test
 toàn solution: 348 → **365** (+17, đúng số test mới thêm).
+
+## Đợt 7 (Architecture/05-image-pipeline-architecture.md mục 3.6/3.7/3.8, `PERF-010`/`011`, `IMG-011`) — Adaptive Frame Rate + Perceptual Hashing
+
+Phạm vi lượt này đúng 2 phía: **`Vision`** — Window Message Pump (thread thứ 3, mục 3.6), dHash 64-bit
+viết tay (mục 3.8.1, ADR-128) + hash-gate skip resize/inference khi nội dung không đổi (`PERF-011`),
+field mới `content_changed` (proto field 8, ADR-134); **`Service`** — `AdaptiveFrameRateCoordinator`
+mới (mục 3.7, `PERF-010`) — state machine 2 bucket `Vigilant`/`Relaxed` + hysteresis bất đối xứng
+(ADR-130) + cờ `Boost` độc lập (mục 3.7.3), thay hẳn cơ chế TĨNH cũ (`state.CaptureIntervalBaselineMs`
+gửi thẳng) — không có 2 cơ chế song song. `performance_mode` (Đợt 6, trước đây tồn tại CHỈ ở
+`ipc.proto`/`ParentalGuard.UI`, **CHƯA từng có** ở `MonitoringStateData`/`ConfigDb`/`Worker` — gap thật
+phát hiện lúc build, xem "Ghi chú gap" cuối mục) nay thêm vào `MonitoringStateData`/`ConfigDb` làm
+**trần nới lỏng tối đa** cho bucket `Relaxed` (ADR-131), mặc định `Balanced`.
+
+### Ghi chú gap phát hiện lúc build (không thuộc phạm vi Đợt 7, không tự sửa)
+
+1. **`ipc.proto` `VisionInferenceResult` thiếu hẳn field 7 (`process_name`, `MISC-030`/ADR-111,
+   Đợt 6 v0.7.1)** — `Architecture/03-ipc-communication.md` ghi đã "amend" từ Đợt 6 nhưng file
+   `.proto` thật (`src/ParentalGuard.Ipc/Protos/ipc.proto`) chưa từng có field này, và không nơi nào
+   trong code thật (`Vision`/`Service`) đọc/ghi `ProcessName` của `VisionInferenceResult`. Đã thêm 1
+   dòng comment giữ chỗ field 7 trong `.proto` (không implement) — cần `feature-dev` lượt khác xử lý
+   đúng `MISC-030`, không lẫn vào Đợt 7.
+2. ~~**`ConfigQuery`/`ConfigUpdateRequest`/`RemoveWhitelistEntryRequest` (`S4` Settings, Đợt 6) chưa có
+   handler ở `Service`**~~ — **ĐÃ ĐÓNG, xem mục "Đợt 7 gap fix (test-runner)" bên dưới.**
+
+### `src/ParentalGuard.Vision/Capture/PerceptualHash.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `PerceptualHash.ComputeDHash64` (static) | `FrameClassificationPipeline.ProcessFrame` | `Span<byte>.Clear()` (zero `luma[9,8]` trong `finally`, mục 3.8.3 — stack-local, không escape method nên không cần `IFrameBufferAuditor`, khác các buffer heap tái dùng ở bảng mục 6) |
+
+### `src/ParentalGuard.Vision/Pipeline/WindowHashCache.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `WindowHashCache.ResolveContentChanged` | `FrameClassificationPipeline.ProcessFrame` | — |
+| `WindowHashCache.UpdateRiskScore` | `FrameClassificationPipeline.ProcessFrame` (chỉ khi `content_changed=true`, sau khi classify xong) | — |
+| `WindowHashCache.EndCycle` | `FrameClassificationPipeline.EndCaptureCycle` | — |
+
+### `src/ParentalGuard.Vision/Pipeline/FrameClassificationPipeline.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `FrameClassificationPipeline.ProcessFrame` (sửa — chèn hash-gate giữa readback và resize, mục 3.8) | `Process`, test (`FrameClassificationPipelineZeroOutTests`/`FrameClassificationPipelineHashGateTests`) | `PerceptualHash.ComputeDHash64` (mới, luôn chạy), `WindowHashCache.ResolveContentChanged`/`.UpdateRiskScore` (mới), `FrameResizerNormalizer.Resize`/`_classifier.Classify` (nay CÓ ĐIỀU KIỆN — chỉ khi `content_changed=true`) |
+| `FrameClassificationPipeline.EndCaptureCycle` (mới, public) | `CaptureLoopWorker.ProcessCycle` | `WindowHashCache.EndCycle` |
+
+Zero-out `input_tensor`/`pixel_buffer_bgra8` (bảng mục 6) nay **có điều kiện đúng theo v0.3.0**: pixel
+buffer luôn zero (hash luôn chạy), tensor CHỈ zero khi `content_changed=true` (Resize/Classify chưa từng
+chạm tensor khi skip — tensor giữ nguyên trạng zero từ chu kỳ trước). **Regression test cập nhật**:
+`FrameClassificationPipelineZeroOutTests.ProcessFrame_CropperThrowsAfterPartialWrite_...` đổi assertion
+`ZeroedCount("input_tensor")` từ `1` → `0` (cropper throw TRƯỚC hash-gate, tensor chưa từng bị chạm) —
+đã ghi rõ lý do trong comment tại chỗ, không phải nới lỏng bất biến `IMG-003` (tensor vẫn provably luôn
+là 0 giữa 2 lần gọi, chỉ khác chỗ AI/khi nào zero được gọi).
+
+### `src/ParentalGuard.Vision/Capture/WindowMessagePump.cs` (mới, ADR-133)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `WindowMessagePump.Start` | `Program.cs` (top-level) | `Thread` mới (`IsBackground=true`) chạy `Run` |
+| `WindowMessagePump.Run` (private, chạy trên Thread thứ 3) | `Start` | `RegisterClassEx`/`CreateWindowEx`/`SetWinEventHook`/`GetMessage`/`TranslateMessage`/`DispatchMessage` (P/Invoke `user32`/`kernel32`) |
+| `WindowMessagePump.WndProcImpl` (private, callback native) | `DispatchMessage` (native) | set `_displayChanged` khi `WM_DISPLAYCHANGE` |
+| `WindowMessagePump.OnWinEvent` (private, callback native) | `SetWinEventHook` (native, khi `EVENT_SYSTEM_FOREGROUND`) | `Action _onForegroundChanged` (= `CaptureLoopWorker.WakeUp`, truyền từ `Program.cs`) |
+| `WindowMessagePump.ConsumeDisplayChanged` | `CaptureLoopWorker.Run` (đầu mỗi vòng lặp) | `Interlocked.Exchange` |
+
+### `src/ParentalGuard.Vision/Pipeline/CaptureLoopWorker.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `CaptureLoopWorker.AttachMessagePump` (mới) | `Program.cs` (sau khi tạo `WindowMessagePump` bằng chính `captureLoop.WakeUp` — phá vòng phụ thuộc constructor 2 chiều) | set field `_messagePump` |
+| `CaptureLoopWorker.Run` (sửa — thêm bước tiêu thụ `WM_DISPLAYCHANGE`) | `Start` (Thread mới) | `_messagePump?.ConsumeDisplayChanged()` (mục 3.6 — hiện tại KHÔNG đổi hành vi enumerate vì `MonitorSelector.EnumerateOutputs` đã chạy lại mỗi chu kỳ từ Đợt 2, giữ đúng hợp đồng thiết kế cho lúc enumerate được cache sau này) |
+| `CaptureLoopWorker.ProcessCycle` (sửa — thêm `usedWindowHandles`) | `Run` | `FrameClassificationPipeline.EndCaptureCycle` (mới, cuối mỗi chu kỳ) |
+
+### `src/ParentalGuard.Vision/Program.cs` (sửa)
+
+Khởi tạo `WindowMessagePump` NGAY SAU `CaptureLoopWorker` (cần `captureLoop.WakeUp`), gọi
+`captureLoop.AttachMessagePump(messagePump)` rồi mới `messagePump.Start()`/`captureLoop.Start()`.
+
+### `src/ParentalGuard.Ipc/Protos/ipc.proto` (sửa)
+
+Thêm `bool content_changed = 8;` vào `VisionInferenceResult` (ADR-134) — additive, không đổi field cũ
+(đúng ADR-16). **Lưu ý môi trường phát hiện lúc build**: `obj/`/`bin/` của `ParentalGuard.Ipc` có thể
+cache code sinh ra từ `.proto` CŨ nếu chỉ build incremental — phải `rm -rf src/ParentalGuard.Ipc/obj
+src/ParentalGuard.Ipc/bin` rồi build lại project này riêng trước khi build toàn `.sln` mỗi khi sửa
+`.proto` (đã áp dụng đúng ở lượt này, không phải lỗi mới).
+
+### `src/ParentalGuard.Service/Data/MonitoringStateData.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `MonitoringStateData` (record, thêm field `PerformanceMode`) | `ConfigDb.ReadMonitoringState`/`.InsertMonitoringState`, `Worker.ExecuteAsync` (qua `config.MonitoringState`) | — |
+| `MonitoringStateData.CreateFirstRunDefault`/`.CreateFailSecureDefault` (sửa — thêm `PerformanceMode: PerformanceMode.Balanced`) | `ConfigDb.CreateFresh` (test + `FailSecureConfigLoader`) | — |
+
+### `src/ParentalGuard.Service/Data/ConfigDb.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `ConfigDb.ToJsonValue`/`.ParsePerformanceMode` (mới, private static) | `InsertMonitoringState`/`ReadMonitoringState` | — |
+| `ConfigDb.InsertMonitoringState`/`.ReadMonitoringState` (sửa — thêm field `performance_mode`) | `CreateFresh`/`ReadSnapshot` | `ToJsonValue`/`ParsePerformanceMode` |
+
+`MonitoringStateJson.PerformanceMode` (string, default `"balanced"`) — backward-compat: `config.db` ghi
+TRƯỚC Đợt 7 (thiếu key này trong JSON) đọc lại vẫn ra `Balanced` (default property initializer +
+`ParsePerformanceMode` fallback), không throw `ConfigLoadException`.
+
+### `src/ParentalGuard.Service/Performance/AdaptiveFrameRateCoordinator.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AdaptiveFrameRateCoordinator.HandleVisionResult` | `Worker.HandleVisionResultAsync` (local function, kênh Vision) | `UpdateVigilance`/`UpdateBoost`/`ComputeDesiredIntervalMs`/`Prune` (private) |
+| `AdaptiveFrameRateCoordinator.CurrentIntervalMs` (property) | `Worker.BuildControlVisionCommand` (mọi call site — initial push Vision, `PauseCoordinator` build delegate, `HandleVisionResultAsync` khi đổi) | — |
+
+RAM-only, `Dictionary<ulong window_handle, WindowFrameRateState>`, reset rỗng khi `Service` restart
+(ADR-132) — không có bảng `config.db` nào cho domain-state này.
+
+### `src/ParentalGuard.Service/Worker.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `Worker.BuildControlVisionCommand` (sửa — thêm tham số `uint captureIntervalMs`, KHÔNG còn đọc `state.CaptureIntervalBaselineMs`) | lambda initial push `_visionSupervisor` (field mới `_adaptiveFrameRateCoordinator!.CurrentIntervalMs`), `PauseCoordinator` build delegate (cùng field), `HandleVisionResultAsync` (giá trị mới từ `AdaptiveFrameRateCoordinator.HandleVisionResult`) | — |
+| `Worker.HandleVisionResultAsync` (mới, local function trong `ExecuteAsync` — thay lambda cũ gọi thẳng `_overlayDecisionCoordinator.HandleVisionResultAsync`) | `_visionSupervisor` (`onBusinessMessage`, kênh Vision) | `OverlayDecisionCoordinator.HandleVisionResultAsync` (như cũ) RỒI `AdaptiveFrameRateCoordinator.HandleVisionResult` — nếu trả về interval mới, `_visionSupervisor.TryEnqueueBusinessMessage` gửi `ControlVisionCommand` mới (mục 3.7.4 điểm 5 — chỉ gửi khi thực sự đổi) |
+
+### Test mới/sửa
+
+- `tests/ParentalGuard.Vision.Tests/PerceptualHashTests.cs` (mới, 4 test): 2 ảnh giống hệt → Hamming=0;
+  ảnh phẳng đồng nhất (đen/trắng) → Hamming=0 (giới hạn dHash, ghi rõ trong test); caro vs đảo ngược →
+  Hamming > ngưỡng; nhiễu nhỏ ±1 trên gradient → Hamming ≤ ngưỡng.
+- `tests/ParentalGuard.Vision.Tests/WindowHashCacheTests.cs` (mới, 8 test): lần đầu gặp → `true`; hash
+  giống hệt → `false` + tái dùng `CachedRiskScore`; trong/ngoài ngưỡng Hamming; luôn so với frame NGAY
+  TRƯỚC (không phải frame gốc); evict đúng sau 5 chu kỳ liên tiếp không dùng, giữ nguyên nếu dùng lại
+  hoặc dưới 5 chu kỳ.
+- `tests/ParentalGuard.Vision.Tests/FrameClassificationPipelineHashGateTests.cs` (mới, 5 test): pixel
+  giống hệt → skip classify + tái dùng risk score; vẫn điền `Bbox`/`CapturedAtUnixMs` khi skip; pixel
+  khác hẳn → classify lại; cửa sổ khác `hwnd` độc lập (luôn `true` lần đầu); evict qua
+  `EndCaptureCycle` sau 5 chu kỳ → coi như lần đầu gặp lại.
+- `tests/ParentalGuard.Vision.Tests/FrameClassificationPipelineZeroOutTests.cs` (sửa 1 assertion, xem
+  ghi chú ở mục `FrameClassificationPipeline.cs` trên).
+- `tests/ParentalGuard.Service.Tests/AdaptiveFrameRateCoordinatorTests.cs` (mới, 11 test): giữ Vigilant
+  dưới `N_RELAX`; relax đúng tại `N_RELAX` ở `balanced`; lên lại Vigilant NGAY (không streak) sau 1
+  frame đổi; `maximum_protection` không bao giờ relax dưới 1000ms; `Boost` độc lập đè lên bucket khi
+  gần ngưỡng; không boost khi lệch xa hoặc đã ở/trên ngưỡng; MIN(interval) trên nhiều cửa sổ; không gửi
+  lại khi interval không đổi (tránh spam IPC); evict cửa sổ idle > 5×interval hiện hành không còn tính
+  vào MIN.
+- `tests/ParentalGuard.Service.Tests/ConfigDbTests.cs` (thêm 2 test): round-trip `performance_mode`
+  `Balanced`/`MaximumProtection` qua `CreateFresh`→`ReadSnapshot`.
+
+Build 0 Warning/0 Error toàn `.sln` (Debug lẫn Release). Test per-project (tránh WDAC false-positive):
+`ParentalGuard.Vision.Tests` 45 → **62** (+17), `ParentalGuard.Service.Tests` 183 → **196** (+13),
+`ParentalGuard.Overlay.Tests` 18/18, `ParentalGuard.Watchdog.Tests` 2/2,
+`ParentalGuard.Uninstaller.Tests` 9/9, `ParentalGuard.UI.Tests` 110/110 — không regression. Tổng test
+toàn solution: 367 → **397** (+30, đúng số test mới thêm; baseline 367 = 365 ghi ở lượt trước + 2 lệch
+do thay đổi nhỏ ở `ParentalGuard.UI.Tests` giữa 2 lượt không được ghi riêng).
+
+## Đợt 7 gap fix (test-runner, 2026-09-25/26) — 2 gap phát hiện sau verify Đợt 7
+
+### GAP 1 — `CaptureLoopWorker` thiếu nhánh `Wait()` vô hạn khi foreground bị exclude-list (`PERF-010` dòng 1)
+
+`Architecture/05-image-pipeline-architecture.md` mục 3.3 (v0.3.0): khi foreground app bị exclude-list
+**và không còn candidate nào khác** (kể cả trên màn hình khác, multi-monitor `BE-073a`), `Vision` phải
+park **vô hạn** (0% CPU capture), chỉ đánh thức bởi `WindowMessagePump` (`EVENT_SYSTEM_FOREGROUND`)
+hoặc `ControlVisionCommand` mới — KHÔNG polling theo `capture_interval_ms`.
+
+### `src/ParentalGuard.Vision/Pipeline/CaptureLoopWorker.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `CaptureLoopWorker.Run` (sửa — nhánh mới) | `Start` (Thread riêng) | `ProcessCycle` (nay trả `bool`) → nếu `true`, `WaitOnEvent(Timeout.Infinite, ...)` thay vì `WaitOnEvent(config.CaptureIntervalMs, ...)` |
+| `CaptureLoopWorker.ProcessCycle` (sửa — trả `bool`, tính `fgInExcludeList` tách riêng khỏi `fgExcluded`) | `Run` | `ShouldParkInfinitely(fgInExcludeList, candidates.Count)` (mới) |
+| `CaptureLoopWorker.ShouldParkInfinitely` (mới, `internal static`, hàm thuần) | `ProcessCycle`, test (`CaptureLoopWorkerShouldParkInfinitelyTests`) | — |
+
+`fgInExcludeList` (chỉ `true` khi `fgHwnd != IntPtr.Zero` VÀ nằm trong exclude-list) tách khỏi
+`fgExcluded` (đã có từ Đợt 2, dùng cho `CandidateWindowSelector` — bao gồm cả case `fgHwnd == IntPtr.Zero`)
+— tránh park vô hạn nhầm khi lý do rỗng candidate KHÔNG phải exclude-list (vd tạm thời không có cửa sổ
+foreground nào, có thể tự phục hồi ở interval kế tiếp mà không có `EVENT_SYSTEM_FOREGROUND`). Không đổi
+hành vi nhánh Pause (`!config.MonitoringEnabled`, đã park vô hạn từ Đợt 1) hay nhánh multi-monitor còn
+candidate khác (`BE-073a`, vẫn tiếp tục polling theo interval bình thường).
+
+`tests/ParentalGuard.Vision.Tests/CaptureLoopWorkerShouldParkInfinitelyTests.cs` (mới, 4 test): foreground
+bị exclude + không candidate → `true`; foreground bị exclude nhưng còn candidate màn hình khác → `false`;
+foreground không bị exclude + không candidate (lý do khác) → `false`; có candidate bình thường → `false`.
+
+### GAP 2 — `ConfigQuery`/`ConfigUpdateRequest`/`RemoveWhitelistEntryRequest`/`AuditLogQuery`/`MarkFalsePositiveRequest` chưa có handler (`10-ui-architecture.md` mục 5/6.3/6.4)
+
+Trước lượt này: `UiSessionServer.DispatchAsync` route MỌI message ngoài Pause/Resume/Status sang
+`AuthCoordinator.HandleAsync` — 5 message trên rơi vào `default` case, throw `InvalidOperationException`
+(UI nhận lỗi kết nối, không phải response hợp lệ). Đồng thời phát hiện `MonitoringStateData`/`ConfigDb`
+**chưa từng có** field `overlay_message`/`user_whitelisted_process_names` (dù `Architecture/04-data-architecture.md`
+mục 3.3 v0.3.0 đã mô tả schema JSON có 2 field này từ Đợt 6) — chỉ `performance_mode` (Đợt 7) đã có sẵn.
+
+### `src/ParentalGuard.Service/Data/MonitoringStateData.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `MonitoringStateData` (record, thêm field `OverlayMessage`/`UserWhitelistedProcessNames`) | `ConfigDb.ReadMonitoringState`/`.InsertMonitoringState`/`.UpdateMonitoringState`, `Worker.ExecuteAsync` (qua `MonitoringStateHolder.Current`), `ConfigCoordinator`, `Worker.BuildControlVisionCommand` | — |
+| `MonitoringStateData.CreateFirstRunDefault`/`.CreateFailSecureDefault` (sửa — thêm `OverlayMessage: ""`, `UserWhitelistedProcessNames: []`) | `ConfigDb.CreateFresh` (test + `FailSecureConfigLoader`) | — |
+
+### `src/ParentalGuard.Service/Data/ConfigDb.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `ConfigDb.InsertMonitoringState`/`.ReadMonitoringState` (sửa — thêm 2 field JSON) | `CreateFresh`/`ReadSnapshot` | `MonitoringStateJson.OverlayMessage`/`.UserWhitelistedProcessNames` (mới, default `""`/`[]` — backward-compat `config.db` ghi trước Đợt 7) |
+| `ConfigDb.UpdateMonitoringState` (mới, public — cùng mẫu hình `UpdatePauseState`) | `ConfigCoordinator.TryPersist` | `SqliteCommand` (`UPDATE monitoring_state ...`) |
+
+### `src/ParentalGuard.Service/Data/MonitoringStateHolder.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `MonitoringStateHolder.Current`/`.Update` (cùng mẫu hình `VisionRuntimeConfigHolder` bên `Vision`) | `Worker.ExecuteAsync` (mọi closure trước đây đọc `config.MonitoringState` — `OverlayDecisionCoordinator`/`AdaptiveFrameRateCoordinator`/`BuildControlVisionCommand`/`PauseCoordinator` delegate), `ConfigCoordinator` (đọc + `.Update` sau khi persist thành công) | — |
+
+Lý do bắt buộc thêm holder: trước gap fix này, `MonitoringStateData` chỉ đọc 1 lần lúc `Worker.ExecuteAsync`
+khởi động (biến local `config`, immutable, không có đường ghi lại lúc runtime) — nay `ConfigUpdateRequest`/
+`RemoveWhitelistEntryRequest`/`MarkFalsePositiveRequest` cần ghi lại RAM + `config.db` và có hiệu lực NGAY
+cho các closure đã đọc giá trị này trước đó (risk_threshold, performance_mode, exclude list gửi Vision)
+mà không cần restart `Service`.
+
+### `src/ParentalGuard.Service/Config/OverlayMessageValidator.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `OverlayMessageValidator.Validate` (hàm thuần) | `ConfigCoordinator.HandleConfigUpdateAsync`, test (`OverlayMessageValidatorTests`) | — |
+
+`FE-012`/`FE-012a`: `TooLong` nếu > 255 ký tự; `InvalidCharacters` nếu có ký tự ngoài chữ cái (kể cả có
+dấu tiếng Việt)/chữ số/khoảng trắng/dấu câu cho phép (`. , ! ? : ; - ( ) " '`) — bao gồm cả emoji/symbol
+cấm liệt kê tường minh lẫn ký tự điều khiển (`char.IsControl` kiểm tra TRƯỚC `IsWhiteSpace` vì tab/newline
+cũng khớp `IsWhiteSpace`).
+
+### `src/ParentalGuard.Service/Config/ConfigCoordinator.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `ConfigCoordinator.HandleAsync` | `UiSessionServer.DispatchAsync` (`ConfigQuery`/`ConfigUpdateReq`/`RemoveWhitelistReq`) | `HandleConfigQueryAsync`/`.HandleConfigUpdateAsync`/`.HandleRemoveWhitelistAsync` (private) |
+| `ConfigCoordinator.HandleConfigQueryAsync` | `HandleAsync` | `MonitoringStateHolder.Current` (đọc RAM, không I/O — mục 6.4 "không gate") |
+| `ConfigCoordinator.HandleConfigUpdateAsync` | `HandleAsync` | `OverlayMessageValidator.Validate`, `TryPersist`, `MonitoringStateHolder.Update`, `AuditLogWriter.AppendAsync` (`ConfigChanged`, chỉ khi field thực sự đổi), `pushControlVisionCommand` (chỉ khi `performance_mode` đổi) |
+| `ConfigCoordinator.HandleRemoveWhitelistAsync` | `HandleAsync` | `AuthCoordinator.TryConsumeActionTokenAsync` (`manage_whitelist`, ADR-122), `TryPersist`, `MonitoringStateHolder.Update`, `pushControlVisionCommand`, `AuditLogWriter.AppendAsync` |
+| `ConfigCoordinator.TryAddUserWhitelistEntryAsync` (public — 1 nguồn ghi whitelist duy nhất) | `HandleRemoveWhitelistAsync` (gián tiếp qua logic riêng), `AuditLogCoordinator.HandleMarkFalsePositiveAsync` | `TryPersist`, `MonitoringStateHolder.Update`, `pushControlVisionCommand` |
+| `ConfigCoordinator.TryPersist` (private) | `HandleConfigUpdateAsync`/`.HandleRemoveWhitelistAsync`/`.TryAddUserWhitelistEntryAsync` | `ConfigDb.Open`/`.UpdateMonitoringState` |
+
+`pushControlVisionCommand` (`Action`, tiêm từ `Worker.ExecuteAsync`) — gọi lại đúng
+`Worker.BuildControlVisionCommand` hiện có (nay UNION `ExcludeProcessNames` ∪ `UserWhitelistedProcessNames`
+trước khi gửi Vision, xem bên dưới) qua `_visionSupervisor.TryEnqueueBusinessMessage`, cùng cơ chế đã có
+từ Đợt 5/7 (`PauseCoordinator`/`AdaptiveFrameRateCoordinator`) — không thêm message IPC mới.
+
+### `src/ParentalGuard.Service/Audit/AuditLogWriter.cs` (sửa — thêm đọc phân trang)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuditLogWriter.ReadPageAsync` (mới, public) | `AuditLogCoordinator.HandleAuditLogQueryAsync` | `TryParseEntry` (private, mới — bỏ qua dòng parse lỗi thay vì ném lỗi cả trang) |
+
+Dùng chung `_writeLock` với `AppendAsync` (tránh đọc trúng dòng đang ghi dở). Trả về mới nhất trước
+(quyết định implement, không phải yêu cầu spec tường minh) + `has_more`. `AuditLogEntryRaw` (record mới,
+namespace `ParentalGuard.Service.Audit`) — `ProcessName`/`RiskScore` chỉ set khi `event_type="ContentBlocked"`
+(đọc đúng field `processName`/`riskScore` camelCase theo schema `04-data-architecture.md` mục 5.1).
+
+### `src/ParentalGuard.Service/Audit/AuditLogCoordinator.cs` (mới)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `AuditLogCoordinator.HandleAsync` | `UiSessionServer.DispatchAsync` (`AuditLogQuery`/`MarkFalsePositiveReq`, truyền thêm `AuditLogViewSession` của đúng kết nối hiện tại) | `HandleAuditLogQueryAsync`/`.HandleMarkFalsePositiveAsync` (private) |
+| `AuditLogCoordinator.HandleAuditLogQueryAsync` | `HandleAsync` | `AuthCoordinator.TryConsumeActionTokenAsync` (`view_audit_log`, `PWD-020`, chỉ khi `action_token` không rỗng) hoặc kiểm tra `session.GateOpenUntilUnixMs` (token rỗng — trang kế tiếp cùng phiên xem), `AuditLogWriter.ReadPageAsync` |
+| `AuditLogCoordinator.HandleMarkFalsePositiveAsync` | `HandleAsync` | `AuthCoordinator.TryConsumeActionTokenAsync` (`manage_whitelist`), `ConfigCoordinator.TryAddUserWhitelistEntryAsync`, `AuditLogWriter.AppendAsync` (`ConfigChanged`) |
+
+**Quyết định implement (uỷ quyền tường minh ở `10-ui-architecture.md` mục 6.3)**: `action_token` chỉ bắt
+buộc hợp lệ ở request đầu tiên của 1 phiên xem `AuditLogQuery` — token rỗng ở các trang kế tiếp được chấp
+nhận nếu còn trong cửa sổ tái sử dụng **10 phút** kể từ lần validate hợp lệ gần nhất. Con số 10 phút là UX,
+không phải giá trị bảo mật (khác TTL 15 giây của bản thân `action_token`, `AuthState.PendingActionToken.Ttl`).
+
+**2026-09-28 audit fix (FAIL cứng, 2 vòng security-privacy-auditor độc lập xác nhận bằng PoC thật)**: bản
+gốc lưu gate ở field `_viewGateOpenUntilUnixMs` **cấp instance của `AuditLogCoordinator`** — mà coordinator
+này chỉ tạo 1 lần cho toàn vòng đời `Service` (`Worker.cs`), dùng CHUNG cho mọi kết nối UI kế tiếp. Biện
+minh ban đầu ("chấp nhận được vì `UI` single-instance qua named `Mutex`, ADR-117a") KHÔNG hợp lệ — chính
+`ADR-117a` ghi rõ đây là "UX polish thuần, KHÔNG PHẢI yêu cầu bảo mật", không thể dùng để nới lỏng gate
+`PWD-020`. Hệ quả thật: phụ huynh xác thực + xem trang 0 xong đóng app, trong 10 phút sau đó BẤT KỲ ai tự
+mở lại `ParentalGuard.UI.exe` đã cài (kể cả đứa trẻ bị giám sát — `VerifyClientIdentity` chỉ kiểm tra
+đường dẫn exe, chưa có code-signing 3b) gửi `AuditLogQuery` token RỖNG đều đọc được toàn bộ audit log
+không cần mật khẩu — cả 2 auditor độc lập đã chạy PoC thật xác nhận bypass thành công rồi xoá PoC. Đã sửa:
+gate nay sống trong `AuditLogViewSession` — 1 instance MỚI tạo mỗi lần `UiSessionServer.RunConnectionAsync`
+bắt đầu (1 kết nối pipe), truyền qua `DispatchAsync` xuống `AuditLogCoordinator.HandleAsync` (thêm tham
+số), tự giải phóng khi kết nối đóng, không còn field service-wide nào để rò rỉ qua kết nối khác. Test
+regression mới `AuditLogCoordinatorTests.AuditLogQuery_EmptyTokenFromDifferentConnection_ReturnsInvalidToken_EvenWithinGateWindow`
+tái hiện đúng kịch bản 2 kết nối (session A pass gate, session B token rỗng phải bị từ chối) — PASS sau
+fix, và sẽ FAIL nếu ai đó lỡ revert về field service-wide cũ. Build 0 Warning/0 Error, test toàn solution
+439/439 pass (Service.Tests 234, Vision.Tests 66, Overlay 18, Watchdog 2, Uninstaller 9, UI 110) — không
+regression.
+
+### `src/ParentalGuard.Service/Ipc/UiSessionServer.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `UiSessionServer` ctor (sửa — thêm tham số `ConfigCoordinator`/`AuditLogCoordinator`) | `Worker.StartUiSessionServer` | — |
+| `UiSessionServer.DispatchAsync` (sửa — thêm 2 nhánh mới) | `RunConnectionAsync` | `ConfigCoordinator.HandleAsync` (`ConfigQuery`/`ConfigUpdateReq`/`RemoveWhitelistReq`), `AuditLogCoordinator.HandleAsync` (`AuditLogQuery`/`MarkFalsePositiveReq`) |
+
+### `src/ParentalGuard.Service/Worker.cs` (sửa)
+
+| Hàm | Callers | Callees |
+|---|---|---|
+| `Worker.ExecuteAsync` (sửa — thêm `monitoringStateHolder`, khởi tạo `_configCoordinator`/`_auditLogCoordinator`) | `BackgroundService` (host) | `MonitoringStateHolder` ctor, `ConfigCoordinator`/`AuditLogCoordinator` ctor |
+| `Worker.BuildControlVisionCommand` (sửa — UNION `state.ExcludeProcessNames` ∪ `state.UserWhitelistedProcessNames`) | Mọi lambda build `ControlVisionCommand` (initial push Vision, `PauseCoordinator` delegate, `HandleVisionResultAsync`, `ConfigCoordinator` `pushControlVisionCommand`) | — |
+| `Worker.StartUiSessionServer` (sửa — truyền thêm `_configCoordinator!`/`_auditLogCoordinator!`) | `ExecuteAsync` | `UiSessionServer` ctor |
+
+`BuildControlVisionCommand` UNION whitelist — hiện thực hoá đúng nghĩa đen `05-image-pipeline-architecture.md`
+mục 3.5 sửa nhỏ v0.3.0 ("`config.ExcludeProcessNames ∪ config.UserWhitelistedProcessNames`") — `Vision`
+chỉ có 1 danh sách `ExcludeProcessNames` (`VisionRuntimeConfig`), phép hợp phải làm ở `Service` trước khi
+gửi qua `ControlVisionCommand`.
+
+### Test mới/sửa
+
+- `tests/ParentalGuard.Service.Tests/OverlayMessageValidatorTests.cs` (mới, 10 test).
+- `tests/ParentalGuard.Service.Tests/MonitoringStateDataTests.cs` (thêm 1 test — fail-secure reset whitelist/overlay_message rỗng).
+- `tests/ParentalGuard.Service.Tests/ConfigDbTests.cs` (thêm 2 test — round-trip `overlay_message`/`user_whitelisted_process_names` qua `CreateFresh` và `UpdateMonitoringState`).
+- `tests/ParentalGuard.Service.Tests/ConfigCoordinatorTests.cs` (mới, 11 test): `ConfigQuery` đọc RAM; `ConfigUpdateRequest` — `overlay_message` hợp lệ (không push), `performance_mode` đổi (có push), `UNSPECIFIED` giữ nguyên mode, `TooLong`/`InvalidCharacters`; `RemoveWhitelistEntryRequest` — `InvalidToken`/`NotFound`/`Success` (persist + push); `TryAddUserWhitelistEntryAsync` — thêm mới (push) và `AlreadyListed` (case-insensitive, không push).
+- `tests/ParentalGuard.Service.Tests/AuditLogCoordinatorTests.cs` (mới, 7 test): `AuditLogQuery` — `InvalidToken`, token rỗng không có gate trước đó → `InvalidToken`, token hợp lệ mở gate cho trang kế tiếp, gate hết hạn sau 10 phút → `InvalidToken`; `MarkFalsePositiveRequest` — `InvalidToken`, thêm mới thành công + ghi `ConfigChanged`, `AlreadyListed`.
+- `tests/ParentalGuard.Service.Tests/AuditLogWriterTests.cs` (thêm 3 test): `ReadPageAsync` mới nhất trước + `has_more` đúng qua 2 trang; `ContentBlocked` trích đúng `processName`/`riskScore`; event khác để `ProcessName` rỗng.
+
+Build 0 Warning/0 Error toàn `.sln`. Test per-project: `ParentalGuard.Vision.Tests` 62 → **66** (+4, GAP 1),
+`ParentalGuard.Service.Tests` 196 → **233** (+37, GAP 2), `ParentalGuard.Overlay.Tests` 18/18,
+`ParentalGuard.Watchdog.Tests` 2/2, `ParentalGuard.Uninstaller.Tests` 9/9, `ParentalGuard.UI.Tests`
+110/110 — không regression.
+
+### Gap MỚI phát hiện lúc sửa (không thuộc phạm vi lượt này, không tự sửa)
+
+`DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest` (`S2` Dashboard, Đợt 6) **cũng
+chưa có handler ở `Service`** — cùng loại gap với GAP 2 (rơi vào `default` case của
+`UiSessionServer.DispatchAsync` trước lượt này, nay vẫn vậy vì 3 message này KHÔNG nằm trong 5 message
+`test-runner` yêu cầu sửa lượt này). `ParentalGuard.UI` `DashboardViewModel`/health-check/biểu đồ `S2`
+polling các message này nhưng chưa từng nhận response thật. Cần `feature-dev` lượt khác nối dây theo đúng
+`Architecture/10-ui-architecture.md` mục 6.2 (mẫu hình y hệt `ConfigCoordinator`/`AuditLogCoordinator` đã
+làm ở lượt này — có thể 1 `DashboardCoordinator` mới hoặc gộp vào 1 trong 2 coordinator hiện có tuỳ
+`feature-dev` quyết định lúc đó).
+
+Đồng thời xác nhận lại (không tự sửa, ngoài phạm vi): event `ContentBlocked` (`04-data-architecture.md`
+mục 5.1) **chưa từng được ghi thật** bởi `OverlayDecisionCoordinator.HandleVisionResultAsync` — audit
+log hiện không có record `ContentBlocked` nào để `AuditLogQuery`/`MarkFalsePositiveRequest` hiển thị
+trong kịch bản thật (`S3` "Đánh dấu sai" cần đúng dòng `ContentBlocked` để lấy `process_name`). Handler
+`AuditLogQuery`/`MarkFalsePositiveRequest` viết ở lượt này vẫn đúng/đầy đủ cho MỌI `event_type` sẵn có
+trong `audit.log` (không phụ thuộc `ContentBlocked` cụ thể) — khi gap này được đóng ở lượt khác,
+`AuditLogQuery` tự động hiển thị đúng mà không cần sửa gì thêm ở đây. Đây CHÍNH LÀ gap đã ghi nhận ở
+"Ghi chú gap phát hiện lúc build" mục 1 phía trên (`VisionInferenceResult` thiếu field `process_name`) —
+2 gap liên đới trực tiếp: thiếu `process_name` → không thể ghi `ContentBlocked.detail.processName` đúng
+→ `MISC-030` chưa hoàn thiện end-to-end dù mọi hạ tầng IPC/whitelist đã sẵn sàng từ lượt này.

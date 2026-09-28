@@ -39,7 +39,12 @@ public class FrameClassificationPipelineZeroOutTests
         Assert.All(pipeline.PixelBufferForTest, b => Assert.Equal(0, b));
         Assert.All(pipeline.InputTensorForTest.Buffer.Span.ToArray(), f => Assert.Equal(0f, f));
         Assert.Equal(1, auditor.ZeroedCount("pixel_buffer_bgra8"));
-        Assert.Equal(1, auditor.ZeroedCount("input_tensor"));
+        // Cropper throw TRƯỚC hash-gate (Architecture/05 mục 3.8.1, Đợt 7) — content_changed không
+        // bao giờ được xác định, nên Resize/Classify chưa từng chạm tensor chu kỳ này. Tensor vẫn
+        // toàn 0 (assert ở trên) nhờ bất biến "chỉ ghi rồi zero trong cùng khối content_changed=true"
+        // (mục 6 v0.3.0), KHÔNG cần zero lại — đúng thiết kế mới, khác hành vi cũ (luôn zero vô điều
+        // kiện) trước Đợt 7.
+        Assert.Equal(0, auditor.ZeroedCount("input_tensor"));
     }
 
     [Fact]

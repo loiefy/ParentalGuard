@@ -18,6 +18,7 @@ public sealed class FrameClassificationPipeline
     private readonly INsfwClassifier _classifier;
     private readonly IFrameBufferAuditor _auditor;
     private readonly DenseTensor<float> _inputTensor;
+    private readonly WindowHashCache _hashCache = new();
 
     private byte[] _pixelBuffer = [];
 
@@ -64,55 +65,68 @@ public sealed class FrameClassificationPipeline
     /// </summary>
     internal VisionInferenceResult ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs)
     {
-        NsfwClassProbabilities probabilities;
+        bool contentChanged = false;
+        float riskScore;
         try
         {
             try
             {
+                EnsurePixelBuffer(rect.Width, rect.Height);
                 try
                 {
-                    EnsurePixelBuffer(rect.Width, rect.Height);
-                    try
-                    {
-                        cropper.CropAndReadBack(fullScreenFrame, rect, _pixelBuffer);
-                    }
-                    finally
-                    {
-                        // ADR-42: trả quyền sở hữu frame toàn màn hình lại cho OS càng sớm càng tốt.
-                        capture.ReleaseFrame();
-                    }
+                    cropper.CropAndReadBack(fullScreenFrame, rect, _pixelBuffer);
                 }
                 finally
                 {
-                    fullScreenFrame.Dispose();
+                    // ADR-42: trả quyền sở hữu frame toàn màn hình lại cho OS càng sớm càng tốt.
+                    capture.ReleaseFrame();
                 }
-
-                FrameResizerNormalizer.Resize(_pixelBuffer, rect.Width, rect.Height, _inputTensor, _classifier.InputLayout);
             }
             finally
             {
-                // IMG-003 (Architecture/05 mục 6, bảng dòng "byte[] pixel BGRA8"): zero NGAY SAU khi
-                // FrameResizerNormalizer đọc xong, KHÔNG chờ Classify (ONNX inference) chạy xong mới
-                // zero — finally này bao trọn cả crop lẫn resize (không riêng resize) để vẫn giữ đúng
-                // bất biến "zero vô điều kiện dù bước nào ở trên throw" (regression guard bug
-                // 2026-09-18, TEST-001: cropper throw giữa chừng sau khi đã ghi 1 phần dữ liệu ảnh
-                // thật vào _pixelBuffer vẫn phải được zero).
-                Array.Clear(_pixelBuffer);
-                _auditor.OnZeroed("pixel_buffer_bgra8", _pixelBuffer.Length);
+                fullScreenFrame.Dispose();
             }
 
-            probabilities = _classifier.Classify(_inputTensor);
+            // Mục 3.8.1/ADR-129 (v0.3.0): hash-gate NGAY SAU readback, TRƯỚC resize — dùng chung 1 tín
+            // hiệu cho cả PERF-010 (Service, qua ContentChanged) và PERF-011 (skip cục bộ dưới đây).
+            ulong newHash = PerceptualHash.ComputeDHash64(_pixelBuffer, rect.Width, rect.Height);
+            contentChanged = _hashCache.ResolveContentChanged(hwnd, newHash, out float cachedRiskScore);
+            riskScore = cachedRiskScore;
+
+            if (contentChanged)
+            {
+                FrameResizerNormalizer.Resize(_pixelBuffer, rect.Width, rect.Height, _inputTensor, _classifier.InputLayout);
+            }
         }
         finally
         {
-            // IMG-003 (bảng mục 6, dòng "DenseTensor<float> input"): zero NGAY SAU session.Run trả
-            // về, vô điều kiện dù bước nào ở trên (crop/resize/classify) throw giữa chừng — cùng bất
-            // biến regression guard bug 2026-09-18 áp dụng riêng cho tensor này.
-            _inputTensor.Buffer.Span.Clear();
-            _auditor.OnZeroed("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
+            // IMG-003 (Architecture/05 mục 6, dòng "byte[] pixel BGRA8", v0.3.0): zero NGAY SAU CẢ 2
+            // bên tiêu thụ đã đọc xong — ComputeDHash64 (luôn chạy) và FrameResizerNormalizer (chỉ
+            // chạy nếu content_changed=true) — vô điều kiện dù bước nào ở trên throw (regression guard
+            // bug 2026-09-18, TEST-001: cropper throw giữa chừng vẫn phải zero phần đã ghi).
+            Array.Clear(_pixelBuffer);
+            _auditor.OnZeroed("pixel_buffer_bgra8", _pixelBuffer.Length);
         }
 
-        float riskScore = RiskScoreAggregator.Aggregate(probabilities);
+        if (contentChanged)
+        {
+            NsfwClassProbabilities probabilities;
+            try
+            {
+                probabilities = _classifier.Classify(_inputTensor);
+            }
+            finally
+            {
+                // IMG-003 (bảng mục 6, dòng "DenseTensor<float> input", v0.3.0): chỉ áp dụng khi
+                // content_changed=true — khi skip, Resize/Classify chưa từng chạm tensor nên không có
+                // gì để zero (tensor vẫn nguyên trạng zero từ lần ghi+zero trước đó).
+                _inputTensor.Buffer.Span.Clear();
+                _auditor.OnZeroed("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
+            }
+
+            riskScore = RiskScoreAggregator.Aggregate(probabilities);
+            _hashCache.UpdateRiskScore(hwnd, riskScore);
+        }
 
         return new VisionInferenceResult
         {
@@ -122,8 +136,12 @@ public sealed class FrameClassificationPipeline
             RiskScore = riskScore,
             Bbox = new Rect { X = rect.X, Y = rect.Y, Width = rect.Width, Height = rect.Height },
             CapturedAtUnixMs = capturedAtUnixMs,
+            ContentChanged = contentChanged,
         };
     }
+
+    /// <summary>Gọi đúng 1 lần cuối mỗi chu kỳ capture (Architecture/05 mục 3.8.2) — evict hash của cửa sổ không còn candidate.</summary>
+    public void EndCaptureCycle(IReadOnlySet<IntPtr> candidateWindowHandles) => _hashCache.EndCycle(candidateWindowHandles);
 
     private void EnsurePixelBuffer(int width, int height)
     {

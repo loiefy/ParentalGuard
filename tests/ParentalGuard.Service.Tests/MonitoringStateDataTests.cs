@@ -24,6 +24,16 @@ public class MonitoringStateDataTests
         Assert.True(state.MonitoringEnabled);
     }
 
+    /// <summary>`04-data-architecture.md` mục 3.3/6.2 — `user_whitelisted_process_names`/`overlay_message` cùng chịu nguyên tắc fail-secure `ANTI-070` như `exclude_process_names`.</summary>
+    [Fact]
+    public void CreateFailSecureDefault_ResetsWhitelistAndOverlayMessageToSafeDefaults()
+    {
+        MonitoringStateData state = MonitoringStateData.CreateFailSecureDefault();
+
+        Assert.Empty(state.UserWhitelistedProcessNames);
+        Assert.Equal("", state.OverlayMessage);
+    }
+
     [Fact]
     public void CreateFirstRunDefault_MonitoringEnabledByDefault()
     {

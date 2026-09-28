@@ -2,10 +2,12 @@ using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Ipc.Tamper;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
+using ParentalGuard.Service.Config;
 using ParentalGuard.Service.Configuration;
 using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Ipc;
 using ParentalGuard.Service.Pause;
+using ParentalGuard.Service.Performance;
 using ParentalGuard.Service.Security;
 using ParentalGuard.Service.Session;
 using ParentalGuard.Service.Tamper;
@@ -37,6 +39,9 @@ public sealed class Worker(
     private UiSessionServer? _uiSessionServer;
     private AuthCoordinator? _authCoordinator;
     private PauseCoordinator? _pauseCoordinator; // Đợt 5 (PAUSE-0xx)
+    private AdaptiveFrameRateCoordinator? _adaptiveFrameRateCoordinator; // Đợt 7 (PERF-010)
+    private ConfigCoordinator? _configCoordinator; // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.4)
+    private AuditLogCoordinator? _auditLogCoordinator; // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.3)
     private WfpVisionBlocker? _wfpVisionBlocker;
 
     // Đợt 4 (ANTI-0xx, Architecture/09) — Dual Watchdog + custom uninstaller + anti-tamper.
@@ -69,6 +74,11 @@ public sealed class Worker(
         {
             logger.LogWarning("Started in fail-secure fallback (BE-061): {Reason}", config.FallbackReason);
         }
+
+        // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.4/`ConfigCoordinator`): nguồn sự thật RAM cập
+        // nhật được cho MonitoringStateData, thay cho việc đọc thẳng `config.MonitoringState` bất biến
+        // suốt vòng đời (không có đường ghi lại lúc runtime trước gap fix này).
+        var monitoringStateHolder = new MonitoringStateHolder(config.MonitoringState);
 
         ApplyWfpBestEffort();
 
@@ -106,7 +116,7 @@ public sealed class Worker(
         // chụp giá trị 1 lần) — Đợt 1 chưa có đường nào đổi RiskThreshold lúc runtime (Pause/UI
         // là Đợt 3/5), nhưng giữ đúng nguyên tắc "Service so ngưỡng độc lập mỗi lần" (Architecture/05
         // mục 3.3) thay vì đóng băng closure theo giá trị lúc khởi động.
-        _overlayDecisionCoordinator = new OverlayDecisionCoordinator(_overlaySupervisor, _auditLog, () => config.MonitoringState.RiskThreshold);
+        _overlayDecisionCoordinator = new OverlayDecisionCoordinator(_overlaySupervisor, _auditLog, () => monitoringStateHolder.Current.RiskThreshold);
         _iconStatusCoordinator = new IconStatusCoordinator(_overlaySupervisor);
         _iconPositionCoordinator = new IconPositionCoordinator(loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.IconPositionCoordinator"));
         _attackPatternCoordinator = new AttackPatternCoordinator(_auditLog, _iconStatusCoordinator);
@@ -114,6 +124,14 @@ public sealed class Worker(
         StartWatchdogSessionServer(stoppingToken);
         StartUninstallerSessionServer(stoppingToken);
         StartRegistryTamperWatchersBestEffort();
+
+        // Đợt 7 (PERF-010, Architecture/05 mục 3.7): domain-state RAM-only, MIN(interval) trên toàn
+        // bộ cửa sổ candidate — đọc lại performance_mode/risk_threshold mỗi lần (không đóng băng closure,
+        // cùng nguyên tắc BE-090 đã áp dụng cho _overlayDecisionCoordinator ở trên).
+        _adaptiveFrameRateCoordinator = new AdaptiveFrameRateCoordinator(
+            () => monitoringStateHolder.Current.PerformanceMode,
+            () => monitoringStateHolder.Current.RiskThreshold,
+            clock);
 
         // Cadence Vision khởi tạo THẲNG ở 10s nếu Starting vào ngay Running·Paused (mục 3a.3 —
         // "chưa từng ở 1s trong phiên chạy mới, không cần 'đổi'") — khác đường "đổi cadence" giữa
@@ -126,16 +144,35 @@ public sealed class Worker(
             initialVisionHeartbeatInterval,
             // PauseCoordinator là nguồn sự thật cho MonitoringEnabled hiệu dụng (mục 3a.5) — kể cả
             // lúc reconnect (vd Vision crash-restart hiếm gặp trong lúc Pause), không riêng lần push đầu.
-            [payload => payload.ControlVision = BuildControlVisionCommand(config.MonitoringState, !_pauseCoordinator!.IsPaused)],
+            // capture_interval_ms LUÔN lấy từ AdaptiveFrameRateCoordinator (Đợt 7) — KHÔNG còn đọc
+            // trực tiếp state.CaptureIntervalBaselineMs (tránh 2 cơ chế song song, xem ghi chú ở
+            // BuildControlVisionCommand).
+            [payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)],
             config.IpcHmacKey,
             _auditLog,
             loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.ChildProcessSupervisor.Vision"),
-            onBusinessMessage: (message, ct) => _overlayDecisionCoordinator!.HandleVisionResultAsync(message, ct),
+            onBusinessMessage: HandleVisionResultAsync,
             resolveLowIntegrityLevel: () => !_visionRequiresMediumIl,
             onCaptureInitAccessDeniedExitCode: OnVisionCaptureInitAccessDenied,
             onSessionConnected: OnChildSessionConnected,
             onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
             onChildRestarted: () => _attackPatternCoordinator!.RecordServiceSideEvent("process_restart_loop"));
+
+        // Đợt 7: HandleVisionResultAsync (kênh Vision) làm cả 2 việc — quyết định overlay (như trước)
+        // VÀ cập nhật state machine adaptive, tự gửi ControlVisionCommand mới NẾU interval đổi (mục
+        // 3.7.4 điểm 5 — chỉ gửi khi thực sự khác, tránh spam IPC). Local function (không phải method
+        // riêng) vì cần đóng gói `config.MonitoringState` từ closure, giống các lambda BuildControlVisionCommand khác trong hàm này.
+        async Task HandleVisionResultAsync(IpcPayload message, CancellationToken ct)
+        {
+            await _overlayDecisionCoordinator!.HandleVisionResultAsync(message, ct).ConfigureAwait(false);
+
+            uint? newIntervalMs = _adaptiveFrameRateCoordinator!.HandleVisionResult(message.VisionResult);
+            if (newIntervalMs is uint intervalMs)
+            {
+                _visionSupervisor!.TryEnqueueBusinessMessage(
+                    payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, intervalMs));
+            }
+        }
 
         _pauseCoordinator = new PauseCoordinator(
             InstallPaths.ConfigDbPath,
@@ -147,10 +184,22 @@ public sealed class Worker(
             _overlaySupervisor,
             _overlayDecisionCoordinator,
             _iconStatusCoordinator,
-            enabled => BuildControlVisionCommand(config.MonitoringState, enabled),
+            enabled => BuildControlVisionCommand(monitoringStateHolder.Current, enabled, _adaptiveFrameRateCoordinator!.CurrentIntervalMs),
             bootPauseState,
             loggerFactory.CreateLogger<PauseCoordinator>());
         _pauseCoordinator.Start(stoppingToken);
+
+        // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.3/6.4): ConfigCoordinator là nguồn ghi duy
+        // nhất cho user_whitelisted_process_names/overlay_message/performance_mode — AuditLogCoordinator
+        // uỷ quyền ghi whitelist qua nó (MarkFalsePositiveRequest, mục 6.3) thay vì tự ghi song song.
+        _configCoordinator = new ConfigCoordinator(
+            monitoringStateHolder,
+            InstallPaths.ConfigDbPath,
+            _authCoordinator,
+            _auditLog,
+            () => _visionSupervisor!.TryEnqueueBusinessMessage(
+                payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)));
+        _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock);
 
         StartUiSessionServer(stoppingToken);
         StartVisionNetworkWatcherBestEffort();
@@ -237,10 +286,11 @@ public sealed class Worker(
     }
 
     /// <summary>
-    /// Đợt 3 (`PWD-0xx`, Architecture/08 mục 7) + Đợt 5 (`PAUSE-0xx`, Architecture/02 mục 3a) — pipe
-    /// <c>ParentalGuard.Svc.UI</c>, độc lập vòng đời Vision/Overlay (UI tự mở, không do Service
-    /// spawn). Gọi SAU KHI <see cref="_authCoordinator"/>/<see cref="_pauseCoordinator"/> đã sẵn
-    /// sàng (2 domain cùng chia sẻ pipe này, Architecture/03 mục 3.1a).
+    /// Đợt 3 (`PWD-0xx`, Architecture/08 mục 7) + Đợt 5 (`PAUSE-0xx`, Architecture/02 mục 3a) + Đợt 7
+    /// (`10-ui-architecture.md` mục 6.3/6.4) — pipe <c>ParentalGuard.Svc.UI</c>, độc lập vòng đời
+    /// Vision/Overlay (UI tự mở, không do Service spawn). Gọi SAU KHI <see cref="_authCoordinator"/>/
+    /// <see cref="_pauseCoordinator"/>/<see cref="_configCoordinator"/>/<see cref="_auditLogCoordinator"/>
+    /// đã sẵn sàng (4 domain cùng chia sẻ pipe này, Architecture/03 mục 3.1a).
     /// </summary>
     private void StartUiSessionServer(CancellationToken stoppingToken)
     {
@@ -249,6 +299,8 @@ public sealed class Worker(
             InstallPaths.UiExecutablePath,
             _authCoordinator!,
             _pauseCoordinator!,
+            _configCoordinator!,
+            _auditLogCoordinator!,
             _auditLog!,
             loggerFactory.CreateLogger<UiSessionServer>());
         _uiSessionServer.Start(stoppingToken);
@@ -485,17 +537,25 @@ public sealed class Worker(
     /// <paramref name="monitoringEnabled"/> tách riêng khỏi <paramref name="state"/>.MonitoringEnabled
     /// (Đợt 5) — <see cref="Pause.PauseCoordinator"/> là nguồn sự thật cho giá trị hiệu dụng thật sự
     /// gửi xuống Vision (mục 3a.5: Pause chỉ đổi TẦN SUẤT/bật-tắt, không sửa <c>MonitoringStateData</c>
-    /// gốc trong <c>config.db</c>).
+    /// gốc trong <c>config.db</c>). <paramref name="captureIntervalMs"/> (Đợt 7, `PERF-010`): LUÔN lấy
+    /// từ <see cref="AdaptiveFrameRateCoordinator.CurrentIntervalMs"/> ở mọi call site — KHÔNG còn đọc
+    /// <c>state.CaptureIntervalBaselineMs</c> trực tiếp (đó là cơ chế TĨNH của Đợt 6, nay thay hẳn bằng
+    /// state machine động, tránh 2 cơ chế cùng tồn tại song song gây xung đột giá trị gửi xuống Vision).
+    /// <c>exclude_process_names</c> gửi xuống LÀ PHÉP HỢP (union) của <see cref="MonitoringStateData.ExcludeProcessNames"/>
+    /// (danh sách dev-maintained, `BE-073a`) và <see cref="MonitoringStateData.UserWhitelistedProcessNames"/>
+    /// (`MISC-030`, Đợt 7 gap fix) — `Vision` chỉ giữ đúng 1 danh sách loại trừ (`05-image-pipeline-architecture.md`
+    /// mục 3.5 sửa nhỏ v0.3.0), phép hợp phải thực hiện ở đây trước khi gửi qua IPC.
     /// </summary>
-    private static ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state, bool monitoringEnabled)
+    private static ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state, bool monitoringEnabled, uint captureIntervalMs)
     {
         var command = new ControlVisionCommand
         {
             MonitoringEnabled = monitoringEnabled,
-            CaptureIntervalMs = state.CaptureIntervalBaselineMs,
+            CaptureIntervalMs = captureIntervalMs,
             RiskThreshold = state.RiskThreshold,
         };
         command.ExcludeProcessNames.AddRange(state.ExcludeProcessNames);
+        command.ExcludeProcessNames.AddRange(state.UserWhitelistedProcessNames);
         return command;
     }
 

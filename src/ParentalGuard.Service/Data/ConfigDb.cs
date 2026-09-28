@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Data.Sqlite;
+using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Configuration;
 
@@ -313,6 +314,9 @@ public sealed class ConfigDb : IDisposable
             CaptureIntervalBaselineMs = state.CaptureIntervalBaselineMs,
             ExcludeProcessNames = [.. state.ExcludeProcessNames],
             UsingFallbackConfig = state.UsingFallbackConfig,
+            PerformanceMode = ToJsonValue(state.PerformanceMode),
+            OverlayMessage = state.OverlayMessage,
+            UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -322,6 +326,38 @@ public sealed class ConfigDb : IDisposable
             VALUES (1, $rowSchemaVersion, $data, $updatedAt);
             """;
         command.Parameters.AddWithValue("$rowSchemaVersion", 1);
+        command.Parameters.AddWithValue("$data", encrypted);
+        command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"monitoring_state write failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>`10-ui-architecture.md` mục 6.4/`MISC-030` (Đợt 7 gap fix) — ghi đè dòng <c>monitoring_state</c> hiện có (khác <see cref="InsertMonitoringState"/>, chỉ dùng lúc <see cref="CreateFresh"/>), cùng mẫu hình <see cref="UpdatePauseState"/>.</summary>
+    public void UpdateMonitoringState(MonitoringStateData state)
+    {
+        var json = new MonitoringStateJson
+        {
+            MonitoringEnabled = state.MonitoringEnabled,
+            RiskThreshold = state.RiskThreshold,
+            CaptureIntervalBaselineMs = state.CaptureIntervalBaselineMs,
+            ExcludeProcessNames = [.. state.ExcludeProcessNames],
+            UsingFallbackConfig = state.UsingFallbackConfig,
+            PerformanceMode = ToJsonValue(state.PerformanceMode),
+            OverlayMessage = state.OverlayMessage,
+            UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
+        };
+        byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
+
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = """
+            UPDATE monitoring_state SET data_encrypted = $data, updated_at_unix_ms = $updatedAt WHERE id = 1;
+            """;
         command.Parameters.AddWithValue("$data", encrypted);
         command.Parameters.AddWithValue("$updatedAt", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         try
@@ -354,8 +390,18 @@ public sealed class ConfigDb : IDisposable
             json.RiskThreshold,
             json.CaptureIntervalBaselineMs,
             json.ExcludeProcessNames,
-            json.UsingFallbackConfig);
+            json.UsingFallbackConfig,
+            ParsePerformanceMode(json.PerformanceMode),
+            json.OverlayMessage,
+            json.UserWhitelistedProcessNames);
     }
+
+    /// <summary>PERF-050b (Architecture/04 mục 3.3, ADR-127) — string trong JSON (khớp `04` §2), enum ở domain model.</summary>
+    private static string ToJsonValue(PerformanceMode mode) => mode == PerformanceMode.MaximumProtection ? "maximum_protection" : "balanced";
+
+    /// <summary>Giá trị thiếu/không nhận diện được (vd config.db từ trước khi field này tồn tại) → mặc định "balanced" (ĐÃ CHỐT `04` mục 6.2).</summary>
+    private static PerformanceMode ParsePerformanceMode(string? value) =>
+        value == "maximum_protection" ? PerformanceMode.MaximumProtection : PerformanceMode.Balanced;
 
     private void InsertPauseState(PauseStateData state)
     {
@@ -541,6 +587,18 @@ public sealed class ConfigDb : IDisposable
 
         [JsonPropertyName("using_fallback_config")]
         public bool UsingFallbackConfig { get; set; }
+
+        /// <summary>Đợt 7 — field mới, mặc định "balanced" khi thiếu (config.db ghi trước khi field này tồn tại, Architecture/04 mục 3.3).</summary>
+        [JsonPropertyName("performance_mode")]
+        public string PerformanceMode { get; set; } = "balanced";
+
+        /// <summary>Đợt 6 (`FE-012`), field bổ sung Đợt 7 (gap fix `ConfigUpdateRequest`) — rỗng = dùng default cục bộ của Overlay (Architecture/04 mục 3.3).</summary>
+        [JsonPropertyName("overlay_message")]
+        public string OverlayMessage { get; set; } = "";
+
+        /// <summary>Đợt 6 (`MISC-030`), field bổ sung Đợt 7 (gap fix `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest`) — Architecture/04 mục 3.3.</summary>
+        [JsonPropertyName("user_whitelisted_process_names")]
+        public List<string> UserWhitelistedProcessNames { get; set; } = [];
     }
 
     private sealed class PauseStateJson

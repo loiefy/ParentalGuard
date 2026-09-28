@@ -7,6 +7,7 @@ using ParentalGuard.Ipc.Framing;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
+using ParentalGuard.Service.Config;
 using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Pause;
 using ParentalGuard.Service.Security;
@@ -18,8 +19,10 @@ namespace ParentalGuard.Service.Ipc;
 /// <see cref="ChildProcessSupervisor"/> (Vision/Overlay): không spawn process (UI tự mở), không
 /// heartbeat định kỳ (request/response theo nhu cầu), khoá HMAC ephemeral thương lượng ngay trong
 /// phiên kết nối (ADR-19) thay vì bootstrap persistent qua anonymous pipe. Business logic uỷ quyền
-/// cho <see cref="AuthCoordinator"/> (domain Password/Auth, field 80-91) hoặc
-/// <see cref="PauseCoordinator"/> (domain Pause/Resume, field 92-97, Đợt 5) theo whitelist message
+/// cho <see cref="AuthCoordinator"/> (domain Password/Auth, field 80-91),
+/// <see cref="PauseCoordinator"/> (domain Pause/Resume, field 92-97, Đợt 5),
+/// <see cref="ConfigCoordinator"/> (domain Cài đặt, field 148-153, Đợt 7) hoặc
+/// <see cref="AuditLogCoordinator"/> (domain Lịch sử, field 142/146-147, Đợt 7) theo whitelist message
 /// của pipe này (Architecture/03 mục 3.1a) — lớp này chỉ là transport glue + định tuyến.
 /// </summary>
 public sealed class UiSessionServer(
@@ -27,6 +30,8 @@ public sealed class UiSessionServer(
     string expectedExecutablePath,
     AuthCoordinator authCoordinator,
     PauseCoordinator pauseCoordinator,
+    ConfigCoordinator configCoordinator,
+    AuditLogCoordinator auditLogCoordinator,
     AuditLogWriter auditLog,
     ILogger logger)
 {
@@ -141,10 +146,14 @@ public sealed class UiSessionServer(
 
     private async Task RunConnectionAsync(NamedPipeServerStream pipe, byte[] sessionKey, CancellationToken token)
     {
+        // Audit fix 2026-09-28 (xem AuditLogCoordinator class doc): gate "đã qua view_audit_log" phải
+        // sống trong ĐÚNG 1 kết nối pipe này — 1 instance mới mỗi lần RunConnectionAsync bắt đầu, không
+        // bao giờ chia sẻ giữa 2 kết nối, tự giải phóng khi vòng lặp dưới đây kết thúc.
+        var auditViewSession = new AuditLogViewSession();
         while (!token.IsCancellationRequested)
         {
             IpcPayload request = await IpcFrameTransport.ReadFrameAsync(pipe, sessionKey, token).ConfigureAwait(false);
-            IpcPayload response = await DispatchAsync(request, token).ConfigureAwait(false);
+            IpcPayload response = await DispatchAsync(request, auditViewSession, token).ConfigureAwait(false);
             try
             {
                 await IpcFrameTransport.WriteFrameAsync(pipe, response, sessionKey, token).ConfigureAwait(false);
@@ -159,12 +168,23 @@ public sealed class UiSessionServer(
         }
     }
 
-    /// <summary>Đợt 5 (`PAUSE-0xx`) — 2 domain cùng chia sẻ pipe <c>UI</c> (Architecture/03 mục 3.1a): Pause/Resume/Status đi qua <see cref="PauseCoordinator"/>, còn lại (Password/Auth) đi qua <see cref="AuthCoordinator"/>.</summary>
-    private Task<IpcPayload> DispatchAsync(IpcPayload request, CancellationToken token) => request.BodyCase switch
+    /// <summary>
+    /// 4 domain cùng chia sẻ pipe <c>UI</c> (Architecture/03 mục 3.1a): Pause/Resume/Status đi qua
+    /// <see cref="PauseCoordinator"/>, Cài đặt (`ConfigQuery`/`ConfigUpdateRequest`/
+    /// `RemoveWhitelistEntryRequest`) đi qua <see cref="ConfigCoordinator"/>, Lịch sử
+    /// (`AuditLogQuery`/`MarkFalsePositiveRequest`) đi qua <see cref="AuditLogCoordinator"/>, còn lại
+    /// (Password/Auth) đi qua <see cref="AuthCoordinator"/>.
+    /// </summary>
+    private Task<IpcPayload> DispatchAsync(IpcPayload request, AuditLogViewSession auditViewSession, CancellationToken token) => request.BodyCase switch
     {
         IpcPayload.BodyOneofCase.PauseMonitoringReq or
         IpcPayload.BodyOneofCase.ResumeMonitoringReq or
         IpcPayload.BodyOneofCase.PauseStatusQuery => pauseCoordinator.HandleAsync(request, token),
+        IpcPayload.BodyOneofCase.ConfigQuery or
+        IpcPayload.BodyOneofCase.ConfigUpdateReq or
+        IpcPayload.BodyOneofCase.RemoveWhitelistReq => configCoordinator.HandleAsync(request, token),
+        IpcPayload.BodyOneofCase.AuditLogQuery or
+        IpcPayload.BodyOneofCase.MarkFalsePositiveReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),
         _ => authCoordinator.HandleAsync(request, token),
     };
 

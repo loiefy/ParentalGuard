@@ -196,5 +196,80 @@ public sealed class AuditLogWriter
         return null;
     }
 
+    /// <summary>
+    /// `10-ui-architecture.md` mục 6.3 (`AuditLogQuery`, gap fix Đợt 7) — <paramref name="page"/>
+    /// 0-based, mới nhất trước (quyết định implement, không phải yêu cầu spec tường minh — thứ tự
+    /// khớp trải nghiệm "xem lịch sử gần đây" thông thường). Dùng chung <see cref="_writeLock"/> với
+    /// <see cref="AppendAsync(string, object, CancellationToken)"/> — tránh đọc trúng dòng đang ghi dở.
+    /// Dòng nào không parse được (JSON hỏng, race hiếm) bị bỏ qua thay vì ném lỗi cả trang (fail-secure
+    /// nghiêng về phía vẫn hiển thị được các dòng còn lại, không phải về phía chặn UI).
+    /// </summary>
+    public async Task<(IReadOnlyList<AuditLogEntryRaw> Entries, bool HasMore)> ReadPageAsync(int page, int pageSize, CancellationToken cancellationToken)
+    {
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!File.Exists(_path))
+            {
+                return ([], false);
+            }
+
+            string[] lines = await File.ReadAllLinesAsync(_path, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+            List<AuditLogEntryRaw> newestFirst = [];
+            for (int i = lines.Length - 1; i >= 0; i--)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                {
+                    continue;
+                }
+
+                AuditLogEntryRaw? entry = TryParseEntry(lines[i]);
+                if (entry is not null)
+                {
+                    newestFirst.Add(entry);
+                }
+            }
+
+            int skip = page * pageSize;
+            List<AuditLogEntryRaw> pageEntries = newestFirst.Skip(skip).Take(pageSize).ToList();
+            bool hasMore = skip + pageEntries.Count < newestFirst.Count;
+            return (pageEntries, hasMore);
+        }
+        finally
+        {
+            _writeLock.Release();
+        }
+    }
+
+    private static AuditLogEntryRaw? TryParseEntry(string line)
+    {
+        try
+        {
+            JsonObject obj = JsonNode.Parse(line)!.AsObject();
+            long seq = obj["seq"]!.GetValue<long>();
+            long tsUnixMs = obj["ts_unix_ms"]!.GetValue<long>();
+            string eventType = obj["event_type"]!.GetValue<string>();
+            JsonObject? detail = obj["detail"] as JsonObject;
+            string detailJson = detail?.ToJsonString() ?? "{}";
+
+            string processName = "";
+            float riskScore = 0f;
+            if (eventType == "ContentBlocked" && detail is not null)
+            {
+                processName = detail["processName"]?.GetValue<string>() ?? "";
+                riskScore = detail["riskScore"]?.GetValue<float>() ?? 0f;
+            }
+
+            return new AuditLogEntryRaw(seq, tsUnixMs, eventType, detailJson, processName, riskScore);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+        {
+            return null;
+        }
+    }
+
     private sealed record ParsedRecord(long Seq, string ChainId, string PrevHash, string Hash, JsonObject Raw);
 }
+
+/// <summary>1 dòng `audit.log` đã parse (`AuditLogWriter.ReadPageAsync`) — <see cref="ProcessName"/>/<see cref="RiskScore"/> chỉ có ý nghĩa khi <see cref="EventType"/>="ContentBlocked" (`04-data-architecture.md` mục 5.1).</summary>
+public sealed record AuditLogEntryRaw(long Seq, long TsUnixMs, string EventType, string DetailJson, string ProcessName, float RiskScore);

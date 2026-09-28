@@ -1,3 +1,5 @@
+using ParentalGuard.Ipc.Protocol;
+
 namespace ParentalGuard.Service.Data;
 
 /// <summary>
@@ -9,12 +11,20 @@ public sealed record MonitoringStateData(
     float RiskThreshold,
     uint CaptureIntervalBaselineMs,
     IReadOnlyList<string> ExcludeProcessNames,
-    bool UsingFallbackConfig)
+    bool UsingFallbackConfig,
+    PerformanceMode PerformanceMode,
+    string OverlayMessage,
+    IReadOnlyList<string> UserWhitelistedProcessNames)
 {
     /// <summary>Placeholder — con số thật do benchmark quyết định ở BE-090/Đợt 1 (mục 3.3).</summary>
     public const float DefaultRiskThreshold = 0.7f;
 
-    /// <summary>Placeholder — tuning ở PERF-010/Đợt 7 (mục 3.3).</summary>
+    /// <summary>
+    /// Không còn dùng để gửi thẳng <c>capture_interval_ms</c> (Đợt 7 — xem
+    /// <c>ParentalGuard.Service.Performance.AdaptiveFrameRateCoordinator</c>) — giữ lại làm giá trị
+    /// mặc định của field <see cref="CaptureIntervalBaselineMs"/> đã có trong schema <c>config.db</c>
+    /// (Architecture/04 mục 3.3), chưa có đường ghi/đọc nào khác dùng tới.
+    /// </summary>
     public const uint DefaultCaptureIntervalMs = 1000;
 
     /// <summary>Danh sách khởi điểm BE-073a (Specification/02-backend-spec.md mục 6).</summary>
@@ -46,7 +56,10 @@ public sealed record MonitoringStateData(
         RiskThreshold: DefaultRiskThreshold,
         CaptureIntervalBaselineMs: DefaultCaptureIntervalMs,
         ExcludeProcessNames: InitialExcludeProcessNames,
-        UsingFallbackConfig: false);
+        UsingFallbackConfig: false,
+        PerformanceMode: PerformanceMode.Balanced,
+        OverlayMessage: "",
+        UserWhitelistedProcessNames: []);
 
     /// <summary>
     /// Nhánh fail-secure (BE-061/ANTI-070, Architecture/04 mục 6.2 bước 2) — whitelist rỗng,
@@ -58,5 +71,8 @@ public sealed record MonitoringStateData(
         RiskThreshold: DefaultRiskThreshold,
         CaptureIntervalBaselineMs: DefaultCaptureIntervalMs,
         ExcludeProcessNames: [],
-        UsingFallbackConfig: false);
+        UsingFallbackConfig: false,
+        PerformanceMode: PerformanceMode.Balanced,
+        OverlayMessage: "",
+        UserWhitelistedProcessNames: []);
 }

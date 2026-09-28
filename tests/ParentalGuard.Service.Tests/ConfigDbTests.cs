@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Data;
 
@@ -48,6 +49,71 @@ public class ConfigDbTests : IDisposable
         Assert.True(snapshot.PauseState.IsPaused);
         Assert.Equal(1_000L, snapshot.PauseState.PauseStartedAtUnixMs);
         Assert.Equal(2_000L, snapshot.PauseState.PauseExpiresAtUnixMs);
+    }
+
+    [Fact]
+    public void CreateFresh_FirstRunDefault_RoundTripsPerformanceModeBalanced()
+    {
+        ConfigDb.CreateFresh(_dbPath, MonitoringStateData.CreateFirstRunDefault(), PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+
+        using ConfigDb db = ConfigDb.Open(_dbPath);
+        ConfigSnapshot snapshot = db.ReadSnapshot();
+
+        Assert.Equal(PerformanceMode.Balanced, snapshot.MonitoringState.PerformanceMode);
+    }
+
+    [Fact]
+    public void CreateFresh_MaximumProtectionMode_RoundTripsCorrectly()
+    {
+        MonitoringStateData monitoring = MonitoringStateData.CreateFirstRunDefault() with { PerformanceMode = PerformanceMode.MaximumProtection };
+        ConfigDb.CreateFresh(_dbPath, monitoring, PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+
+        using ConfigDb db = ConfigDb.Open(_dbPath);
+        ConfigSnapshot snapshot = db.ReadSnapshot();
+
+        Assert.Equal(PerformanceMode.MaximumProtection, snapshot.MonitoringState.PerformanceMode);
+    }
+
+    /// <summary>Đợt 7 gap fix (`10-ui-architecture.md` mục 6.4) — `overlay_message`/`user_whitelisted_process_names` round-trip qua `config.db`.</summary>
+    [Fact]
+    public void CreateFresh_ThenReadSnapshot_RoundTripsOverlayMessageAndWhitelist()
+    {
+        MonitoringStateData monitoring = MonitoringStateData.CreateFirstRunDefault() with
+        {
+            OverlayMessage = "Custom message.",
+            UserWhitelistedProcessNames = ["notepad.exe", "chrome.exe"],
+        };
+        ConfigDb.CreateFresh(_dbPath, monitoring, PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+
+        using ConfigDb db = ConfigDb.Open(_dbPath);
+        ConfigSnapshot snapshot = db.ReadSnapshot();
+
+        Assert.Equal("Custom message.", snapshot.MonitoringState.OverlayMessage);
+        Assert.Equal(["notepad.exe", "chrome.exe"], snapshot.MonitoringState.UserWhitelistedProcessNames);
+    }
+
+    [Fact]
+    public void UpdateMonitoringState_ThenReadSnapshot_RoundTripsNewValues()
+    {
+        ConfigDb.CreateFresh(_dbPath, MonitoringStateData.CreateFirstRunDefault(), PauseStateData.CreateDefault(), new byte[32], AuditCheckpoint.CreateGenesis(), lastFallbackEventUnixMs: null);
+        MonitoringStateData updated = MonitoringStateData.CreateFirstRunDefault() with
+        {
+            OverlayMessage = "Updated.",
+            UserWhitelistedProcessNames = ["vlc.exe"],
+            PerformanceMode = PerformanceMode.MaximumProtection,
+        };
+
+        using (ConfigDb db = ConfigDb.Open(_dbPath))
+        {
+            db.UpdateMonitoringState(updated);
+        }
+
+        using ConfigDb reopened = ConfigDb.Open(_dbPath);
+        ConfigSnapshot snapshot = reopened.ReadSnapshot();
+
+        Assert.Equal("Updated.", snapshot.MonitoringState.OverlayMessage);
+        Assert.Equal(["vlc.exe"], snapshot.MonitoringState.UserWhitelistedProcessNames);
+        Assert.Equal(PerformanceMode.MaximumProtection, snapshot.MonitoringState.PerformanceMode);
     }
 
     [Fact]
