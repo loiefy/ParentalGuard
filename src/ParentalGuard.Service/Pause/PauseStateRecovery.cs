@@ -27,6 +27,11 @@ public static class PauseStateRecovery
 
         // Hết hạn TRONG LÚC Service down (vd máy tắt qua đêm lúc đang pause) — auto-resume NGAY
         // trong bước Starting, trước khi vào Running·Monitoring chính thức.
-        return new Decision(PauseStateData.CreateDefault(), AutoResumedWhileOffline: true);
+        //
+        // 2026-09-29 audit fix (FAIL cứng do test-runner phát hiện) — GIỮ NGUYÊN AnomalyPendingAck
+        // của loaded (KHÔNG dùng CreateDefault() trần trụi, sẽ âm thầm reset cờ về false dù phụ huynh
+        // CHƯA từng gửi AcknowledgePauseAnomalyRequest): cùng bất biến đã áp dụng đúng ở
+        // PauseCoordinator.ApplyResumeAsync (mục 4a) nhưng bị bỏ sót ở nhánh boot-recovery này.
+        return new Decision(PauseStateData.CreateDefault() with { AnomalyPendingAck = loaded.AnomalyPendingAck }, AutoResumedWhileOffline: true);
     }
 }

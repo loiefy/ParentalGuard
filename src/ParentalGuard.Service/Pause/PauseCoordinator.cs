@@ -79,6 +79,9 @@ public sealed class PauseCoordinator
 
     public long PauseExpiresAtUnixMs => _state.PauseExpiresAtUnixMs ?? 0;
 
+    /// <summary>`PAUSE-021` (Đợt 8/9 gap fix) — dùng bởi `DashboardCoordinator` cho `DashboardStatusResponse.pause_anomaly_pending_ack`.</summary>
+    public bool AnomalyPendingAck => _state.AnomalyPendingAck;
+
     /// <summary>Gọi đúng 1 lần lúc <c>Worker.ExecuteAsync</c> — khởi động lại <c>PauseMonitor</c> nếu Starting vào thẳng <c>Running·Paused</c> (mục 3a.3).</summary>
     public void Start(CancellationToken serviceStoppingToken)
     {
@@ -95,6 +98,7 @@ public sealed class PauseCoordinator
         IpcPayload.BodyOneofCase.PauseMonitoringReq => HandlePauseAsync(request, cancellationToken),
         IpcPayload.BodyOneofCase.ResumeMonitoringReq => HandleResumeAsync(request, cancellationToken),
         IpcPayload.BodyOneofCase.PauseStatusQuery => HandleStatusQueryAsync(request),
+        IpcPayload.BodyOneofCase.AckPauseAnomalyReq => HandleAckAnomalyAsync(request, cancellationToken),
         _ => throw new InvalidOperationException($"PauseCoordinator received unexpected message: {request.BodyCase}."),
     };
 
@@ -198,6 +202,32 @@ public sealed class PauseCoordinator
         return Task.FromResult(response);
     }
 
+    /// <summary>
+    /// `PAUSE-021` (Đợt 8/9 gap fix, Architecture/03 mục 3.7a ADR-146 — KHÔNG gate `action_token`, cùng
+    /// nhóm "ack đã xem" UX thuần như các cảnh báo khác, không phải hành động đổi cấu hình giám sát).
+    /// </summary>
+    private async Task<IpcPayload> HandleAckAnomalyAsync(IpcPayload request, CancellationToken cancellationToken)
+    {
+        IpcPayload response = NewResponse(request);
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            PauseStateData acked = _state with { AnomalyPendingAck = false };
+            bool persisted = TryPersist(acked);
+            if (persisted)
+            {
+                _state = acked;
+            }
+
+            response.AckPauseAnomalyResp = new AcknowledgePauseAnomalyResponse { Acknowledged = persisted };
+            return response;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     /// <summary>Test hook (giống mẫu hình <c>PendingSetupForTest</c> ở <c>AuthCoordinator</c>) — chạy tick <c>PauseMonitor</c> ngay lập tức, không chờ 30 giây thật.</summary>
     internal Task TriggerTickForTestAsync(CancellationToken cancellationToken) => OnTickAsync(cancellationToken);
 
@@ -277,7 +307,11 @@ public sealed class PauseCoordinator
     private async Task ApplyResumeAsync(string trigger, long originalExpiresAtUnixMs)
     {
         long trustedNow = _clock.UtcNowUnixMs;
-        var resumedState = PauseStateData.CreateDefault();
+        // Đợt 8/9 gap fix — GIỮ NGUYÊN AnomalyPendingAck hiện tại khi resume (KHÔNG dùng
+        // PauseStateData.CreateDefault() trực tiếp — hàm đó reset về false, nhưng "đã xem cảnh báo
+        // tần suất bất thường" là 1 trạng thái độc lập với việc đang Pause hay không, chỉ tắt qua
+        // đúng AcknowledgePauseAnomalyRequest, không tự động tắt khi resume).
+        var resumedState = PauseStateData.CreateDefault() with { AnomalyPendingAck = _state.AnomalyPendingAck };
 
         // Fail-secure theo chiều NGƯỢC với HandlePauseAsync (Architecture/01 mục 5): Resume nghiêng
         // về phía giám sát BẬT — vẫn áp dụng chuyển trạng thái RAM dù ghi config.db lỗi (hiếm gặp),
@@ -371,6 +405,14 @@ public sealed class PauseCoordinator
                 "PauseFrequencyAnomalyDetected",
                 new { date_utc = dateUtc.ToString("yyyy-MM-dd"), activation_count = countToday },
                 CancellationToken.None).ConfigureAwait(false);
+
+            // Đợt 8/9 gap fix — trước đây CHỈ ghi audit log, chưa từng set cờ persist để Dashboard
+            // (`DashboardStatusResponse.pause_anomaly_pending_ack`) biết có cảnh báo đang chờ xem.
+            PauseStateData flagged = _state with { AnomalyPendingAck = true };
+            if (TryPersist(flagged))
+            {
+                _state = flagged;
+            }
         }
     }
 

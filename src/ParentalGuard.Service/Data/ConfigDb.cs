@@ -410,6 +410,7 @@ public sealed class ConfigDb : IDisposable
             IsPaused = state.IsPaused,
             PauseStartedAtUnixMs = state.PauseStartedAtUnixMs,
             PauseExpiresAtUnixMs = state.PauseExpiresAtUnixMs,
+            AnomalyPendingAck = state.AnomalyPendingAck,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -439,6 +440,7 @@ public sealed class ConfigDb : IDisposable
             IsPaused = state.IsPaused,
             PauseStartedAtUnixMs = state.PauseStartedAtUnixMs,
             PauseExpiresAtUnixMs = state.PauseExpiresAtUnixMs,
+            AnomalyPendingAck = state.AnomalyPendingAck,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -473,7 +475,7 @@ public sealed class ConfigDb : IDisposable
         }
 
         PauseStateJson json = DecryptAndParse<PauseStateJson>(encrypted, "pause_state");
-        return new PauseStateData(json.IsPaused, json.PauseStartedAtUnixMs, json.PauseExpiresAtUnixMs);
+        return new PauseStateData(json.IsPaused, json.PauseStartedAtUnixMs, json.PauseExpiresAtUnixMs, json.AnomalyPendingAck);
     }
 
     private void InsertIpcKey(byte[] hmacKey)
@@ -636,5 +638,9 @@ public sealed class ConfigDb : IDisposable
 
         [JsonPropertyName("pause_expires_at_unix_ms")]
         public long? PauseExpiresAtUnixMs { get; set; }
+
+        /// <summary>`PAUSE-021` (Đợt 8/9 gap fix) — vắng mặt (config.db từ trước lượt này) → mặc định <c>false</c> (giá trị mặc định kiểu <c>bool</c> System.Text.Json), đúng tinh thần "không có cảnh báo nào đang chờ" an toàn.</summary>
+        [JsonPropertyName("anomaly_pending_ack")]
+        public bool AnomalyPendingAck { get; set; }
     }
 }

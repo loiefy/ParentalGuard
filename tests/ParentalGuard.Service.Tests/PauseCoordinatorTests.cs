@@ -451,6 +451,108 @@ public class PauseCoordinatorTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// `PAUSE-021` (Đợt 8/9 gap fix) — trước lượt này, `CheckDailyFrequencyAnomalyAsync` CHỈ ghi audit
+    /// log, chưa từng set cờ persist để Dashboard biết có cảnh báo đang chờ xem.
+    /// </summary>
+    [Fact]
+    public async Task PauseActivatedMoreThanFiveTimesInDay_SetsAnomalyPendingAckTrue()
+    {
+        Fixture fx = await CreateAsync();
+        fx.Clock.Now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        Assert.False(fx.Pause.AnomalyPendingAck);
+
+        for (int i = 0; i < 6; i++)
+        {
+            byte[] pauseToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(400 + i * 2), PauseMonitoringReq = new PauseMonitoringRequest { ActionToken = ByteString.CopyFrom(pauseToken), Duration = PauseDuration.FifteenMinutes } },
+                CancellationToken.None);
+
+            byte[] resumeToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(401 + i * 2), ResumeMonitoringReq = new ResumeMonitoringRequest { ActionToken = ByteString.CopyFrom(resumeToken) } },
+                CancellationToken.None);
+
+            fx.Clock.Now += 1_000L;
+        }
+
+        Assert.True(fx.Pause.AnomalyPendingAck);
+
+        using ConfigDb db = ConfigDb.Open(_configDbPath);
+        Assert.True(db.ReadSnapshot().PauseState.AnomalyPendingAck);
+    }
+
+    /// <summary>Regression cho lưu ý bắt buộc của `architecture-writer` (mục 4a) — Resume KHÔNG được tự động tắt cờ `AnomalyPendingAck`, chỉ tắt qua `AcknowledgePauseAnomalyRequest`.</summary>
+    [Fact]
+    public async Task Resume_DoesNotResetAnomalyPendingAck()
+    {
+        Fixture fx = await CreateAsync();
+        fx.Clock.Now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        for (int i = 0; i < 6; i++)
+        {
+            byte[] pauseToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(410 + i * 2), PauseMonitoringReq = new PauseMonitoringRequest { ActionToken = ByteString.CopyFrom(pauseToken), Duration = PauseDuration.FifteenMinutes } },
+                CancellationToken.None);
+            byte[] resumeToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(411 + i * 2), ResumeMonitoringReq = new ResumeMonitoringRequest { ActionToken = ByteString.CopyFrom(resumeToken) } },
+                CancellationToken.None);
+            fx.Clock.Now += 1_000L;
+        }
+
+        Assert.True(fx.Pause.AnomalyPendingAck); // đã set true bởi vòng lặp trên (6 lần > ngưỡng 5)
+
+        // 1 chu kỳ Pause/Resume NỮA sau khi cờ đã bật — không được tự tắt.
+        byte[] extraPauseToken = await GetValidActionTokenAsync(fx.Auth);
+        await fx.Pause.HandleAsync(
+            new IpcPayload { MessageId = 420, PauseMonitoringReq = new PauseMonitoringRequest { ActionToken = ByteString.CopyFrom(extraPauseToken), Duration = PauseDuration.FifteenMinutes } },
+            CancellationToken.None);
+        byte[] extraResumeToken = await GetValidActionTokenAsync(fx.Auth);
+        await fx.Pause.HandleAsync(
+            new IpcPayload { MessageId = 421, ResumeMonitoringReq = new ResumeMonitoringRequest { ActionToken = ByteString.CopyFrom(extraResumeToken) } },
+            CancellationToken.None);
+
+        Assert.True(fx.Pause.AnomalyPendingAck);
+    }
+
+    /// <summary>
+    /// `AcknowledgePauseAnomalyRequest` — ADR-146: KHÔNG gate `action_token` (test tường minh "no-auth-required",
+    /// đúng bài học rút ra sau 2 FAIL cứng liên tiếp ở Đợt 7/8 do để ngầm hiểu quyết định gate).
+    /// </summary>
+    [Fact]
+    public async Task AcknowledgePauseAnomaly_NoActionTokenRequired_SetsAnomalyPendingAckFalse()
+    {
+        Fixture fx = await CreateAsync();
+        fx.Clock.Now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        for (int i = 0; i < 6; i++)
+        {
+            byte[] pauseToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(430 + i * 2), PauseMonitoringReq = new PauseMonitoringRequest { ActionToken = ByteString.CopyFrom(pauseToken), Duration = PauseDuration.FifteenMinutes } },
+                CancellationToken.None);
+            byte[] resumeToken = await GetValidActionTokenAsync(fx.Auth);
+            await fx.Pause.HandleAsync(
+                new IpcPayload { MessageId = (ulong)(431 + i * 2), ResumeMonitoringReq = new ResumeMonitoringRequest { ActionToken = ByteString.CopyFrom(resumeToken) } },
+                CancellationToken.None);
+            fx.Clock.Now += 1_000L;
+        }
+
+        Assert.True(fx.Pause.AnomalyPendingAck);
+
+        // Request KHÔNG mang action_token nào — đúng thiết kế ADR-146, không phải sơ suất test.
+        IpcPayload response = await fx.Pause.HandleAsync(
+            new IpcPayload { MessageId = 440, AckPauseAnomalyReq = new AcknowledgePauseAnomalyRequest() },
+            CancellationToken.None);
+
+        Assert.True(response.AckPauseAnomalyResp.Acknowledged);
+        Assert.False(fx.Pause.AnomalyPendingAck);
+
+        using ConfigDb db = ConfigDb.Open(_configDbPath);
+        Assert.False(db.ReadSnapshot().PauseState.AnomalyPendingAck);
+    }
+
     /// <summary>ADR-101 — action_token phát hành cho action_context khác (vd. "uninstall") KHÔNG được dùng cho Pause (permanent hoá kịch bản security-privacy-auditor đã xác nhận adhoc).</summary>
     [Fact]
     public async Task HandlePause_ActionTokenIssuedForDifferentActionContext_ReturnsInvalidToken()

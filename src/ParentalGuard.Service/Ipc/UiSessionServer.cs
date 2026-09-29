@@ -8,6 +8,7 @@ using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
 using ParentalGuard.Service.Config;
+using ParentalGuard.Service.Dashboard;
 using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Pause;
 using ParentalGuard.Service.Security;
@@ -32,6 +33,7 @@ public sealed class UiSessionServer(
     PauseCoordinator pauseCoordinator,
     ConfigCoordinator configCoordinator,
     AuditLogCoordinator auditLogCoordinator,
+    DashboardCoordinator dashboardCoordinator,
     AuditLogWriter auditLog,
     ILogger logger)
 {
@@ -179,13 +181,16 @@ public sealed class UiSessionServer(
     {
         IpcPayload.BodyOneofCase.PauseMonitoringReq or
         IpcPayload.BodyOneofCase.ResumeMonitoringReq or
-        IpcPayload.BodyOneofCase.PauseStatusQuery => pauseCoordinator.HandleAsync(request, token),
+        IpcPayload.BodyOneofCase.PauseStatusQuery or
+        IpcPayload.BodyOneofCase.AckPauseAnomalyReq => pauseCoordinator.HandleAsync(request, token),
         IpcPayload.BodyOneofCase.ConfigQuery or
         IpcPayload.BodyOneofCase.ConfigUpdateReq or
         IpcPayload.BodyOneofCase.RemoveWhitelistReq => configCoordinator.HandleAsync(request, token),
         IpcPayload.BodyOneofCase.AuditLogQuery or
         IpcPayload.BodyOneofCase.MarkFalsePositiveReq or
         IpcPayload.BodyOneofCase.VerifyAuditChainReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),
+        IpcPayload.BodyOneofCase.DashboardStatusQuery or
+        IpcPayload.BodyOneofCase.AuditChartQuery => dashboardCoordinator.HandleAsync(request, token),
         _ => authCoordinator.HandleAsync(request, token),
     };
 

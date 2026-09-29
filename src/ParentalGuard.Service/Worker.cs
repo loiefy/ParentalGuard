@@ -4,6 +4,7 @@ using ParentalGuard.Service.Audit;
 using ParentalGuard.Service.Auth;
 using ParentalGuard.Service.Config;
 using ParentalGuard.Service.Configuration;
+using ParentalGuard.Service.Dashboard;
 using ParentalGuard.Service.Data;
 using ParentalGuard.Service.Ipc;
 using ParentalGuard.Service.Pause;
@@ -42,6 +43,7 @@ public sealed class Worker(
     private AdaptiveFrameRateCoordinator? _adaptiveFrameRateCoordinator; // Đợt 7 (PERF-010)
     private ConfigCoordinator? _configCoordinator; // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.4)
     private AuditLogCoordinator? _auditLogCoordinator; // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.3)
+    private DashboardCoordinator? _dashboardCoordinator; // Đợt 8/9 (gap fix — 10-ui-architecture.md mục 6.2)
     private WfpVisionBlocker? _wfpVisionBlocker;
 
     // Đợt 4 (ANTI-0xx, Architecture/09) — Dual Watchdog + custom uninstaller + anti-tamper.
@@ -202,6 +204,17 @@ public sealed class Worker(
                 payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)));
         _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock, InstallPaths.ConfigDbPath);
 
+        // Đợt 8/9 (gap fix — 10-ui-architecture.md mục 6.2, Architecture/03 mục 3.7a ADR-145): tạo SAU
+        // _pauseCoordinator/_watchdogSessionServer (cả 2 đã sẵn sàng ở đây — watchdog khởi động ở
+        // StartWatchdogSessionServer phía trên trong cùng ExecuteAsync).
+        _dashboardCoordinator = new DashboardCoordinator(
+            _visionSupervisor!,
+            _overlaySupervisor!,
+            _watchdogSessionServer!,
+            monitoringStateHolder,
+            _pauseCoordinator,
+            InstallPaths.AuditLogPath);
+
         StartUiSessionServer(stoppingToken);
         StartVisionNetworkWatcherBestEffort();
 
@@ -315,6 +328,7 @@ public sealed class Worker(
             _pauseCoordinator!,
             _configCoordinator!,
             _auditLogCoordinator!,
+            _dashboardCoordinator!,
             _auditLog!,
             loggerFactory.CreateLogger<UiSessionServer>());
         _uiSessionServer.Start(stoppingToken);

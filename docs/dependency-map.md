@@ -1745,3 +1745,77 @@ ghi chú làm rõ phạm vi bảo vệ vào `SEC-041`/`MISC-010` (xem `Specifica
 
 Build 0 Warning/0 Error, test toàn solution 449→**452/452** (Service.Tests 243→246: +2 session-scoping
 +1 segment-independence, Vision/Overlay/Watchdog/Uninstaller/UI không đổi) — không regression.
+
+## Đợt 8/9 gap fix (2026-09-29) — đóng nốt `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest` (`S2` Dashboard, `MISC-050`/`FE-070`-`072`/`PAUSE-021`)
+
+Gap cuối cùng nhóm "IPC message đã định nghĩa Đợt 6 nhưng Service chưa implement handler" (cùng loại đã
+đóng ở Đợt 7 `ConfigCoordinator`/`AuditLogCoordinator`, mở rộng Đợt 8 `VerifyAuditChainRequest`).
+`architecture-writer` thiết kế trước (`Architecture/02` mục 4a ADR-144, `Architecture/03` mục 3.7a
+ADR-145/146, `Architecture/10` mục 5/6.2) — đặc biệt xác nhận **tường minh** cả 3 message đều KHÔNG gate
+`action_token`, rút kinh nghiệm 2 FAIL cứng liên tiếp Đợt 7/8 do để ngầm hiểu quyết định gate/routing.
+
+### File mới
+- `src/ParentalGuard.Service/Dashboard/DashboardCoordinator.cs` — `HandleDashboardStatus` (tổng hợp
+  `watchdog_alive`/`vision_connected`/`vision_diagnostic_state`/`overlay_connected` từ
+  `ChildProcessSupervisor`/`WatchdogSessionServer`, `using_fallback_config` từ `MonitoringStateHolder`,
+  `audit_log_free_disk_bytes` từ `DriveInfo` trực tiếp không cache, `pause_anomaly_pending_ack` từ
+  `PauseCoordinator`), `HandleAuditChartAsync` (quét trực tiếp `audit.log`, đếm `ContentBlocked` theo
+  ngày UTC, zero-fill đủ 7/30 ngày liên tục).
+- `tests/ParentalGuard.Service.Tests/DashboardCoordinatorTests.cs` (6 test, gồm 2 test "no-auth-required"
+  tường minh cho cả `DashboardStatusQuery`/`AuditChartQuery`).
+
+### File sửa
+- `src/ParentalGuard.Service/Ipc/ChildProcessSupervisor.cs` — field `volatile bool IsConnected` (set
+  `true` ngay sau handshake, `false` trong `finally` của `RunLoopAsync` — bao trùm MỌI đường thoát kết
+  nối), `volatile string LastDiagnosticState` (cập nhật trong `ReaderLoopAsync` khi nhận `HeartbeatAck`).
+  Nghĩa là "đang kết nối pipe active", KHÔNG PHẢI "heartbeat gần đây tốt", không bị ảnh hưởng bởi Pause.
+- `src/ParentalGuard.Service/Ipc/WatchdogSessionServer.cs` — field `volatile bool IsAlive` tương tự.
+- `src/ParentalGuard.Service/Data/PauseStateData.cs` — thêm field `AnomalyPendingAck` (bool, default
+  false) — **gap thực thi thật sự** phát hiện bởi `architecture-writer`: `PAUSE-021` đã thiết kế field
+  này từ Đợt 6 mục 3a.7 nhưng chưa từng có code, `CheckDailyFrequencyAnomalyAsync` (Đợt 5) trước đây CHỈ
+  ghi audit log, không set cờ persist nào.
+- `src/ParentalGuard.Service/Data/ConfigDb.cs` — `PauseStateJson`/`InsertPauseState`/`UpdatePauseState`/
+  `ReadPauseState` thêm field `anomaly_pending_ack` (vắng mặt ở `config.db` cũ → mặc định `false`, an toàn).
+- `src/ParentalGuard.Service/Pause/PauseCoordinator.cs` — `CheckDailyFrequencyAnomalyAsync` nay set +
+  persist `AnomalyPendingAck=true` khi vượt ngưỡng (không chỉ ghi audit log như trước). Case mới
+  `AckPauseAnomalyReq` → `HandleAckAnomalyAsync` (set `AnomalyPendingAck=false`, KHÔNG gate, ADR-146).
+  Property `AnomalyPendingAck` mới cho `DashboardCoordinator` đọc. **`ApplyResumeAsync` sửa để GIỮ
+  NGUYÊN `AnomalyPendingAck` hiện tại** (trước đây gọi `PauseStateData.CreateDefault()` sẽ vô tình reset
+  về `false` mỗi lần resume — lưu ý bắt buộc từ `architecture-writer`, đã có test regression riêng).
+- `src/ParentalGuard.Service/Ipc/UiSessionServer.cs` — route `DashboardStatusQuery`/`AuditChartQuery` →
+  `DashboardCoordinator`, `AckPauseAnomalyReq` → `PauseCoordinator` (không phải `DashboardCoordinator`,
+  ADR-145 — tránh 2 nguồn ghi `pause_state`).
+- `src/ParentalGuard.Service/Worker.cs` — khởi tạo `DashboardCoordinator` SAU `_pauseCoordinator`/
+  `_watchdogSessionServer`, truyền vào `UiSessionServer` ctor (nay 5 domain coordinator).
+- `tests/ParentalGuard.Service.Tests/PauseCoordinatorTests.cs` — 4 test mới: set `AnomalyPendingAck=true`
+  đúng lúc, resume KHÔNG reset cờ, `AcknowledgePauseAnomalyRequest` no-auth-required + set false đúng.
+
+### Gap tự ghi nhận (không giấu)
+`ChildProcessSupervisor.IsConnected`/`WatchdogSessionServer.IsAlive` không có test riêng cho transition
+true/false lúc connect/disconnect thật — lớp này chưa từng có test trực tiếp từ Đợt 1 (không có seam
+mock cho Named Pipe/process thật, nhất quán gap đã ghi nhận ở `CaptureLoopWorker.ProcessOneFrame`/
+`ForegroundWindowTracker` Đợt 8). Đã verify bằng code review (2 điểm set rõ ràng, đối xứng nhau) thay vì
+integration test.
+
+### Kết quả build/test
+Build 0 Warning/0 Error toàn `.sln`. Test per-project: `ParentalGuard.Service.Tests` 246→**255** (+9: 6
+`DashboardCoordinatorTests` + 3 `PauseCoordinatorTests` mới — điều chỉnh từ dự kiến ban đầu 4 xuống 3 vì
+1 test gộp chung "no-auth-required + set false" thay vì tách riêng), Vision/Overlay/Watchdog/Uninstaller/
+UI không đổi — **461/461 tổng**, không regression.
+
+### Audit fix (2026-09-29) — `PauseStateRecovery.Decide` cũng phải giữ `AnomalyPendingAck`, không chỉ `ApplyResumeAsync`
+
+`test-runner` verify độc lập phát hiện: `ApplyResumeAsync` đã sửa đúng (giữ nguyên `AnomalyPendingAck` khi
+resume thủ công/auto-expired trong lúc Service đang chạy), NHƯNG `PauseStateRecovery.Decide` (nhánh
+auto-resume-while-offline — Service khởi động lại, phát hiện Pause đã hết hạn TRONG LÚC offline) vẫn dùng
+`PauseStateData.CreateDefault()` trần trụi, âm thầm reset cờ về `false` dù phụ huynh chưa từng gửi
+`AcknowledgePauseAnomalyRequest`. Kịch bản lộ bug: pause >5 lần/ngày (cờ set `true`) → máy tắt qua đêm lúc
+đang Paused → Pause hết hạn trong lúc Service offline → Service khởi động lại → cờ bị reset âm thầm.
+
+Sửa: `src/ParentalGuard.Service/Pause/PauseStateRecovery.cs` — `PauseStateData.CreateDefault() with
+{ AnomalyPendingAck = loaded.AnomalyPendingAck }`, cùng pattern đã dùng ở `ApplyResumeAsync`. Test mới
+`tests/ParentalGuard.Service.Tests/PauseStateRecoveryTests.cs`
+(`Decide_PausedAndExpiredWhileOffline_PreservesAnomalyPendingAck`). Re-verify độc lập xác nhận đường
+persist `config.db` (`Worker.RecoverPauseStateAtBootAsync`→`ConfigDb.UpdatePauseState`) cũng ghi đúng giá
+trị, không chỉ đúng ở object RAM. Build 0 Warning/0 Error, `ParentalGuard.Service.Tests` 255→**256**
+(+1) — **462/462 tổng**, không regression.

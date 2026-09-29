@@ -57,6 +57,18 @@ public sealed class ChildProcessSupervisor(
     private Task? _runTask;
     private volatile System.Diagnostics.Process? _currentProcess;
 
+    /// <summary>
+    /// Architecture/02-process-architecture.md mục 4a (ADR-144, gap fix `DashboardStatusQuery`) — đọc
+    /// từ thread khác (`DashboardCoordinator` trả lời poll `S2`) so với thread ghi (vòng lặp
+    /// `RunLoopAsync`/`ReaderLoopAsync`) nên dùng <c>volatile</c>. Nghĩa là "đang kết nối pipe active",
+    /// KHÔNG phải "heartbeat gần đây tốt" — set <c>true</c> ngay sau handshake xong, <c>false</c> trong
+    /// <c>finally</c> của <see cref="RunLoopAsync"/> (bao trùm MỌI đường thoát kết nối: exception, shutdown).
+    /// </summary>
+    public volatile bool IsConnected;
+
+    /// <summary>Giá trị <c>HeartbeatAck.diagnostic_state</c> mới nhất nhận được — relay nguyên văn, không diễn giải (ADR-144).</summary>
+    public volatile string LastDiagnosticState = "";
+
     // Kênh ghi dùng chung cho kết nối hiện tại (null khi chưa/không còn kết nối) — đọc/ghi qua
     // Volatile vì TryEnqueueBusinessMessage có thể được gọi từ thread khác (vd handler
     // VisionInferenceResult) đồng thời với RunLoopAsync đang tạo/huỷ kết nối.
@@ -173,6 +185,7 @@ public sealed class ChildProcessSupervisor(
                 }
 
                 await HandshakeAsync(pipe, token).ConfigureAwait(false);
+                IsConnected = true;
                 onSessionConnected?.Invoke();
 
                 var outbound = Channel.CreateUnbounded<IpcPayload>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -225,6 +238,7 @@ public sealed class ChildProcessSupervisor(
             }
             finally
             {
+                IsConnected = false;
                 _outbound = null;
                 _currentProcess = null;
                 DetectCaptureInitAccessDeniedBestEffort(childProcess);
@@ -305,6 +319,7 @@ public sealed class ChildProcessSupervisor(
             IpcPayload message = await IpcFrameTransport.ReadFrameAsync(pipe, hmacKey, token).ConfigureAwait(false);
             if (message.BodyCase == IpcPayload.BodyOneofCase.HeartbeatAck)
             {
+                LastDiagnosticState = message.HeartbeatAck.DiagnosticState;
                 heartbeatAcks.TryWrite(message.HeartbeatAck.Sequence);
             }
             else if (onBusinessMessage is not null)

@@ -41,6 +41,9 @@ public sealed class WatchdogSessionServer(
 
     public void SuppressRecovery() => _recoverySuppressed = true;
 
+    /// <summary>Architecture/02-process-architecture.md mục 4a (ADR-144) — "đang kết nối pipe active", dùng cho `DashboardStatusResponse.watchdog_alive`.</summary>
+    public volatile bool IsAlive;
+
     public void Start(CancellationToken serviceStoppingToken)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(serviceStoppingToken);
@@ -93,6 +96,7 @@ public sealed class WatchdogSessionServer(
                 }
 
                 await HandshakeAsync(pipe, token).ConfigureAwait(false);
+                IsAlive = true;
                 await RunConnectionAsync(pipe, token).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -112,6 +116,7 @@ public sealed class WatchdogSessionServer(
             }
             finally
             {
+                IsAlive = false;
                 pipe?.Dispose();
             }
         }

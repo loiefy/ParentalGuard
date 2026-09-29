@@ -50,4 +50,26 @@ public class PauseStateRecoveryTests
 
         Assert.True(decision.AutoResumedWhileOffline);
     }
+
+    /// <summary>
+    /// Audit fix 2026-09-29 (FAIL cứng do test-runner phát hiện): trước fix, `Decide` dùng
+    /// <c>PauseStateData.CreateDefault()</c> trần trụi cho nhánh auto-resume-while-offline, âm thầm
+    /// reset <see cref="PauseStateData.AnomalyPendingAck"/> về <c>false</c> dù phụ huynh CHƯA từng gửi
+    /// `AcknowledgePauseAnomalyRequest` — cùng bất biến đã áp dụng đúng ở
+    /// <c>PauseCoordinator.ApplyResumeAsync</c> nhưng bị bỏ sót ở nhánh boot-recovery này. Test này PHẢI
+    /// FAIL nếu ai đó lỡ revert về <c>CreateDefault()</c> trần trụi.
+    /// </summary>
+    [Fact]
+    public void Decide_PausedAndExpiredWhileOffline_PreservesAnomalyPendingAck()
+    {
+        var loaded = new PauseStateData(IsPaused: true, PauseStartedAtUnixMs: 1_000L, PauseExpiresAtUnixMs: 2_000L, AnomalyPendingAck: true);
+
+        PauseStateRecovery.Decision decision = PauseStateRecovery.Decide(loaded, trustedNowUnixMs: 5_000L);
+
+        Assert.True(decision.AutoResumedWhileOffline);
+        Assert.False(decision.Result.IsPaused);
+        Assert.True(decision.Result.AnomalyPendingAck);
+    }
+
+    /// <summary>Kịch bản còn hạn (không auto-resume) cũng phải giữ nguyên nguyên vẹn <see cref="PauseStateData"/> — đã cover bởi <see cref="Decide_PausedAndStillWithinExpiry_KeepsOriginalPauseStartedAt_DoesNotReset"/> (dùng <c>Assert.Equal(loaded, ...)</c> toàn bộ record, bao gồm cả field mới này).</summary>
 }
