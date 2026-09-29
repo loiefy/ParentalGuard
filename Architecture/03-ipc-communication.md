@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.8.2 | Trạng thái: Approved | Cập nhật: 2026-09-25
+> Version: v0.8.4 | Trạng thái: Approved | Cập nhật: 2026-09-29
 
 ## 1. Mục đích
 
@@ -131,7 +131,7 @@ message IpcPayload {
 
     // --- Kênh UI Dashboard/Settings (140-159), Đợt 6 — 10-ui-architecture.md mục 5 ---
     // Khối RIÊNG (không nhồi tiếp vào 80-99 vốn đã gần đầy) — cùng nguyên tắc "khối 20 field/domain"
-    // đã áp dụng cho Watchdog/Uninstaller (ADR-16/85), field 154-159 để ngỏ cho nhu cầu Đợt 7+.
+    // đã áp dụng cho Watchdog/Uninstaller (ADR-16/85), field 156-159 để ngỏ cho nhu cầu sau này.
     AcknowledgePauseAnomalyRequest  ack_pause_anomaly_req   = 140;
     AcknowledgePauseAnomalyResponse ack_pause_anomaly_resp  = 141;
     AuditLogQuery                   audit_log_query         = 142;
@@ -146,6 +146,9 @@ message IpcPayload {
     ConfigUpdateResponse            config_update_resp       = 151;
     RemoveWhitelistEntryRequest     remove_whitelist_req     = 152;
     RemoveWhitelistEntryResponse    remove_whitelist_resp    = 153;
+    // Đợt 8 (MISC-010 hoàn chỉnh) — 10-ui-architecture.md mục 6.3, ADR-136
+    VerifyAuditChainRequest         verify_audit_chain_req   = 154;
+    VerifyAuditChainResponse        verify_audit_chain_resp  = 155;
   }
 }
 
@@ -733,9 +736,49 @@ enum RemoveWhitelistEntryResult {
   INVALID_TOKEN = 2;
   NOT_FOUND     = 3;
 }
+
+// Đợt 8 (MISC-010 hoàn chỉnh) — verify toàn bộ hash-chain on-demand, đã được đặt chỗ sẵn ở
+// 04-data-architecture.md mục 5.3/ADR-28 ("Verify toàn bộ chain là hành động on-demand... thuộc
+// phạm vi công cụ/UI ở Đợt 6/8") — thiết kế nghiệp vụ đầy đủ (khi nào gọi, có gate hay không) ở
+// 10-ui-architecture.md mục 6.3, thuật toán verify + ghi audit_meta.last_full_verify_at_unix_ms
+// ở 04-data-architecture.md mục 5.3a (ADR-138).
+//
+// 2026-09-29 audit fix (ADR-142, FAIL cứng do security-privacy-auditor phát hiện): ý đồ "KHÔNG mang
+// action_token riêng" ở dưới VẪN GIỮ NGUYÊN — request thật sự không cần user re-nhập mật khẩu. Nhưng
+// bản implement gốc DROP MẤT việc enforce qua state phiên khi định tuyến (AuditLogCoordinator.HandleAsync
+// quên truyền AuditLogViewSession xuống handler), khiến endpoint chạy hoàn toàn không xác thực — bất kỳ
+// kết nối nào cũng đọc được kết quả verify. Sửa: Service BẮT BUỘC kiểm tra session.GateOpenUntilUnixMs
+// (đúng state session-scoped đã dùng cho AuditLogQuery trang 2+, cơ chế sửa lỗ hổng PWD-020 tương tự ở
+// Đợt 7) trước khi chạy VerifyFullChainAsync — thêm field result (mới) để response biểu thị rõ trường
+// hợp bị từ chối, 4 field cũ (1-4) chỉ có ý nghĩa khi result=SUCCESS.
+message VerifyAuditChainRequest {}                                 // field 154 — KHÔNG mang
+                                                                     // action_token: hành động
+                                                                     // đọc thuần (không sửa state
+                                                                     // ngoài audit_meta cache nội
+                                                                     // bộ), luôn gọi từ bên trong
+                                                                     // S3 vốn đã qua gate view_audit_log
+                                                                     // lúc vào trang (ADR-136, cùng
+                                                                     // tinh thần AuditChartQuery/
+                                                                     // ADR-121 không cần gate riêng)
+                                                                     // — NHƯNG Service vẫn enforce qua
+                                                                     // AuditLogViewSession (ADR-142)
+
+enum VerifyAuditChainResult {
+  VERIFY_AUDIT_CHAIN_RESULT_UNSPECIFIED = 0;
+  VERIFY_AUDIT_CHAIN_RESULT_SUCCESS = 1;
+  VERIFY_AUDIT_CHAIN_RESULT_INVALID_TOKEN = 2; // AuditLogViewSession của kết nối hiện tại chưa qua gate view_audit_log / đã hết hạn 10 phút (ADR-142)
+}
+
+message VerifyAuditChainResponse {                                 // field 155
+  VerifyAuditChainResult result    = 5; // ADR-142 — field 1-4 dưới đây CHỈ có ý nghĩa khi result=SUCCESS
+  bool  is_intact              = 1;
+  int64 total_records_scanned  = 2;
+  int64 broken_at_seq          = 3; // 0 nếu is_intact=true — seq đầu tiên phát hiện đứt (nếu xác định được)
+  int64 verified_at_unix_ms    = 4; // = audit_meta.last_full_verify_at_unix_ms sau khi ghi xong
+}
 ```
 
-Ghi chú traceability: `DashboardStatusQuery`/`Response` hiện thực hoá `MISC-050`/`FE-041`/`PAUSE-021` (đọc, không sửa state). `AuditLogQuery`/`AuditChartQuery` hiện thực hoá `FE-070`–`072`/`MISC-010` (đọc lịch sử/thống kê, có gate `view_audit_log` theo `PWD-020` cho danh sách chi tiết — biểu đồ tổng hợp trên `S2` không gate, xem lý do phân biệt ở `10-ui-architecture.md` mục 5). `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest` hiện thực hoá `MISC-030`. `ConfigQuery`/`ConfigUpdateRequest` hiện thực hoá `FE-012`/`FE-012a` (**không** có field ngưỡng risk score — `BE-091` cấm tường minh việc phơi ra UI) và, từ v0.8.1, `PERF-050b` qua field `performance_mode`/enum `PerformanceMode` (thiết kế nghiệp vụ đầy đủ ở `10-ui-architecture.md` mục 6.4, ADR-125).
+Ghi chú traceability: `DashboardStatusQuery`/`Response` hiện thực hoá `MISC-050`/`FE-041`/`PAUSE-021` (đọc, không sửa state). `AuditLogQuery`/`AuditChartQuery` hiện thực hoá `FE-070`–`072`/`MISC-010` (đọc lịch sử/thống kê, có gate `view_audit_log` theo `PWD-020` cho danh sách chi tiết — biểu đồ tổng hợp trên `S2` không gate, xem lý do phân biệt ở `10-ui-architecture.md` mục 5). `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest` hiện thực hoá `MISC-030`. `ConfigQuery`/`ConfigUpdateRequest` hiện thực hoá `FE-012`/`FE-012a` (**không** có field ngưỡng risk score — `BE-091` cấm tường minh việc phơi ra UI) và, từ v0.8.1, `PERF-050b` qua field `performance_mode`/enum `PerformanceMode` (thiết kế nghiệp vụ đầy đủ ở `10-ui-architecture.md` mục 6.4, ADR-125). `VerifyAuditChainRequest`/`Response` (mới, Đợt 8) hiện thực hoá phần "cho phép phụ huynh verify tính toàn vẹn của toàn bộ chuỗi log" còn treo lại của `MISC-010` (thuật toán/quyết định gate ở `04`/`10`, xem trên).
 
 ## 4. Thứ tự gọi / handshake khi connect
 
@@ -869,6 +912,8 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-113 (v0.8.0) | Khối message Dashboard/Settings (Đợt 6) đặt field mới **140-159**, không nhồi tiếp vào 92-99 (chỉ còn 98-99 trống) | 9 cặp request/response cần thiết (mục 3.7) vượt xa 2 slot còn lại của khối UI 80-99; mở khối mới giữ đúng quy ước "20 field/domain" đã áp dụng cho Watchdog/Uninstaller (ADR-85), tách bạch rõ ràng hơn nhồi chật khối cũ |
 | ADR-126 (v0.8.1) | `performance_mode` (`PERF-050b`) dùng `enum PerformanceMode` (proto), không dùng `string` như `AuditLogEntry.event_type` (ADR-112) | Tập giá trị **đóng, cố định bởi chính hợp đồng IPC này** (chỉ 2 mức do `PERF-050b` định nghĩa, không phải catalog mở rộng dần theo domain khác như `event_type` ở `04`) — dùng `enum` an toàn kiểu hơn (compile-time check), không có rủi ro phụ thuộc chéo mà ADR-112 lo ngại vì không domain nào khác cần thêm giá trị vào tập này |
 | ADR-134 (v0.8.2) | Thêm field `content_changed` (field 8, `bool`) vào `VisionInferenceResult` thay vì tạo message riêng | Additive (đúng ADR-16); đúng nhóm dữ liệu "kết quả 1 chu kỳ capture" đã có sẵn trong message này (`risk_score`/`bbox`/`captured_at_unix_ms`), không cần round-trip IPC riêng cho 1 boolean phụ trợ; thiết kế đầy đủ ở `05-image-pipeline-architecture.md` mục 3.7/3.8 (Đợt 7, `PERF-010`/`011`) |
+| ADR-136 (v0.8.3) | `VerifyAuditChainRequest`/`Response` (field 154/155, Đợt 8) là hành động **đọc thuần, không mang `action_token` riêng**, gọi từ trong `S3` (đã qua gate `view_audit_log` lúc vào trang) — không đưa vào vòng polling 5 giây của `DashboardStatusQuery` (`10` ADR-120) | Quét toàn bộ `audit.log` tính hash tuần tự tốn CPU/I-O tăng theo kích thước file — chạy mỗi 5 giây nền sẽ lãng phí; đúng nghĩa đen `MISC-010` ("khi phụ huynh xem lại audit log"), nên đặt như 1 hành động chủ động trong `S3`, không phải chỉ số nền tự động như `DashboardStatusResponse` |
+| ADR-142 (v0.8.4) | Thêm `enum VerifyAuditChainResult`/field `result` (field 5) vào `VerifyAuditChainResponse` — **audit fix**: bản implement gốc (ADR-136) drop mất việc enforce gate `view_audit_log` qua `AuditLogViewSession` khi định tuyến, khiến endpoint hoàn toàn không xác thực (FAIL cứng do security-privacy-auditor phát hiện) | Ý đồ "không mang `action_token` riêng" ở ADR-136 vẫn đúng — chỉ thiếu 1 con đường để Service TỪ CHỐI khi session chưa/không còn qua gate; thêm field `result` (cùng pattern `AuditLogQueryResult`) để response phân biệt `SUCCESS` (4 field cũ có ý nghĩa) với `INVALID_TOKEN` (session chưa gate/hết hạn) — additive, không phá field 1-4 cũ (đúng ADR-16) |
 
 ## 8. Câu hỏi mở
 
@@ -879,6 +924,8 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.4 | 2026-09-29 | PATCH — **audit fix**: `security-privacy-auditor` phát hiện FAIL cứng ở implementation `VerifyAuditChainRequest` (v0.8.3, ADR-136) — endpoint hoàn toàn không enforce gate `view_audit_log` (drop mất tham số session lúc định tuyến), bypass `PWD-020`. Thêm `enum VerifyAuditChainResult`/field `result` (field 5) vào `VerifyAuditChainResponse` để code có cách trả `INVALID_TOKEN` khi session chưa/hết gate — 4 field cũ giữ nguyên, chỉ có ý nghĩa khi `result=SUCCESS`. Additive, không phá field/message cũ (đúng ADR-16). 1 ADR mới (142). Ý đồ gốc "không mang `action_token` riêng" của ADR-136 không đổi — chỉ vá thiếu sót enforcement |
+| v0.8.3 | 2026-09-28 | PATCH — Đợt 8 (`ROADMAP.md` mục 4, Additional mechanisms & hardening), amendment cùng lượt viết `04-data-architecture.md`/`10-ui-architecture.md`. Thêm message `VerifyAuditChainRequest`/`VerifyAuditChainResponse` (field 154/155, khối UI Dashboard/Settings 140-159) — hoàn thiện nốt phần "cho phép phụ huynh verify toàn bộ chuỗi log" của `MISC-010` mà `04` mục 5.3/ADR-28 đã đặt chỗ sẵn từ Đợt 0 nhưng chưa có cơ chế IPC. Đọc thuần, không `action_token` riêng (gọi từ trong `S3` đã qua gate `view_audit_log`), tách khỏi vòng polling `DashboardStatusQuery` (chi phí quét toàn file không phù hợp polling 5s). 1 ADR mới (136). Additive, không đổi field/message cũ (đúng ADR-16). Theo chỉ đạo — không dừng chờ review giữa chừng |
 | v0.8.2 | 2026-09-25 | PATCH — amendment cùng lượt viết `05-image-pipeline-architecture.md` v0.3.0 (Đợt 7, `PERF-010`/`011`). Thêm field `content_changed` (field 8, `bool`) vào `VisionInferenceResult` (mục 3.3) — tín hiệu pHash duy nhất `Service` dùng cho state machine Adaptive Frame Rate (`05` mục 3.7/3.8); additive, không đổi field/message nào khác (đúng ADR-16). 1 ADR mới (134). Phụ thuộc kỹ thuật bắt buộc của `05` (không có field này, `Service` không có cách nào biết nội dung có đổi hay không để quyết định `capture_interval_ms` theo đúng `ROADMAP.md` mục 2). Theo chỉ đạo — không dừng chờ review giữa chừng |
 | v0.8.1 | 2026-09-24 | PATCH — amendment cùng lượt cập nhật `10-ui-architecture.md` v0.2.0 sau khi `spec-maintainer` chốt `PERF-050b` (`Specification/08-performance-cpu-spec.md` v0.7.0, 2 mức "Cân bằng"/"Bảo vệ tối đa"). Thêm `enum PerformanceMode` (`UNSPECIFIED`/`BALANCED`/`MAXIMUM_PROTECTION`) + field `performance_mode` vào `ConfigResponse` (field 3) và `ConfigUpdateRequest` (field 2) — dùng field number nội bộ tiếp theo trong 2 message đã có sẵn ở khối 140-159 (không cần mở field top-level mới, additive, đúng ADR-16). 1 ADR mới (126, giải thích vì sao dùng `enum` thay vì `string` như `event_type`). Không đổi field/message nào khác |
 | v0.8.0 | 2026-09-20 | MINOR — Đợt 6 (`ROADMAP.md`, Dashboard UI), viết `10-ui-architecture.md`. Thêm mục 3.7 (10 message mới, field 98-99 + khối mới 140-159): `DashboardStatusQuery`/`Response` (health check `MISC-050` + cờ `PAUSE-021`), `AcknowledgePauseAnomalyRequest`/`Response`, `AuditLogQuery`/`Response` (phân trang, gate `view_audit_log`), `AuditChartQuery`/`Response` (`FE-070`–`072`), `MarkFalsePositiveRequest`/`Response` + `RemoveWhitelistEntryRequest`/`Response` (`MISC-030`, gate `manage_whitelist` — hằng số mới, amendment `08` mục 7.2), `ConfigQuery`/`Response`/`ConfigUpdateRequest`/`Response` (`FE-012`, KHÔNG có field ngưỡng risk score theo `BE-091`). Thêm field `process_name` (field 7) vào `VisionInferenceResult` (mục 3.3, additive, `MISC-030`, ADR-111) — amendment cùng lượt `05-image-pipeline-architecture.md`. Thêm message `OverlayMessageUpdate` (field 66, kênh Overlay, `FE-012`) — amendment cùng lượt `07-overlay-architecture.md` mục 4.4 (ADR-110), cập nhật diagram handshake mục 4.3. 3 ADR mới (111-113). Đóng câu hỏi mở còn lại ở mục 8 (field 98-99). Toàn bộ additive, không đổi field/message cũ (đúng ADR-16). Theo chỉ đạo — không dừng chờ review |

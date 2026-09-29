@@ -62,6 +62,47 @@ public class AuditLogWriterTests : IDisposable
         Assert.NotEqual(originalChainId, second.Checkpoint.ChainId);
     }
 
+    /// <summary>
+    /// Audit fix 2026-09-29 (FAIL cứng do test-runner phát hiện): bản gốc <c>VerifyFullChainAsync</c> bail
+    /// tuyến tính ở bất thường ĐẦU TIÊN của cả file — sau 1 tamper cũ đã "phục hồi" (đoạn chain mới), MỘT
+    /// tamper ĐỘC LẬP thứ 2 xảy ra SAU đó trong đoạn chain mới không bao giờ được phát hiện (verify mãi mãi
+    /// báo lại đúng điểm đứt CŨ). Test này PHẢI FAIL nếu ai đó lỡ revert <see cref="AuditLogWriter.VerifySegments"/>
+    /// về vòng quét tuyến tính bail-sớm cũ.
+    /// </summary>
+    [Fact]
+    public async Task VerifyFullChainAsync_SecondIndependentTamperInNewSegment_IsDetectedAndAppendsSecondBrokenRecord()
+    {
+        AuditLogWriter writer = await AuditLogWriter.InitializeAsync(_logPath, CancellationToken.None); // chain1 seq=1 ServiceStarted
+
+        // Tamper thứ 1 — chain1 seq=1.
+        string[] lines1 = await File.ReadAllLinesAsync(_logPath);
+        lines1[0] = lines1[0].Replace("ServiceStarted", "ServiceStartedTampered", StringComparison.Ordinal);
+        await File.WriteAllLinesAsync(_logPath, lines1);
+
+        AuditChainVerifyResult firstVerify = await writer.VerifyFullChainAsync(CancellationToken.None);
+        Assert.False(firstVerify.IsIntact);
+        string[] afterFirst = await File.ReadAllLinesAsync(_logPath);
+        Assert.Single(afterFirst, l => l.Contains("AuditChainBrokenDetected", StringComparison.Ordinal));
+
+        // Ghi 2 record hợp lệ vào chain2 (đoạn mới do AuditChainBrokenDetected vừa tạo).
+        await writer.AppendAsync("MonitoringToggled", new { enabled = true }, CancellationToken.None); // chain2 seq=2
+        await writer.AppendAsync("MonitoringToggled", new { enabled = false }, CancellationToken.None); // chain2 seq=3
+
+        // Tamper ĐỘC LẬP thứ 2 — 1 record khác nằm SÂU trong chain2 (không phải seq=1 của chain2).
+        string[] lines2 = await File.ReadAllLinesAsync(_logPath);
+        int chain2SecondRecordIndex = Array.FindIndex(lines2, l => l.Contains("\"seq\":2", StringComparison.Ordinal) && l.Contains("MonitoringToggled", StringComparison.Ordinal));
+        Assert.True(chain2SecondRecordIndex >= 0, "Không tìm thấy record chain2 seq=2 để tamper — fixture sai.");
+        lines2[chain2SecondRecordIndex] = lines2[chain2SecondRecordIndex].Replace("\"enabled\":true", "\"enabled\":false", StringComparison.Ordinal);
+        await File.WriteAllLinesAsync(_logPath, lines2);
+
+        AuditChainVerifyResult secondVerify = await writer.VerifyFullChainAsync(CancellationToken.None);
+
+        Assert.False(secondVerify.IsIntact);
+        string[] afterSecond = await File.ReadAllLinesAsync(_logPath);
+        // Phải có 2 AuditChainBrokenDetected riêng biệt — 1 cho chain1 (cũ, không lặp lại), 1 MỚI cho tamper độc lập vừa phát hiện ở chain2.
+        Assert.Equal(2, afterSecond.Count(l => l.Contains("AuditChainBrokenDetected", StringComparison.Ordinal)));
+    }
+
     /// <summary>Bug 4 regression (test-runner): <c>AppendAsync</c> không còn nhận tham số <c>path</c> riêng — luôn ghi vào đúng path đã dùng lúc <see cref="AuditLogWriter.InitializeAsync"/>, loại bỏ hẳn khả năng lệch sang path khác (production) do caller truyền nhầm.</summary>
     [Fact]
     public async Task AppendAsync_AlwaysWritesToPathUsedAtInitialize_NeverAnyOtherPath()

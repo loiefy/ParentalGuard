@@ -217,6 +217,10 @@ public sealed class CaptureLoopWorker
             return;
         }
 
+        // MISC-030/ADR-111 (Đợt 8, field 7 `.proto`) — tái dùng ForegroundWindowTracker đã dùng cho
+        // exclude-list (mục 4.1), không resolve process name bằng cơ chế nào khác.
+        result.ProcessName = ForegroundWindowTracker.ResolveProcessName(hwnd) ?? "";
+
         IpcPayload payload = _ipcClient.NewEnvelope();
         payload.VisionResult = result;
         _ipcClient.EnqueueOutbound(payload);

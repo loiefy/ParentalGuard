@@ -22,7 +22,7 @@ namespace ParentalGuard.Service.Ipc;
 /// cho <see cref="AuthCoordinator"/> (domain Password/Auth, field 80-91),
 /// <see cref="PauseCoordinator"/> (domain Pause/Resume, field 92-97, Đợt 5),
 /// <see cref="ConfigCoordinator"/> (domain Cài đặt, field 148-153, Đợt 7) hoặc
-/// <see cref="AuditLogCoordinator"/> (domain Lịch sử, field 142/146-147, Đợt 7) theo whitelist message
+/// <see cref="AuditLogCoordinator"/> (domain Lịch sử, field 142/146-147/154-155, Đợt 7-8) theo whitelist message
 /// của pipe này (Architecture/03 mục 3.1a) — lớp này chỉ là transport glue + định tuyến.
 /// </summary>
 public sealed class UiSessionServer(
@@ -184,7 +184,8 @@ public sealed class UiSessionServer(
         IpcPayload.BodyOneofCase.ConfigUpdateReq or
         IpcPayload.BodyOneofCase.RemoveWhitelistReq => configCoordinator.HandleAsync(request, token),
         IpcPayload.BodyOneofCase.AuditLogQuery or
-        IpcPayload.BodyOneofCase.MarkFalsePositiveReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),
+        IpcPayload.BodyOneofCase.MarkFalsePositiveReq or
+        IpcPayload.BodyOneofCase.VerifyAuditChainReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),
         _ => authCoordinator.HandleAsync(request, token),
     };
 

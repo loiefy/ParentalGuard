@@ -524,6 +524,31 @@ public sealed class ConfigDb : IDisposable
         }
     }
 
+    /// <summary>`04-data-architecture.md` mục 3.6/5.3a (Đợt 8) — ghi mốc lần <c>VerifyAuditChainRequest</c> gần nhất, bất kể kết quả <c>is_intact</c>. Chỉ ảnh hưởng hiển thị UI, không phải nguồn sự thật boot-time (mục 5.3a điểm 5).</summary>
+    public void UpdateLastFullVerifyAt(long verifiedAtUnixMs)
+    {
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "UPDATE audit_meta SET last_full_verify_at_unix_ms = $verifiedAt WHERE id = 1;";
+        command.Parameters.AddWithValue("$verifiedAt", verifiedAtUnixMs);
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (SqliteException ex)
+        {
+            throw new ConfigLoadException($"audit_meta write failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>Round-trip test hook cho <see cref="UpdateLastFullVerifyAt"/> — <c>null</c> nếu chưa từng ghi (mặc định lúc <see cref="CreateFresh"/>, mục 3.6).</summary>
+    public long? ReadLastFullVerifyAtUnixMs()
+    {
+        using SqliteCommand command = _connection.CreateCommand();
+        command.CommandText = "SELECT last_full_verify_at_unix_ms FROM audit_meta WHERE id = 1;";
+        object? result = command.ExecuteScalar();
+        return result is null or DBNull ? null : Convert.ToInt64(result);
+    }
+
     private void InsertAuditMeta(AuditCheckpoint checkpoint)
     {
         using SqliteCommand command = _connection.CreateCommand();

@@ -5,8 +5,8 @@ namespace ParentalGuard.Vision.ModelIntegrity;
 /// <summary>
 /// Architecture/05-image-pipeline-architecture.md mục 7 (ADR-46, `MISC-090`): so SHA-256 của
 /// bytes model đã đọc với hash kỳ vọng — so sánh constant-time để không phát sinh timing oracle.
-/// Utility thuần, sẵn sàng dùng — CHƯA được Program.cs gọi ở Đợt 1 (`MISC-090` là phạm vi Đợt 8
-/// theo ROADMAP.md mục 3; không mở khoá sớm để tránh chặn happy-path khi chưa có hash chính thức).
+/// Gọi từ <c>Program.cs</c> (Đợt 8) trước khi load <c>InferenceSession</c>, hash kỳ vọng ở
+/// <see cref="ExpectedModelChecksum"/>.
 /// </summary>
 public static class OnnxChecksumVerifier
 {

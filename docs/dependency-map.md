@@ -1573,3 +1573,175 @@ trong `audit.log` (không phụ thuộc `ContentBlocked` cụ thể) — khi gap
 "Ghi chú gap phát hiện lúc build" mục 1 phía trên (`VisionInferenceResult` thiếu field `process_name`) —
 2 gap liên đới trực tiếp: thiếu `process_name` → không thể ghi `ContentBlocked.detail.processName` đúng
 → `MISC-030` chưa hoàn thiện end-to-end dù mọi hạ tầng IPC/whitelist đã sẵn sàng từ lượt này.
+
+## Đợt 8 (`ROADMAP.md` mục 4, Additional mechanisms & hardening) — `MISC-090`, `SEC-020`, `MISC-010` hoàn chỉnh, `process_name`
+
+Đóng 4/5 việc bắt buộc (`MISC-090`, `SEC-020`, `MISC-010` hoàn chỉnh, `process_name`) + việc 6 (tài liệu
+`docs/BEHAVIOR-DISCLOSURE.md`). **Việc 5 (`MISC-050`/S2 Dashboard: `DashboardStatusQuery`/`AuditChartQuery`/
+`AcknowledgePauseAnomalyRequest`) KHÔNG làm ở lượt này** — đúng theo hướng dẫn "khuyến nghị, không bắt
+buộc nếu quá tải, ưu tiên 4 việc trên trước"; cả 3 message vẫn rơi vào nhánh `default` của
+`UiSessionServer.DispatchAsync` → `authCoordinator.HandleAsync` → throw, giống trạng thái Đợt 7 (gap còn
+mở, xem ghi chú "Gap MỚI phát hiện lúc sửa" ở mục Đợt 7 phía trên) — cần `feature-dev` lượt khác đóng,
+sẽ cần thêm state tracking `vision_connected`/`overlay_connected`/`watchdog_alive` (hiện chưa tồn tại ở
+bất kỳ đâu trong `ChildProcessSupervisor`/`WatchdogSessionServer`) + đọc `audit_log_free_disk_bytes` +
+đếm `blocked_count`/ngày từ `audit.log` cho `AuditChartQuery`.
+
+### 1. `MISC-090` — Verify checksum model AI khi load
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `ExpectedModelChecksum.Sha256Hex` (mới, `src/ParentalGuard.Vision/ModelIntegrity/ExpectedModelChecksum.cs`) — hằng số SHA-256 hex của `models/nsfw_model.onnx` đóng gói hiện tại (tính bằng `sha256sum`, PHẢI cập nhật thủ công mỗi khi đổi model) | `Program.cs` | — |
+| `Program.cs` (top-level, sửa) — gọi `OnnxChecksumVerifier.Verify(modelBytes, Convert.FromHexString(ExpectedModelChecksum.Sha256Hex))` NGAY sau `File.ReadAllBytesAsync(ModelPaths.OnnxModelPath)`, TRƯỚC `OrtEnv.Instance().DisableTelemetryEvents()`/tạo `NsfwClassifier` — fail → `Array.Clear(modelBytes)` (IMG-003) + `return VisionExitCodes.ModelIntegrityCheckFailed` (=18, top-level `return` set exit code, cùng mẫu hình `return VisionExitCodes.CaptureInitAccessDenied` đã có ở dòng dưới cho case `CaptureInitializationException` — KHÔNG dùng `Environment.Exit` trực tiếp vì tại điểm này chưa có Task/Thread nền nào chạy, `return` đủ tương đương) | entry point (OS) | `OnnxChecksumVerifier.Verify` (đã có từ Đợt 1, chưa từng được gọi tới lượt này) |
+| `VisionExitCodes.ModelIntegrityCheckFailed` (=18, comment sửa — xác nhận đã enforce từ Đợt 8, không còn "giữ chỗ chưa dùng") | `Program.cs`, `ChildProcessSupervisor` (respawn bình thường, không đổi IL — `Architecture/05` mục 8.2) | — |
+
+Test: `tests/ParentalGuard.Vision.Tests/ExpectedModelChecksumTests.cs` (mới, 1 test — guard định dạng
+64 hex chars, KHÔNG đọc lại file thật để tránh brittleness phụ thuộc đường dẫn repo checkout).
+`OnnxChecksumVerifierTests.cs`/`VisionExitCodesTests.cs` (đã có từ Đợt 1) vẫn bao phủ đúng logic cốt lõi
+(`Verify` constant-time, exit code = 18) — không sửa 2 file test này.
+
+**Gap tự ghi nhận (không giấu)**: không có test tích hợp cho chính `Program.cs` (top-level statements,
+không có seam DI cho `File.ReadAllBytesAsync`/exit path — nhất quán với toàn bộ `Program.cs` hiện tại
+vốn không có test nào khác, kể cả nhánh `CaptureInitAccessDenied` có sẵn từ Đợt 1). Đã tự kiểm chứng thủ
+công: chạy `sha256sum models/nsfw_model.onnx` khớp đúng hằng số nhúng, đọc lại code đảm bảo thứ tự
+verify → load đúng ADR-46 (tránh TOCTOU).
+
+### 2. `SEC-020` — WER crash dump policy cho `ParentalGuard.Vision.exe`
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `WerPolicyProvisioner.Apply(string)` / `.Apply(RegistryKey, string)` (mới, `src/ParentalGuard.Service/Security/WerPolicyProvisioner.cs`) — ghi `ExcludedApplications\<file>=1` + `LocalDumps\<file>\DumpType=1` (Mini, KHÔNG Full), idempotent (đọc trước khi ghi lại) | `Worker.ApplyWerPolicyBestEffort` (public overload); test (`WerPolicyProvisionerTests`, overload `RegistryKey` test-only, cùng mẫu hình `RegistryStartValueWatcher`) | `Microsoft.Win32.Registry.LocalMachine`/`RegistryKey.CreateSubKey` (BCL) |
+| `Worker.ApplyWerPolicyBestEffort` (mới, private) — best-effort, không chặn `ExecuteAsync` nếu ghi registry lỗi | `Worker.ExecuteAsync` (cùng nhóm `ApplyAclBestEffort`/`ApplyWfpBestEffort`, gọi ngay sau `ApplyWfpBestEffort()`, trước khi spawn Vision lần đầu) | `WerPolicyProvisioner.Apply(string)` |
+
+Test: `tests/ParentalGuard.Service.Tests/WerPolicyProvisionerTests.cs` (mới, 3 test, registry THẬT dưới
+HKCU — không cần quyền SYSTEM): ghi đúng 2 key; gọi 2 lần không lỗi/giữ nguyên giá trị (idempotent); giá
+trị sai lệch có sẵn (mô phỏng bị ghi đè) → tự sửa lại đúng.
+
+### 3. `MISC-010` audit log tamper-evident hoàn chỉnh
+
+#### 3a. Ghi `ContentBlocked` edge-triggered (ADR-137)
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `OverlayDecisionCoordinator.HandleVisionResultAsync` (sửa — nay `async`, thêm biến `isNewViolation` = `violates && !wasActive` TÁCH KHỎI `changed` hiện có) | `ChildProcessSupervisor.ReaderLoopAsync` (kênh Vision) | `OverlayThresholdDecision.Violates`, `PushCurrentList`, `AuditLogWriter.AppendAsync` (`"ContentBlocked"`, chỉ khi `isNewViolation`) |
+
+`detail` = `{ windowHandle, processName, riskScore, bbox: {x,y,width,height} }` (khớp đúng schema
+`04-data-architecture.md` mục 5.1) — `result.Bbox` dùng `?.` (message field proto3 C# trả `null` nếu
+chưa set, KHÔNG tự có default instance — bug thực tế phát hiện lúc chạy test cũ
+`OverlayDecisionCoordinatorMergeModeTests` (không set `Bbox`) → `NullReferenceException`, đã sửa bằng
+`result.Bbox?.X ?? 0` v.v.). `result.ProcessName` (string proto3, default `""`, không cần `?.`).
+
+Test: `tests/ParentalGuard.Service.Tests/OverlayDecisionCoordinatorContentBlockedTests.cs` (mới, 4 test):
+lần đầu vi phạm → ghi `ContentBlocked` đúng field; cùng cửa sổ tiếp tục vi phạm (bbox đổi) → KHÔNG ghi
+lặp; gỡ chặn rồi vi phạm lại → ghi lần 2 (lượt block mới); không set `Bbox` → không throw, ghi bbox=0.
+
+#### 3b. `VerifyAuditChainRequest`/`Response` (field 154/155, ADR-136/138)
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `.proto` (sửa, `src/ParentalGuard.Ipc/Protos/ipc.proto`) — thêm `oneof` case 154/155 + message `VerifyAuditChainRequest {}`/`VerifyAuditChainResponse{is_intact, total_records_scanned, broken_at_seq, verified_at_unix_ms}`; thêm field 7 `process_name` (string) vào `VisionInferenceResult` (trước là comment giữ chỗ) | Grpc.Tools codegen (build-time) | — |
+| `AuditLogWriter.VerifyChain` (private, refactor từ `VerifyTail` — trả `ChainVerifyOutcome{Detail, BrokenAtSeq, BrokenIndex}` thay vì `string?`, dùng chung cho cả cửa sổ đuôi N=50 (boot) lẫn toàn bộ file (on-demand)) | `InitializeAsync`, `VerifyFullChainAsync` | — |
+| `AuditLogWriter.VerifyFullChainAsync` (mới, public) — đọc TOÀN BỘ file dưới `_writeLock` (thả ngay sau đọc, mục 5.3a bước 3), `VerifyChain(all)`, nếu không intact VÀ chưa có `AuditChainBrokenDetected` nào SAU điểm đứt (check qua `EventType` trong `Raw` JSON của các record phía sau) → `AppendAsync(..., startNewChain: true)` 1 lần duy nhất (ADR-138) | `AuditLogCoordinator.HandleVerifyAuditChainAsync` | `VerifyChain`, `AppendAsync` (private overload, `startNewChain:true`), `EventType` (private static helper mới) |
+| `AuditChainVerifyResult` (record mới, public, cùng file) | `AuditLogWriter.VerifyFullChainAsync` → `AuditLogCoordinator` | — |
+| `ConfigDb.UpdateLastFullVerifyAt(long)` / `.ReadLastFullVerifyAtUnixMs()` (mới) — `UPDATE`/`SELECT audit_meta.last_full_verify_at_unix_ms WHERE id=1` | `AuditLogCoordinator.TryPersistLastFullVerifyAt` (Update); test (Read, round-trip) | `SqliteCommand` (Microsoft.Data.Sqlite) |
+| `AuditLogCoordinator` ctor (sửa — thêm tham số `string configDbPath`), `.HandleAsync` (sửa — thêm case `VerifyAuditChainReq`), `.HandleVerifyAuditChainAsync`/`.TryPersistLastFullVerifyAt` (mới, private) | `Worker.ExecuteAsync` (ctor); `UiSessionServer.DispatchAsync` (`HandleAsync`) | `AuditLogWriter.VerifyFullChainAsync`, `ConfigDb.Open`/`.UpdateLastFullVerifyAt` (best-effort, nuốt `ConfigLoadException` — mốc thời gian chỉ là UX phụ trợ, không chặn kết quả trả UI) |
+| `UiSessionServer.DispatchAsync` (sửa — thêm `VerifyAuditChainReq` vào nhóm route sang `auditLogCoordinator`) | `RunConnectionAsync` | `AuditLogCoordinator.HandleAsync` |
+| `Worker.ExecuteAsync` (sửa — `new AuditLogCoordinator(..., InstallPaths.ConfigDbPath)`) | `BackgroundService` (host) | — |
+
+Test: `tests/ParentalGuard.Service.Tests/AuditLogCoordinatorTests.cs` (thêm 2 test): log nguyên vẹn →
+`is_intact=true` + `audit_meta.last_full_verify_at_unix_ms` được ghi đúng giá trị trả về; log bị tamper
+(sửa trực tiếp dòng đầu, tái dùng đúng kỹ thuật `AuditLogWriterTests.Reinitialize_OnTamperedRecord_...`)
+→ `is_intact=false`/`broken_at_seq` đúng + verify 2 lần liên tiếp chỉ ghi `AuditChainBrokenDetected`
+ĐÚNG 1 LẦN (ADR-138, không lặp).
+
+#### 3c. `AuditLogWriter.ChainWasBrokenAtStartup` + Toast hoãn phát (ADR-139)
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `AuditLogWriter.ChainWasBrokenAtStartup` (property mới, public get/private set) — `true` chỉ khi nhánh chain-đứt chạy trong LẦN GỌI `InitializeAsync` hiện tại | `Worker.ExecuteAsync` (đọc sau khi `_auditLog` đã sẵn sàng) | set bởi `InitializeAsync` (object initializer `{ ChainWasBrokenAtStartup = true }` ở nhánh `outcome.Detail is not null`) |
+| `Worker.BuildOverlayOneTimeMessages` (sửa — thêm tham số `bool auditChainWasBrokenAtStartup`, trả `List<Action<IpcPayload>>` gộp CẢ 2 điều kiện thay vì chỉ 1 `ShowToast` cố định) | `Worker.ExecuteAsync` (gọi `BuildOverlayOneTimeMessages(config, _auditLog.ChainWasBrokenAtStartup)`) | `BuildFailSecureToast` (đã có), `BuildAuditChainBrokenToast` (mới) |
+| `Worker.BuildAuditChainBrokenToast` (mới, private static) — `reason_code="AUDIT_CHAIN_BROKEN_DETECTED"` | `BuildOverlayOneTimeMessages` | — |
+
+Không có test riêng cho sequencing Toast (đã có `AuditLogWriterTests.Reinitialize_OnTamperedRecord_...`
+xác nhận `ChainWasBrokenAtStartup`-tương đương qua audit.log; wiring `Worker.cs` thuần lắp ráp, không có
+logic nhánh mới cần unit test riêng ngoài 2 hàm build Toast tĩnh — rủi ro thấp, nhất quán mẫu hình
+`BuildFailSecureToast` gốc cũng không có test riêng từ Đợt 0).
+
+### 4. `process_name` field 7 (`VisionInferenceResult`)
+
+| Hàm/File | Callers | Callees |
+|---|---|---|
+| `CaptureLoopWorker.ProcessOneFrame` (sửa — sau khi `pipeline.Process` trả `result` không null, set `result.ProcessName = ForegroundWindowTracker.ResolveProcessName(hwnd) ?? ""` TRƯỚC khi `EnqueueOutbound`) | `ProcessCycle` (vòng lặp candidate) | `ForegroundWindowTracker.ResolveProcessName` (tái dùng đúng hàm đã dùng cho exclude-list, KHÔNG resolve bằng cơ chế khác — `hwnd` ở đây là cửa sổ ĐANG xử lý, không nhất thiết là `fgHwnd`, nên gọi lại đúng 1 lần/frame cho đúng cửa sổ đó thay vì tái dùng biến `fgProcessName` đã tính sẵn cho foreground khác) |
+
+**Gap tự ghi nhận (không giấu)**: không có unit test riêng cho dòng này — `CaptureLoopWorker.ProcessOneFrame`
+là `private`, không có seam DI cho `IpcChildClient`/`FrameClassificationPipeline` cụ thể (khác
+`IFrameCapture`/`IWindowCropper` đã có seam từ trước) để dựng test cô lập; nhất quán với việc
+`ForegroundWindowTracker` (P/Invoke `user32`/`kernel32`) chưa từng có test riêng từ Đợt 1. Đã tự kiểm
+chứng bằng đọc lại code + tái dùng đúng API đã tested gián tiếp qua production từ Đợt 1
+(`ExcludeProcessMatcherTests` test logic khớp tên, không test `ResolveProcessName` P/Invoke thật).
+
+### Việc 6 — `docs/BEHAVIOR-DISCLOSURE.md` (mới, thuần tài liệu — `MISC-070`)
+
+Song ngữ Việt/Anh: mục đích app, capture màn hình cục bộ/không lưu/không gửi mạng + WFP chặn cứng tầng
+OS, watchdog kép + chống gỡ cài đặt (không ransomware, không ẩn Task Manager, có Dashboard + gỡ cài đặt
+hợp pháp qua mật khẩu/Recovery Key), zero network/telemetry/auto-update + mã nguồn mở, placeholder liên
+hệ/báo cáo false-positive (chủ dự án tự điền). Không phải quyết định kiến trúc — không cập nhật
+`Architecture/`.
+
+### Kết quả build/test Đợt 8
+
+Build 0 Warning/0 Error toàn `.sln`. Test per-project (tránh WDAC false-positive `ParentalGuard.Vision.Tests`
+khi chạy qua `dotnet test` solution-wide đã ghi nhận từ trước): `ParentalGuard.Service.Tests` 234 → **243**
+(+9: 4 `OverlayDecisionCoordinatorContentBlockedTests` + 2 `AuditLogCoordinatorTests` + 3
+`WerPolicyProvisionerTests`), `ParentalGuard.Vision.Tests` 66 → **67** (+1), `ParentalGuard.Overlay.Tests`
+18/18, `ParentalGuard.Watchdog.Tests` 2/2, `ParentalGuard.Uninstaller.Tests` 9/9, `ParentalGuard.UI.Tests`
+110/110 — không regression (449/449 tổng).
+
+### 2026-09-29 audit fix — 2 FAIL cứng ĐỘC LẬP phát hiện ở đúng phần Đợt 8 vừa code, cả 2 đã sửa + re-audit độc lập 2 vòng xác nhận RESOLVED
+
+**FAIL 1 (security-privacy-auditor)** — `VerifyAuditChainRequest` hoàn toàn KHÔNG gate. Root cause:
+`AuditLogCoordinator.HandleAsync` định tuyến `VerifyAuditChainReq` sang `HandleVerifyAuditChainAsync(request,
+cancellationToken)` — **DROP MẤT tham số `AuditLogViewSession`** dù `UiSessionServer` đã tạo và truyền đúng
+xuống mỗi kết nối pipe. Hệ quả: bất kỳ kết nối nào (kể cả không qua `AuthVerifyRequest` bao giờ) gọi
+`VerifyAuditChainRequest` đều nhận được kết quả verify đầy đủ — bypass hoàn toàn `PWD-020`. Cả 2 auditor
+độc lập đã chạy PoC thật xác nhận bypass thành công (session A pass gate qua `AuditLogQuery`, session B
+mới không token vẫn đọc được). Sửa: `HandleVerifyAuditChainAsync` nay nhận `session`, kiểm tra
+`session.GateOpenUntilUnixMs` (tái dùng đúng state đã dùng cho `AuditLogQuery`, không tạo state song song
+mới) trước khi verify — trả `VerifyAuditChainResult.InvalidToken` nếu chưa/hết gate. Amendment `.proto`:
+thêm `enum VerifyAuditChainResult`/field `result` (field 5, additive) vào `VerifyAuditChainResponse` —
+`Architecture/03-ipc-communication.md` v0.8.3→v0.8.4 (ADR-142). 2 test regression mới
+(`AuditLogCoordinatorTests.cs`): `VerifyAuditChainRequest_SessionNeverPassedViewAuditLogGate_ReturnsInvalidToken`,
+`VerifyAuditChainRequest_DifferentConnectionSession_ReturnsInvalidToken_EvenAfterAnotherSessionPassedGate`
+(tái hiện đúng kịch bản 2 kết nối, PASS sau fix, FAIL nếu revert).
+
+**FAIL 2 (test-runner, PoC thật)** — `AuditLogWriter.VerifyFullChainAsync` (dùng `VerifyChain` tuyến tính
+cũ) `return` NGAY khi gặp bất thường ĐẦU TIÊN của CẢ FILE. Vì 1 record đã tamper mãi mãi fail lại
+self-hash-check của chính nó ở MỌI lần gọi sau, việc bail sớm khiến verify KHÔNG BAO GIỜ quét tới các đoạn
+`chain_id` phía sau — 1 tamper ĐỘC LẬP thứ 2 xảy ra SAU 1 lần "phục hồi" (đoạn chain mới) hợp lệ trước đó
+hoàn toàn không được phát hiện, verify mãi mãi báo lại đúng điểm đứt CŨ. Đây trực tiếp mâu thuẫn với câu
+chữ thiết kế mục 5.3a bước 1 ("chia thành các đoạn chain kế tiếp nhau theo `chain_id`... áp dụng đúng
+thuật toán cho TOÀN BỘ TỪNG ĐOẠN") — implementation đầu tiên hiểu sai thành 1 vòng quét toàn file duy
+nhất. Sửa: `VerifySegments`/`VerifySegment` (mới, `AuditLogWriter.cs`) chia records thành các đoạn liên
+tiếp theo `chain_id`, verify MỖI đoạn ĐỘC LẬP (1 đoạn hỏng không cản việc verify đoạn sau) — `VerifyChain`
+cũ GIỮ NGUYÊN, chỉ dùng cho boot-time tail-window (N=50) ở `InitializeAsync`, không đổi hành vi đó. Field
+`broken_at_seq` mới thêm vào `detail` JSON của `AuditChainBrokenDetected` (CẢ 2 nhánh boot-time + on-demand)
+để dedup đúng theo từng điểm đứt cụ thể thay vì "có record nào xuất hiện sau vị trí đứt hay không" (cách
+cũ chính là 1 phần nguyên nhân che giấu tamper độc lập). Amendment `Architecture/04-data-architecture.md`
+v0.5.0→v0.5.1 (làm rõ mục 5.3a bước 1/6, ADR-143). Test regression mới (`AuditLogWriterTests.cs`):
+`VerifyFullChainAsync_SecondIndependentTamperInNewSegment_IsDetectedAndAppendsSecondBrokenRecord` (tamper
+chain1 → verify → ghi 2 record hợp lệ vào chain2 → tamper ĐỘC LẬP giữa chain2 → verify lại → PHẢI phát
+hiện + ghi thêm 1 `AuditChainBrokenDetected` MỚI, tổng 2 record trong file). Re-audit độc lập (`test-runner`)
+tự viết thêm PoC biến thể 3-đoạn-chain (2 đoạn khác nhau bị tamper cùng lúc trùng giá trị `broken_at_seq`
+cục bộ) xác nhận dedup theo VỊ TRÍ (`Skip(BrokenIndex+1)`) không thể match nhầm giữa 2 đoạn khác nhau —
+thuật toán tổng quát đúng, không chỉ pass đúng 1 kịch bản hẹp.
+
+**1 design-limitation phát hiện qua cùng lượt audit (KHÔNG do 2 fix trên gây ra, tồn tại từ thiết kế gốc
+Đợt 0, KHÔNG blocking)**: hash-chain (SHA-256 thuần, không HMAC/chữ ký, công thức công khai) không chống
+được kẻ tấn công có ĐỒNG THỜI (a) quyền ghi trực tiếp `audit.log` VÀ (b) khả năng khiến `Service` restart —
+họ có thể tự tính lại hash-chain hợp lệ cho nội dung bịa từ bất kỳ điểm cắt nào. Giới hạn cố hữu của mọi
+hash-chain không có anchor ngoài, chưa từng được ghi nhận tường minh ở `Specification/`. Lớp phòng thủ
+thật cho nhóm này nằm ở ACL file + anti-tamper, không phải hash-chain. Đã giao `spec-maintainer` bổ sung
+ghi chú làm rõ phạm vi bảo vệ vào `SEC-041`/`MISC-010` (xem `Specification/04-security-spec.md`/
+`10-additional-mechanisms-spec.md` changelog).
+
+Build 0 Warning/0 Error, test toàn solution 449→**452/452** (Service.Tests 243→246: +2 session-scoping
++1 segment-independence, Vision/Overlay/Watchdog/Uninstaller/UI không đổi) — không regression.

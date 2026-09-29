@@ -1,6 +1,6 @@
 # 04 — Security Spec
 
-> Version: v0.6.2 | Trạng thái: Approved | Cập nhật: 2026-09-29
+> Version: v0.6.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Nguyên tắc bảo mật cốt lõi
 
@@ -81,7 +81,6 @@
 - `SEC-040`: Toàn bộ config nhạy cảm (ngưỡng nhạy cảm, whitelist, password hash) mã hoá bằng **Windows DPAPI ở machine-scope** (không phải user-scope, vì Service chạy dưới LocalSystem, không gắn với 1 user session cụ thể).
 - `SEC-040a`: Nếu DPAPI giải mã `config.db` thất bại (file hỏng/bị sửa trái phép), hành vi fail-secure — fallback về bộ cấu hình mặc định hard-code trong code, giám sát luôn BẬT, không dừng hoạt động — xem `BE-061` ở `02-backend-spec.md` và `ANTI-070` ở `05-anti-uninstall-tamper-spec.md` (nội dung gốc đặt ở 2 file đó để tránh trùng lặp).
 - `SEC-041`: File audit log dùng cơ chế **hash chain** (mỗi entry chứa hash của entry trước) để phát hiện nếu bị xoá/sửa entry giữa chừng — không cần mã hoá nội dung (vì không chứa dữ liệu nhạy cảm) nhưng cần đảm bảo tính toàn vẹn (integrity).
-- `SEC-041a` (ĐÃ CHỐT v0.6.2, làm rõ phạm vi bảo vệ của `SEC-041`, không đổi ý nghĩa/yêu cầu đã `APPROVED`): Hash-chain ở `SEC-041` là SHA-256 thuần trên nội dung entry (canonical hoá sorted-key JSON), **không dùng HMAC với khoá bí mật riêng, không có chữ ký số** — công thức hash hoàn toàn công khai (xem `Architecture/04-data-architecture.md` mục 5.2). Cơ chế này bảo vệ khỏi việc entry bị xoá/sửa **ngẫu nhiên**, hoặc bởi kẻ tấn công **không có đồng thời cả 2 điều kiện**: (a) quyền ghi trực tiếp vào file `audit.log` bỏ qua `Service` (ví dụ truy cập SYSTEM-level/bypass ACL file), **và** (b) khả năng khiến `Service` restart sau khi đã sửa file (để bản verify N record cuối lúc boot chạy lại trên nội dung đã bị thay). Nếu kẻ tấn công hội đủ cả 2 điều kiện này, họ có thể tự tính lại đúng hash-chain hợp lệ cho nội dung tự bịa tiếp diễn từ bất kỳ điểm cắt nào — đây là **giới hạn cố hữu của mọi hash-chain không có anchor toàn vẹn bên ngoài** (không phải bug implementation), không riêng cơ chế này ở ParentalGuard. Lớp phòng thủ thực sự cho nhóm kẻ tấn công SYSTEM-level này nằm ở **ACL file audit log** (mục 2 của file này) và **anti-tamper/watchdog** (`05-anti-uninstall-tamper-spec.md`) — không phải ở bản thân định dạng hash-chain. Do đó câu "đảm bảo tính toàn vẹn (integrity)" ở `SEC-041` cần hiểu trong phạm vi này, không phải một cam kết chống được mọi kẻ tấn công bất kể mức quyền.
 
 ## 8. Cập nhật phần mềm (ĐÃ CHỐT v0.5.0 — không có cơ chế auto-update)
 
@@ -101,7 +100,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.6.2 | 2026-09-29 | **PATCH — làm rõ phạm vi bảo vệ, không đổi ý nghĩa/yêu cầu đã `APPROVED`**: thêm `SEC-041a` làm rõ hash-chain audit log (`SEC-041`) là SHA-256 thuần, không HMAC/chữ ký, nên chỉ chống được sửa/xoá entry ngẫu nhiên hoặc kẻ tấn công không có đồng thời (quyền ghi trực tiếp file audit log + khả năng khiến Service restart) — không tự nó chống lại kẻ tấn công SYSTEM-level chủ động có cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không anchor ngoài, không phải bug). Lớp phòng thủ thực sự cho nhóm đó nằm ở ACL file (mục 2) + anti-tamper (`05-anti-uninstall-tamper-spec.md`). Phát hiện bởi `security-privacy-auditor` khi audit fix Đợt 8 cho `MISC-010`/`SEC-041`. Đồng bộ với `10-additional-mechanisms-spec.md` → v0.2.3. Archive: `Specification/Outdated/04-security-spec__v0.6.1__2026-09-29.md` |
 | v0.6.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.6.0 | 2026-09-17 | Sửa `SEC-030`: bỏ yêu cầu tự mua EV Code Signing Certificate (không còn ngân sách vì dự án chuyển hẳn sang free/open-source, không bán nữa), thay bằng chứng chỉ OV miễn phí qua chương trình SignPath Foundation cho dự án open-source — đồng thời đơn giản hoá `DEV-012` vì SignPath tự giữ private key trên HSM của họ |
 | v0.5.0 | 2026-09-17 | Thêm `SEC-001a` — mở rộng nguyên tắc local-first sang **toàn bộ app** (không chỉ pipeline ảnh), tuyệt đối zero internet, không ngoại lệ. Loại bỏ `SEC-050` (update security) do `MISC-020` bị REJECTED — không còn cơ chế auto-update, chỉ cài lại thủ công |

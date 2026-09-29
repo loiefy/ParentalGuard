@@ -4,6 +4,7 @@ using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Ipc.Security;
 using ParentalGuard.Service.Auth;
 using ParentalGuard.Service.Config;
+using ParentalGuard.Service.Data;
 
 namespace ParentalGuard.Service.Audit;
 
@@ -28,7 +29,7 @@ namespace ParentalGuard.Service.Audit;
 /// 1 instance MỚI tạo mỗi lần <c>UiSessionServer.RunConnectionAsync</c> bắt đầu (1 kết nối pipe), tự
 /// giải phóng khi kết nối đóng — không còn field service-wide nào để rò rỉ qua kết nối khác.
 /// </remarks>
-public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLogWriter auditLog, ConfigCoordinator configCoordinator, MonotonicClock clock)
+public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLogWriter auditLog, ConfigCoordinator configCoordinator, MonotonicClock clock, string configDbPath)
 {
     private const string ViewAuditLogActionContext = "view_audit_log";
     private const string ManageWhitelistActionContext = "manage_whitelist";
@@ -51,6 +52,7 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
     {
         IpcPayload.BodyOneofCase.AuditLogQuery => HandleAuditLogQueryAsync(request, session, cancellationToken),
         IpcPayload.BodyOneofCase.MarkFalsePositiveReq => HandleMarkFalsePositiveAsync(request, cancellationToken),
+        IpcPayload.BodyOneofCase.VerifyAuditChainReq => HandleVerifyAuditChainAsync(request, session, cancellationToken),
         _ => throw new InvalidOperationException($"AuditLogCoordinator received unexpected message: {request.BodyCase}."),
     };
 
@@ -123,6 +125,59 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
 
         response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.Success };
         return response;
+    }
+
+    /// <summary>
+    /// `10-ui-architecture.md` mục 6.3 (ADR-141), `04-data-architecture.md` mục 5.3a (ADR-138) — thao
+    /// tác chỉ-đọc từ góc nhìn UI (không mang <c>action_token</c> riêng, đã ở trong `S3` qua gate
+    /// <c>view_audit_log</c> lúc vào trang). Việc ghi <c>AuditChainBrokenDetected</c> mới (nếu có) và
+    /// <c>audit_meta.last_full_verify_at_unix_ms</c> nằm bên trong <see cref="AuditLogWriter.VerifyFullChainAsync"/>/
+    /// <see cref="TryPersistLastFullVerifyAt"/> — không phải hành vi rẽ nhánh của coordinator này.
+    /// </summary>
+    /// <remarks>
+    /// <b>2026-09-29 audit fix (ADR-142, FAIL cứng do security-privacy-auditor phát hiện)</b>: request
+    /// không mang <c>action_token</c> nhưng VẪN PHẢI enforce gate <c>view_audit_log</c> qua
+    /// <paramref name="session"/> — bản gốc drop mất tham số này khi định tuyến từ <see cref="HandleAsync"/>,
+    /// khiến endpoint chạy thẳng không xác thực (bypass hoàn toàn `PWD-020`). Dùng lại ĐÚNG state
+    /// <see cref="AuditLogViewSession.GateOpenUntilUnixMs"/> mà <see cref="HandleAuditLogQueryAsync"/> đã
+    /// dùng cho trang 2+ token rỗng — cùng 1 nguồn sự thật, session-scoped per kết nối pipe (đúng cơ chế
+    /// đã sửa lỗ hổng tương tự ở `AuditLogQuery`, Đợt 7).
+    /// </remarks>
+    private async Task<IpcPayload> HandleVerifyAuditChainAsync(IpcPayload request, AuditLogViewSession session, CancellationToken cancellationToken)
+    {
+        IpcPayload response = NewResponse(request);
+        long trustedNow = clock.UtcNowUnixMs;
+        if (session.GateOpenUntilUnixMs is not long gateOpenUntil || trustedNow >= gateOpenUntil)
+        {
+            response.VerifyAuditChainResp = new VerifyAuditChainResponse { Result = VerifyAuditChainResult.InvalidToken };
+            return response;
+        }
+
+        AuditChainVerifyResult result = await auditLog.VerifyFullChainAsync(cancellationToken).ConfigureAwait(false);
+        TryPersistLastFullVerifyAt(result.VerifiedAtUnixMs);
+
+        response.VerifyAuditChainResp = new VerifyAuditChainResponse
+        {
+            Result = VerifyAuditChainResult.Success,
+            IsIntact = result.IsIntact,
+            TotalRecordsScanned = result.TotalRecordsScanned,
+            BrokenAtSeq = result.BrokenAtSeq,
+            VerifiedAtUnixMs = result.VerifiedAtUnixMs,
+        };
+        return response;
+    }
+
+    /// <summary>Best-effort — mốc thời gian hiển thị chỉ là UX phụ trợ (mục 3.6), không chặn kết quả verify trả về UI nếu ghi <c>config.db</c> lỗi.</summary>
+    private void TryPersistLastFullVerifyAt(long verifiedAtUnixMs)
+    {
+        try
+        {
+            using ConfigDb db = ConfigDb.Open(configDbPath);
+            db.UpdateLastFullVerifyAt(verifiedAtUnixMs);
+        }
+        catch (ConfigLoadException)
+        {
+        }
     }
 
     private async Task<bool> ConsumeTokenAsync(ByteString token, string actionContext, CancellationToken cancellationToken)

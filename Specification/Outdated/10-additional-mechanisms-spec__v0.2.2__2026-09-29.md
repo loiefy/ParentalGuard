@@ -1,7 +1,7 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.2.3 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
-> Cập nhật: 2026-09-29
+> Version: v0.2.2 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
+> Cập nhật: 2026-09-17
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
 
@@ -10,7 +10,6 @@
 - Đã đề cập ở `SEC-041`, chi tiết hoá ở đây: mỗi entry log có cấu trúc `{timestamp, event_type, detail_metadata, hash(entry_truoc + noi_dung_hien_tai)}`.
 - Cho phép phụ huynh (và về sau, người audit độc lập nếu cần) verify tính toàn vẹn của toàn bộ chuỗi log mà không cần tin tưởng mù quáng vào app đang chạy.
 - Loại sự kiện cần log tối thiểu: bật/tắt giám sát, pause/resume, chặn nội dung (kèm risk score, KHÔNG kèm ảnh), thử xác thực mật khẩu (thành công/thất bại), watchdog restart, thay đổi cấu hình, cập nhật phần mềm.
-- `MISC-010a` (ĐÃ CHỐT v0.2.3, làm rõ phạm vi bảo vệ, không đổi ý nghĩa yêu cầu đã `APPROVED` — chi tiết đầy đủ ở `SEC-041a`, `04-security-spec.md` mục 7): hash-chain ở đây là SHA-256 thuần (không HMAC khoá riêng, không chữ ký số), công thức công khai. Nó bảo vệ khỏi việc entry bị xoá/sửa **ngẫu nhiên** hoặc bởi kẻ tấn công **không có đồng thời** (quyền ghi trực tiếp file `audit.log` bỏ qua `Service` + khả năng khiến `Service` restart) — **không tự nó** chống lại kẻ tấn công SYSTEM-level chủ động hội đủ cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không có anchor toàn vẹn bên ngoài, không phải thiếu sót implementation). Lớp phòng thủ thực sự cho nhóm kẻ tấn công đó nằm ở ACL file audit log (`04-security-spec.md` mục 2) và anti-tamper/watchdog (`05-anti-uninstall-tamper-spec.md`), không phải ở bản thân định dạng hash-chain.
 
 ## 2. Cơ chế cập nhật phần mềm (MISC-020, ĐÃ CHỐT v0.2.0 — loại bỏ auto-update)
 
@@ -73,7 +72,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.2.3 | 2026-09-29 | **PATCH — làm rõ phạm vi bảo vệ, không đổi ý nghĩa/yêu cầu đã `APPROVED`**: thêm `MISC-010a` làm rõ hash-chain audit log (`MISC-010`) là SHA-256 thuần, không HMAC/chữ ký, nên chỉ chống được sửa/xoá entry ngẫu nhiên hoặc kẻ tấn công không có đồng thời (quyền ghi trực tiếp file audit log + khả năng khiến Service restart) — không tự nó chống lại kẻ tấn công SYSTEM-level chủ động có cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không anchor ngoài, không phải bug). Lớp phòng thủ thực sự cho nhóm đó nằm ở ACL file (`04-security-spec.md` mục 2) + anti-tamper (`05-anti-uninstall-tamper-spec.md`). Phát hiện bởi `security-privacy-auditor` khi audit fix Đợt 8 cho `MISC-010`/`SEC-041`. Đồng bộ với `04-security-spec.md` → v0.6.2 (`SEC-041a`). Archive: `Specification/Outdated/10-additional-mechanisms-spec__v0.2.2__2026-09-29.md` |
 | v0.2.2 | 2026-09-20 | **PATCH — sửa câu chữ, không đổi ý nghĩa/phạm vi tính năng**: phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI) — `MISC-030` dùng chữ "thêm domain/app đó vào whitelist" mâu thuẫn với thực tế kỹ thuật: pipeline phát hiện của dự án thuần pixel/window (`BE-021`), không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`. Sửa thành whitelist theo **tên process/ứng dụng** (không phải domain/URL). Đồng bộ với `03-frontend-ui-spec.md` → v0.9.2 (sửa cùng lỗi câu chữ ở mô tả màn hình `S4`). Không đổi ý nghĩa/phạm vi `MISC-030` đã `APPROVED`. |
 | v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ mục trong file này (không chỉ bảng ưu tiên mục 10, mà cả từng mục con) — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.2.0 | 2026-09-17 | **Chốt cả 2 câu hỏi mở**: duyệt bảng ưu tiên mục 10, ngoại trừ 2 điều chỉnh — `MISC-020` REJECTED (loại bỏ auto-update, app tuyệt đối zero internet, cập nhật chỉ thủ công); `MISC-080` REJECTED (loại hẳn khỏi roadmap, không chỉ đẩy Phase 2 — nhu cầu đã được `07-pause-resume-spec.md` giải quyết). Đồng bộ thay đổi sang `02-backend-spec.md`, `04-security-spec.md`, `01-tong-quan-va-pham-vi.md`, `05-anti-uninstall-tamper-spec.md`. File này không còn câu hỏi mở |

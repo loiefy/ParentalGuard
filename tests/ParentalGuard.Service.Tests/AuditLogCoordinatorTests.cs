@@ -27,7 +27,7 @@ public class AuditLogCoordinatorTests : IDisposable
         var authCoordinator = new AuthCoordinator(_authDatPath, auditLog, clock, NullLogger.Instance);
         var holder = new MonitoringStateHolder(state);
         var configCoordinator = new ConfigCoordinator(holder, _configDbPath, authCoordinator, auditLog, () => { });
-        var auditLogCoordinator = new AuditLogCoordinator(authCoordinator, auditLog, configCoordinator, clock);
+        var auditLogCoordinator = new AuditLogCoordinator(authCoordinator, auditLog, configCoordinator, clock, _configDbPath);
 
         return new Fixture(auditLogCoordinator, authCoordinator, auditLog, clock, holder);
     }
@@ -42,6 +42,16 @@ public class AuditLogCoordinatorTests : IDisposable
             new IpcPayload { MessageId = 3, AuthVerifyReq = new AuthVerifyRequest { Password = ByteString.CopyFromUtf8("Passw0rd!"), ActionContext = actionContext } }, CancellationToken.None);
         Assert.Equal(AuthResult.Success, verifyResponse.AuthVerifyResp.Result);
         return verifyResponse.AuthVerifyResp.ActionToken.ToByteArray();
+    }
+
+    /// <summary>Audit fix 2026-09-29 (ADR-142) — mở gate <c>view_audit_log</c> cho 1 <see cref="AuditLogViewSession"/> cụ thể trước khi test <c>VerifyAuditChainRequest</c>, đúng luồng thật (S3 luôn query trang 0 trước khi hiện nút "Kiểm tra tính toàn vẹn").</summary>
+    private static async Task OpenViewGateAsync(Fixture fx, AuditLogViewSession session)
+    {
+        byte[] token = await GetValidActionTokenAsync(fx.Auth, "view_audit_log");
+        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 100, AuditLogQuery = new AuditLogQuery { ActionToken = ByteString.CopyFrom(token), Page = 0, PageSize = 50 } },
+            session, CancellationToken.None);
+        Assert.Equal(AuditLogQueryResult.Success, response.AuditLogResp.Result);
     }
 
     [Fact]
@@ -180,6 +190,102 @@ public class AuditLogCoordinatorTests : IDisposable
             new AuditLogViewSession(), CancellationToken.None);
 
         Assert.Equal(MarkFalsePositiveResult.AlreadyListed, response.MarkFalsePositiveResp.Result);
+    }
+
+    [Fact]
+    public async Task VerifyAuditChainRequest_IntactLog_ReturnsIsIntactAndPersistsLastFullVerifyAt()
+    {
+        Fixture fx = await CreateAsync();
+        await fx.AuditLog.AppendAsync("MonitoringToggled", new { enabled = true }, CancellationToken.None);
+        var session = new AuditLogViewSession();
+        await OpenViewGateAsync(fx, session);
+
+        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 1, VerifyAuditChainReq = new VerifyAuditChainRequest() },
+            session, CancellationToken.None);
+
+        Assert.Equal(VerifyAuditChainResult.Success, response.VerifyAuditChainResp.Result);
+        Assert.True(response.VerifyAuditChainResp.IsIntact);
+        Assert.Equal(0, response.VerifyAuditChainResp.BrokenAtSeq);
+        // ServiceStarted (genesis) + MonitoringToggled + PasswordInitialSetup + AuthAttempt (cả 2 ghi bởi
+        // OpenViewGateAsync/GetValidActionTokenAsync — AuditLogQuery bản thân KHÔNG ghi audit event, chỉ đọc).
+        Assert.Equal(4, response.VerifyAuditChainResp.TotalRecordsScanned);
+
+        using ConfigDb db = ConfigDb.Open(_configDbPath);
+        Assert.Equal(response.VerifyAuditChainResp.VerifiedAtUnixMs, db.ReadLastFullVerifyAtUnixMs());
+    }
+
+    /// <summary>Audit fix 2026-09-29 (ADR-142) — regression cho FAIL cứng do security-privacy-auditor phát hiện: endpoint này trước đây HOÀN TOÀN không gate (bất kỳ kết nối nào cũng đọc được kết quả verify mà không cần qua <c>AuthVerifyRequest</c>). Test này PHẢI FAIL nếu ai đó lỡ revert về code không kiểm tra <see cref="AuditLogViewSession.GateOpenUntilUnixMs"/>.</summary>
+    [Fact]
+    public async Task VerifyAuditChainRequest_SessionNeverPassedViewAuditLogGate_ReturnsInvalidToken()
+    {
+        Fixture fx = await CreateAsync();
+
+        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 1, VerifyAuditChainReq = new VerifyAuditChainRequest() },
+            new AuditLogViewSession(), CancellationToken.None);
+
+        Assert.Equal(VerifyAuditChainResult.InvalidToken, response.VerifyAuditChainResp.Result);
+    }
+
+    /// <summary>Cùng lớp lỗi session-scoping đã sửa cho <c>AuditLogQuery</c> ở Đợt 7 — gate mở ở 1 kết nối (session A) không được rò rỉ sang kết nối khác (session B).</summary>
+    [Fact]
+    public async Task VerifyAuditChainRequest_DifferentConnectionSession_ReturnsInvalidToken_EvenAfterAnotherSessionPassedGate()
+    {
+        Fixture fx = await CreateAsync();
+        var sessionA = new AuditLogViewSession();
+        await OpenViewGateAsync(fx, sessionA);
+
+        var sessionB = new AuditLogViewSession();
+        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 1, VerifyAuditChainReq = new VerifyAuditChainRequest() },
+            sessionB, CancellationToken.None);
+
+        Assert.Equal(VerifyAuditChainResult.InvalidToken, response.VerifyAuditChainResp.Result);
+    }
+
+    [Fact]
+    public async Task VerifyAuditChainRequest_TamperedRecord_ReturnsBrokenAtSeqAndAppendsAuditChainBrokenDetectedOnce()
+    {
+        Fixture fx = await CreateAsync();
+        string[] lines = await File.ReadAllLinesAsync(_auditLogPath);
+        lines[0] = lines[0].Replace("ServiceStarted", "ServiceStartedTampered", StringComparison.Ordinal);
+        await File.WriteAllLinesAsync(_auditLogPath, lines);
+        var session = new AuditLogViewSession();
+        await OpenViewGateAsync(fx, session);
+
+        IpcPayload first = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 1, VerifyAuditChainReq = new VerifyAuditChainRequest() },
+            session, CancellationToken.None);
+        Assert.Equal(VerifyAuditChainResult.Success, first.VerifyAuditChainResp.Result);
+        Assert.False(first.VerifyAuditChainResp.IsIntact);
+        Assert.Equal(1, first.VerifyAuditChainResp.BrokenAtSeq);
+
+        string afterFirstVerify = await File.ReadAllTextAsync(_auditLogPath);
+        int firstOccurrenceCount = CountOccurrences(afterFirstVerify, "AuditChainBrokenDetected");
+        Assert.Equal(1, firstOccurrenceCount);
+
+        // ADR-138: lần verify thứ 2 KHÔNG lặp lại record — điểm đứt đã có AuditChainBrokenDetected phía sau nó.
+        IpcPayload second = await fx.AuditCoordinator.HandleAsync(
+            new IpcPayload { MessageId = 2, VerifyAuditChainReq = new VerifyAuditChainRequest() },
+            session, CancellationToken.None);
+        Assert.False(second.VerifyAuditChainResp.IsIntact);
+
+        string afterSecondVerify = await File.ReadAllTextAsync(_auditLogPath);
+        Assert.Equal(1, CountOccurrences(afterSecondVerify, "AuditChainBrokenDetected"));
+    }
+
+    private static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = haystack.IndexOf(needle, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += needle.Length;
+        }
+
+        return count;
     }
 
     public void Dispose()

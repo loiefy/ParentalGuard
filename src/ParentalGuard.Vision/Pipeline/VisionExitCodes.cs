@@ -7,9 +7,8 @@ public static class VisionExitCodes
     public const int CaptureInitAccessDenied = 17;
 
     /// <summary>
-    /// Checksum <c>.onnx</c> không khớp (<c>MISC-090</c>) — dành sẵn theo Architecture/05 mục 7/8.2.
-    /// CHƯA được enforce ở Đợt 1 (MISC-090 thuộc phạm vi Đợt 8 theo ROADMAP.md mục 3) — giữ hằng số
-    /// để tránh xung đột số hiệu khi bật gate này sau, không dùng ở code Đợt 1.
+    /// Checksum <c>.onnx</c> không khớp (<c>MISC-090</c>, Architecture/05 mục 7/8.2) — enforce từ Đợt 8
+    /// (<c>Program.cs</c> gọi <c>OnnxChecksumVerifier.Verify</c> trước khi load <c>InferenceSession</c>).
     /// </summary>
     public const int ModelIntegrityCheckFailed = 18;
 

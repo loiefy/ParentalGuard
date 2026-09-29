@@ -4,6 +4,7 @@ using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Vision.Capture;
 using ParentalGuard.Vision.Configuration;
 using ParentalGuard.Vision.Inference;
+using ParentalGuard.Vision.ModelIntegrity;
 using ParentalGuard.Vision.Pipeline;
 
 // Đợt 1 (ROADMAP.md): pipeline 7 bước đầy đủ (Architecture/05-image-pipeline-architecture.md).
@@ -33,6 +34,15 @@ catch (Exception ex) when (ex is IOException or ArgumentException or EndOfStream
 var client = new IpcChildClient(ProcessType.Vision, bootstrap);
 
 byte[] modelBytes = await File.ReadAllBytesAsync(ModelPaths.OnnxModelPath, cts.Token).ConfigureAwait(false);
+
+// Architecture/05 mục 7 (ADR-46, MISC-090): verify checksum TRƯỚC khi load InferenceSession — tránh
+// TOCTOU (đọc byte[] 1 lần, load thẳng từ buffer đã verify) và không chạy pipeline ở trạng thái model
+// không tin cậy.
+if (!OnnxChecksumVerifier.Verify(modelBytes, Convert.FromHexString(ExpectedModelChecksum.Sha256Hex)))
+{
+    Array.Clear(modelBytes); // IMG-003 — zero-out ngay cả khi phát hiện tamper, không giữ lại trong RAM
+    return VisionExitCodes.ModelIntegrityCheckFailed;
+}
 
 OrtEnv.Instance().DisableTelemetryEvents(); // IMG-015 — hardening bắt buộc dù ONNX Runtime mặc định không cần network.
 using var sessionOptions = new SessionOptions();

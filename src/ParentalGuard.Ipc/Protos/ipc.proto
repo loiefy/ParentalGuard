@@ -91,6 +91,9 @@ message IpcPayload {
     ConfigUpdateResponse config_update_resp = 151;
     RemoveWhitelistEntryRequest remove_whitelist_req = 152;
     RemoveWhitelistEntryResponse remove_whitelist_resp = 153;
+    // Đợt 8 (MISC-010 hoàn chỉnh) — verify toàn bộ hash-chain on-demand, Architecture/03 mục 3.7 (ADR-136)
+    VerifyAuditChainRequest verify_audit_chain_req = 154;
+    VerifyAuditChainResponse verify_audit_chain_resp = 155;
   }
 }
 
@@ -157,8 +160,10 @@ message VisionInferenceResult {
   float risk_score = 4;
   Rect bbox = 5;
   int64 captured_at_unix_ms = 6;
-  // field 7 (process_name, MISC-030/ADR-111) — dành cho Đợt 6, chưa implement ở lượt này (ngoài
-  // phạm vi Đợt 7); KHÔNG dùng lại số 7 cho field khác.
+  string process_name = 7; // Đợt 8 (MISC-030/ADR-111) — tên file process foreground (không full path,
+                            // BE-073a), lấy từ ForegroundWindowTracker đã resolve sẵn cho exclude-list
+                            // (Architecture/05 mục 4.1), KHÔNG resolve thêm lần nào khác. Service lưu
+                            // vào ContentBlocked.detail.processName (Architecture/04 mục 5.1).
   bool content_changed = 8; // Đợt 7 (PERF-010/011, IMG-011, ADR-134) — kết quả so sánh pHash (dHash
                              // 64-bit) giữa frame này và frame trước đó CÙNG window_handle
                              // (Architecture/05-image-pipeline-architecture.md mục 3.8). LUÔN điền
@@ -605,4 +610,28 @@ enum RemoveWhitelistEntryResult {
   REMOVE_WHITELIST_ENTRY_RESULT_SUCCESS = 1;
   REMOVE_WHITELIST_ENTRY_RESULT_INVALID_TOKEN = 2;
   REMOVE_WHITELIST_ENTRY_RESULT_NOT_FOUND = 3;
+}
+
+// --- Đợt 8, `S3` Kiểm tra tính toàn vẹn audit log (field 154/155 của khối UI 140-159) ---
+// Nguồn: Architecture/03-ipc-communication.md mục 3.7 (ADR-136, ADR-142), Architecture/04-data-architecture.md
+// mục 5.3a (ADR-138), Architecture/10-ui-architecture.md mục 6.3 (ADR-141) — Approved.
+
+// 2026-09-29 audit fix (ADR-142) — request KHÔNG mang action_token riêng vẫn giữ nguyên ý đồ gốc (S3
+// đã qua gate view_audit_log lúc vào trang), nhưng Service BẮT BUỘC enforce qua state AuditLogViewSession
+// của đúng kết nối hiện tại (cùng cơ chế session-scoped gate đã sửa lỗ hổng PWD-020 ở Đợt 7) — không có
+// field request nào đổi, chỉ response cần thêm result để biểu thị trường hợp gate chưa mở/hết hạn.
+message VerifyAuditChainRequest {} // field 154 — không mang action_token (thao tác đọc thuần, S3 đã qua gate view_audit_log lúc vào trang)
+
+enum VerifyAuditChainResult {
+  VERIFY_AUDIT_CHAIN_RESULT_UNSPECIFIED = 0;
+  VERIFY_AUDIT_CHAIN_RESULT_SUCCESS = 1;
+  VERIFY_AUDIT_CHAIN_RESULT_INVALID_TOKEN = 2; // session AuditLogViewSession chưa qua gate view_audit_log / đã hết hạn 10 phút
+}
+
+message VerifyAuditChainResponse { // field 155
+  VerifyAuditChainResult result = 5; // ADR-142 — field 1-4 dưới đây CHỈ có ý nghĩa khi result=SUCCESS
+  bool is_intact = 1;
+  int64 total_records_scanned = 2;
+  int64 broken_at_seq = 3; // 0 nếu is_intact=true
+  int64 verified_at_unix_ms = 4; // = audit_meta.last_full_verify_at_unix_ms sau khi ghi xong
 }

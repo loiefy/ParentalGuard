@@ -81,6 +81,7 @@ public sealed class Worker(
         var monitoringStateHolder = new MonitoringStateHolder(config.MonitoringState);
 
         ApplyWfpBestEffort();
+        ApplyWerPolicyBestEffort();
 
         // Đợt 5 (PAUSE-0xx, Architecture/02 mục 3a.3) — neo trusted_now (ADR-105, tái dùng đúng
         // "monotonic anchor" đã có ở Architecture/08 ADR-77) TRƯỚC khi quyết định khôi phục Pause,
@@ -106,7 +107,7 @@ public sealed class Worker(
             config.IpcHmacKey,
             _auditLog,
             loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.ChildProcessSupervisor.Overlay"),
-            BuildOverlayOneTimeMessages(config),
+            BuildOverlayOneTimeMessages(config, _auditLog.ChainWasBrokenAtStartup),
             onBusinessMessage: (message, ct) => DispatchOverlayBusinessMessageAsync(message, ct),
             onSessionConnected: OnChildSessionConnected,
             onSessionEnded: () => _iconStatusCoordinator!.SetState(IconState.Error),
@@ -199,7 +200,7 @@ public sealed class Worker(
             _auditLog,
             () => _visionSupervisor!.TryEnqueueBusinessMessage(
                 payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)));
-        _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock);
+        _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock, InstallPaths.ConfigDbPath);
 
         StartUiSessionServer(stoppingToken);
         StartVisionNetworkWatcherBestEffort();
@@ -250,6 +251,19 @@ public sealed class Worker(
             // Cần binary Vision đã tồn tại đúng %ProgramFiles%\ParentalGuard\ + quyền quản trị WFP
             // engine — không có ở Đợt 0 sandbox dev. Không chặn Starting vì lý do này.
             logger.LogWarning(ex, "Could not apply WFP network block for Vision — continuing.");
+        }
+    }
+
+    /// <summary>`SEC-020` (Architecture/06 mục 6, ADR-140) — idempotent/best-effort, không chặn Starting nếu ghi registry lỗi (lý thuyết — Service chạy LocalSystem luôn có quyền ghi `HKLM`).</summary>
+    private void ApplyWerPolicyBestEffort()
+    {
+        try
+        {
+            WerPolicyProvisioner.Apply(Path.GetFileName(InstallPaths.VisionExecutablePath));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            logger.LogWarning(ex, "Could not apply WER exclusion policy for Vision (needs SYSTEM/admin) — continuing.");
         }
     }
 
@@ -559,17 +573,25 @@ public sealed class Worker(
         return command;
     }
 
-    // Bước 7 luồng fail-secure (BE-061b/ANTI-070b, Architecture/04 mục 6.2, Architecture/03 mục 3.2):
-    // chỉ gửi 1 lần khi Service khởi động ở fail-secure fallback — không phải state hiện hành nên
-    // không resend mỗi lần Overlay reconnect (ChildProcessSupervisor.oneTimeInitialMessages).
-    private static IReadOnlyList<Action<IpcPayload>>? BuildOverlayOneTimeMessages(ConfigLoadResult config)
+    // Bước 7 luồng fail-secure (BE-061b/ANTI-070b, Architecture/04 mục 6.2, Architecture/03 mục 3.2)
+    // + ADR-139 (Architecture/04 mục 5.3a, Đợt 8): cả 2 đều là sự kiện 1 lần lúc khởi động, không phải
+    // state hiện hành nên không resend mỗi lần Overlay reconnect (ChildProcessSupervisor.oneTimeInitialMessages).
+    // AuditLogWriter.InitializeAsync chạy TRƯỚC khi Overlay supervisor tồn tại nên không thể gửi Toast
+    // ngay tại chỗ phát hiện — Worker đọc lại cờ ChainWasBrokenAtStartup ở đây, SAU KHI đã sẵn sàng.
+    private static IReadOnlyList<Action<IpcPayload>>? BuildOverlayOneTimeMessages(ConfigLoadResult config, bool auditChainWasBrokenAtStartup)
     {
-        if (!config.UsedFailSecureFallback)
+        List<Action<IpcPayload>> messages = [];
+        if (config.UsedFailSecureFallback)
         {
-            return null;
+            messages.Add(payload => payload.ShowToast = BuildFailSecureToast(payload.MessageId));
         }
 
-        return [payload => payload.ShowToast = BuildFailSecureToast(payload.MessageId)];
+        if (auditChainWasBrokenAtStartup)
+        {
+            messages.Add(payload => payload.ShowToast = BuildAuditChainBrokenToast(payload.MessageId));
+        }
+
+        return messages.Count == 0 ? null : messages;
     }
 
     private static ShowToastCommand BuildFailSecureToast(ulong messageId)
@@ -580,6 +602,19 @@ public sealed class Worker(
             Text = "Cấu hình giám sát không còn toàn vẹn, đã tự động khôi phục về mặc định an toàn. Vui lòng kiểm tra lại.",
             Severity = ToastSeverity.Warning,
             ReasonCode = "CONFIG_FALLBACK_TRIGGERED",
+            GeneratedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        };
+    }
+
+    /// <summary>ADR-139 (Architecture/04 mục 5.3a) — sequencing đã sửa: boot-time phát hiện đứt chain (`AuditLogWriter.InitializeAsync`) không tự gửi Toast được, hoãn phát tới đây.</summary>
+    private static ShowToastCommand BuildAuditChainBrokenToast(ulong messageId)
+    {
+        return new ShowToastCommand
+        {
+            ToastId = unchecked((uint)messageId),
+            Text = "Nhật ký giám sát có dấu hiệu bị can thiệp. Vui lòng kiểm tra lại lịch sử trong Dashboard.",
+            Severity = ToastSeverity.Warning,
+            ReasonCode = "AUDIT_CHAIN_BROKEN_DETECTED",
             GeneratedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
         };
     }

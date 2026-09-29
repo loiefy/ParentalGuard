@@ -1,12 +1,14 @@
 # 06 — Security Architecture
 
-> Version: v0.1.3 | Trạng thái: Approved | Cập nhật: 2026-09-19
+> Version: v0.1.4 | Trạng thái: Approved | Cập nhật: 2026-09-28
 
 ## 1. Mục đích
 
 File này trả lời **HOW** cho phần bảo mật tầng hệ điều hành chưa được chi tiết hoá ở các file trước: Windows token/Integrity Level cho `Vision`/`Overlay` (mở rộng `BE-023a`/`BE-023b`), luật WFP chặn network cho `Vision` (`SEC-010`, `SEC-016`–`018`), ACL cụ thể cho toàn bộ file/thư mục/registry (hệ thống hoá layout đã có ở `04-data-architecture.md` mục 2 và `ANTI-030`/`031`), và cách áp dụng DPAPI cụ thể (`SEC-040`/`040a`). Không phát minh yêu cầu sản phẩm mới — mọi quyết định trích dẫn ngược `Specification/04-security-spec.md`, `05-anti-uninstall-tamper-spec.md`, `02-backend-spec.md`, hoặc là ADR thuần kỹ thuật.
 
-File này **không** thiết kế lại: (a) ACL/xác thực chữ ký/HMAC của Named Pipe — đã chốt ở `03-ipc-communication.md` mục 2/4/5, chỉ bổ sung 1 hệ quả kỹ thuật còn thiếu (mục 2.5); (b) chi tiết Dual Watchdog, giám sát thay đổi registry bất thường, custom uninstaller — thuộc `09-anti-tamper-architecture.md`, ở đây chỉ định nghĩa **chính sách ACL nền tảng** mà `09` sẽ tái sử dụng; (c) crash dump policy (`SEC-020`) — chưa trong phạm vi Đợt 0 theo `ROADMAP.md`, để ở file phù hợp khi đến Đợt 8.
+File này **không** thiết kế lại: (a) ACL/xác thực chữ ký/HMAC của Named Pipe — đã chốt ở `03-ipc-communication.md` mục 2/4/5, chỉ bổ sung 1 hệ quả kỹ thuật còn thiếu (mục 2.5); (b) chi tiết Dual Watchdog, giám sát thay đổi registry bất thường, custom uninstaller — thuộc `09-anti-tamper-architecture.md`, ở đây chỉ định nghĩa **chính sách ACL nền tảng** mà `09` sẽ tái sử dụng.
+
+Cập nhật v0.1.4 (Đợt 8): mục 1 (v0.1.0-v0.1.3) từng ghi "crash dump policy (`SEC-020`) — chưa trong phạm vi Đợt 0... để ở file phù hợp khi đến Đợt 8" — nay đến đúng Đợt 8, thiết kế đầy đủ ở mục 6 mới bên dưới.
 
 Ghi chú traceability quan trọng: `Specification/04-security-spec.md` mục 10 có 1 câu hỏi mở còn hiệu lực — *"Định nghĩa cụ thể 'restricted token' ở mức tối thiểu Phase 1 (SEC-010/SEC-016) — dùng Windows Job Object + restricted token cổ điển, hay có cơ chế nhẹ hơn khác? Quyết định kỹ thuật cụ thể ở System Design."* — spec đã chủ động **uỷ quyền quyết định này cho tài liệu kiến trúc**, nên mục 2 dưới đây chính là câu trả lời chính thức, không cần quay lại sửa spec (khác với các trường hợp phải quay lại sửa spec vì thiếu quyết định WHAT).
 
@@ -160,7 +162,27 @@ Việc gỡ bỏ Provider/Sublayer/Filter WFP lúc uninstall hợp lệ (`ANTI-0
 
 - **Hệ quả khi cài lại Windows** (không phải edge case mới, chỉ ghi nhận rõ ở đây): DPAPI machine master key gắn với cài đặt Windows hiện tại — cài lại OS làm mất khả năng giải mã `config.db`/`auth.dat` cũ. Hành vi này **khớp đúng** luồng fail-secure đã thiết kế sẵn ở `04-data-architecture.md` mục 6 (coi như "không giải mã được" → tạo mới toàn bộ với default an toàn) — không cần xử lý gì thêm ở đây.
 
-## 6. Bảng ADR (không map trực tiếp 1 Requirement ID)
+## 6. Chính sách Crash Dump — Windows Error Reporting (`SEC-020`, Đợt 8)
+
+### 6.1 Phạm vi và cơ chế
+
+- `SEC-020`: chỉ `ParentalGuard.Vision.exe` bị giới hạn (đúng nghĩa đen yêu cầu — process này giữ frame ảnh trong bộ nhớ, `01`/`06` mục 2.3) — **không** áp dụng cho `Service`/`Overlay`/`UI`/`Watchdog`/`Uninstaller`, đúng phạm vi hẹp đã áp dụng nhất quán cho `SEC-010`/WFP (mục 3.2: "chỉ áp dụng cho `ParentalGuard.Vision.exe`... không tự ý mở rộng thêm").
+- **Biện pháp chính (loại trừ hoàn toàn khỏi WER)**: `Service` ghi registry `HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\ExcludedApplications\ParentalGuard.Vision.exe` = `REG_DWORD 1` — đây là cơ chế chính thức của Windows để loại 1 executable cụ thể (theo tên file) khỏi toàn bộ luồng xử lý WER khi crash (không tạo dump, không hiện dialog báo lỗi, không gửi báo cáo nào tới Microsoft) — chọn "tắt hẳn" thay vì "chỉ cho phép mini-dump" (2 lựa chọn `SEC-020` đưa ra, nối bằng "hoặc") vì đơn giản hơn (1 registry key duy nhất, không cần phân biệt `DumpType`) và triệt để hơn (không có dump nào được tạo ra để lo rò rỉ, thay vì phải tin tưởng "mini-dump không chứa heap data ảnh" — mini-dump theo mặc định của Windows (`MiniDumpNormal`) thực ra **vẫn có thể chứa 1 phần stack/thread context**, không tuyệt đối "sạch" như bản thân chữ "mini" gợi ý).
+- **Biện pháp phụ (defense-in-depth, phòng trường hợp `ExcludedApplications` bị ghi đè/không có hiệu lực do Group Policy máy đó cấu hình khác)**: đồng thời ghi thêm `HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\ParentalGuard.Vision.exe\DumpType` = `REG_DWORD 1` (Mini, không phải `2` = Full) — nếu vì lý do nào đó `ExcludedApplications` không chặn được và WER vẫn tạo dump cục bộ, dump đó tối thiểu không phải **full** memory dump (điều `SEC-020` thực sự lo ngại nhất: "full dump có thể chứa vùng nhớ chứa frame ảnh").
+- **Chẩn đoán lỗi thay thế**: `Service` đã có đủ cơ chế chẩn đoán không cần dump (exit code cụ thể theo bảng `05-image-pipeline-architecture.md` mục 8.2, `diagnostic_state` free-text qua heartbeat — `05` ADR-45, audit log `ProcessRestarted`) — đúng tinh thần câu chữ `SEC-020` ("thay bằng log lỗi dạng text, không có memory content"), không cần thêm cơ chế log lỗi mới nào ở đây.
+
+### 6.2 Ai áp dụng, khi nào
+
+- **`Service`** (không phải installer — đúng nguyên tắc đã áp dụng cho ACL/WFP ở mục 3.2/4.4, vì Đợt 0-8 chưa có installer thật, `11-deployment-release-architecture.md` vẫn "Chưa viết") ghi 2 key trên ở bước `Starting`, cùng lúc/cùng nhóm với `ApplyAclBestEffort`/`ApplyWfpBestEffort` (`Worker.ExecuteAsync`) — **trước khi** spawn `Vision` lần đầu.
+- **Idempotent, best-effort**: kiểm tra giá trị hiện tại trước khi ghi lại (tránh ghi registry thừa mỗi lần restart `Service`); nếu ghi thất bại (trường hợp lý thuyết — `Service` chạy LocalSystem luôn có quyền ghi `HKLM`, không có kịch bản thực tế nào thất bại ngoài lỗi hệ thống nghiêm trọng) thì **không chặn** tiến trình khởi động (giống triết lý "best-effort" đã áp dụng cho ACL/WFP) — không phải điều kiện tiên quyết để `Vision` chạy được, chỉ là 1 lớp phòng thủ bổ sung.
+- Không cần áp dụng lại khi `Vision` respawn (crash-restart, đổi session) — registry key theo tên file, không theo PID, hiệu lực xuyên suốt mọi lần spawn cùng 1 binary (giống lý luận đã áp dụng cho WFP filter, mục 3.2).
+
+### 6.3 Rủi ro dư ghi nhận minh bạch
+
+- **Task Manager "Create dump file"/công cụ debug chủ động** (`procdump`, `WinDbg`...) **không** bị 2 registry key trên chặn — các key này chỉ chi phối luồng WER **tự động** khi crash không kiểm soát (unhandled exception), không chi phối hành động **chủ động** của 1 người có quyền Administrator nhắm thẳng vào `Vision.exe` để tạo dump thủ công. Đây là rủi ro dư nằm ngoài phạm vi bảo vệ Phase 1 theo đúng `SEC-005` (ranh giới Administrator) — không phải thiếu sót của thiết kế này, ghi nhận minh bạch cùng tinh thần các rủi ro dư khác đã ghi ở file này (mục 2.2, MIC no-read-up).
+- Không thiết kế cơ chế nào để "tự xoá dump nếu lỡ có" — nếu Administrator chủ động tạo dump nằm ngoài khả năng ngăn chặn bằng chính sách WER, không có giá trị bảo mật thêm khi cố dọn dẹp sau đó.
+
+## 7. Bảng ADR (không map trực tiếp 1 Requirement ID)
 
 | # | Quyết định | Lý do |
 |---|---|---|
@@ -172,17 +194,19 @@ Việc gỡ bỏ Provider/Sublayer/Filter WFP lúc uninstall hợp lệ (`ANTI-0
 | ADR-35 | DPAPI dùng `ProtectedData` (classic, machine-scope) + entropy bổ sung hằng số nhúng trong `Service`, không dùng DPAPI-NG | Khớp đúng chữ nghĩa `SEC-040`; DPAPI-NG không phù hợp môi trường non-domain-joined của nhóm khách hàng mục tiêu |
 | ADR-36 | `Administrators` chỉ có `Modify` (không `Full Control`) trên `%ProgramFiles%\ParentalGuard\`; `%ProgramData%`/registry Service key chỉ `SYSTEM` tuyệt đối kể cả `Administrators` | Least-privilege áp dụng cả cho tài khoản tin cậy, tăng ma sát/dấu vết cho hành vi bất thường — không phải rào cản tuyệt đối chống 1 Administrator thật (đã ghi nhận rõ ở `SEC-005`) |
 | ADR-37 | `Service` tự áp dụng ACL (file/registry) idempotent mỗi lần `Starting`, không chỉ dựa vào installer set 1 lần | Đợt 0 chưa có installer thật (Đợt 9 `ROADMAP.md`); đồng thời tạo sẵn cơ chế self-heal ACL hữu ích cho `09-anti-tamper-architecture.md` tái sử dụng |
+| ADR-140 (v0.1.4) | `SEC-020`: loại `Vision.exe` khỏi WER qua `ExcludedApplications` (chính) + `LocalDumps\DumpType=1` (phụ, defense-in-depth) — không chọn nhánh "chỉ cho phép mini-dump" làm biện pháp chính | "Tắt hẳn" đơn giản hơn (1 key) và triệt để hơn "chỉ mini" (mini-dump mặc định Windows vẫn có thể chứa 1 phần stack/thread context, không tuyệt đối sạch); `Service` áp dụng idempotent/best-effort lúc `Starting`, cùng nhóm ACL/WFP |
 
-## 7. Câu hỏi mở
+## 8. Câu hỏi mở
 
 - [ ] **Cần validate thực nghiệm ở Đợt 1** (`05-image-pipeline-architecture.md`, khi thật sự code Desktop Duplication API): `Vision` chạy Low Integrity Level (ADR-30) có tương thích với `IDXGIOutputDuplication`/`AcquireNextFrame` trên các driver GPU phổ biến (Intel/NVIDIA/AMD) hay không. Nếu phát hiện không tương thích: fallback đã định sẵn ở mục 2.2 phương án D (giữ Restricted Token, nâng lại Medium IL) — chỉ đổi 1 tham số `SetTokenInformation` lúc spawn, không phải thiết kế lại kiến trúc, ghi nhận kết quả tại `05-image-pipeline-architecture.md` khi đến Đợt 1.
 - [ ] Giá trị chính xác weight WFP filter (hiện tạm `15`, mức tối đa thang tự động) và chu kỳ/độ trễ chấp nhận được của `EventLogWatcher` theo dõi Event 5157 — để tinh chỉnh thực nghiệm lúc code Đợt 0, không chốt số tuyệt đối ở tài liệu kiến trúc.
 - [x] ~~Cần bổ sung 1 dòng vào bảng `event_type` ở `04-data-architecture.md` mục 5.1 cho `VisionNetworkBlocked`~~ — **Đã xong** (`04` v0.2.1, cùng lượt viết `08-password-authentication-architecture.md` Đợt 3, tiện thể đóng khoản nợ kỹ thuật này).
 
-## 8. Changelog file này
+## 9. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.1.4 | 2026-09-28 | PATCH — Đợt 8 (`ROADMAP.md` mục 4, Additional mechanisms & hardening). Thêm mục 6 mới "Chính sách Crash Dump — Windows Error Reporting (`SEC-020`)" — loại `ParentalGuard.Vision.exe` khỏi WER qua `ExcludedApplications` (registry, chính) + `LocalDumps\DumpType=1` (phụ, defense-in-depth); `Service` áp dụng idempotent/best-effort lúc `Starting`, cùng nhóm ACL/WFP đã có; ghi nhận minh bạch rủi ro dư (Task Manager/`procdump` chủ động bởi Administrator không bị chặn, đúng ranh giới `SEC-005`). Renumbering: mục 6 (Bảng ADR)→7, mục 7 (Câu hỏi mở)→8, mục 8 (Changelog)→9. 1 ADR mới (140). Xác nhận `SEC-030`/`SEC-031` **không** thuộc phạm vi Đợt 8 (đúng bảng domain `ROADMAP.md` mục 3 "Dev/Release infra | `DEV-0xx` | 09, 10" — `SEC-030` là SignPath CI signing thuộc `11-deployment-release-architecture.md`/Đợt 9; `SEC-031` Behavior Disclosure là tài liệu thuần, không phải quyết định kiến trúc, ngoài phạm vi `architecture-writer`). Không phát hiện gap nào với `Specification/` cần `spec-maintainer` xử lý |
 | v0.1.3 | 2026-09-19 | PATCH — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Mục 4.1: đổi "5 executable" → "6 executable" (thêm `Uninstaller.exe`, cùng hàng ACL Modify/Read+Execute). Mục 4.2: sửa tham chiếu số file còn sót "chi tiết ở `07`" → "`09-anti-tamper-architecture.md` mục 5.5" (nợ kỹ thuật sót lại qua 2 lần renumbering trước, `07`→`08`→`09`, phát hiện khi viết `09`) + làm rõ ai thực sự xoá `%ProgramData%` (`Service`/SYSTEM, không phải `Uninstaller.exe`/Administrators — đúng thiết kế phân công ở `09` mục 5.5/ADR-96). Không đổi bất kỳ quyết định ACL/token/WFP/DPAPI nào khác |
 | v0.1.2 | 2026-09-19 | PATCH — amendment cùng lượt viết `08-password-authentication-architecture.md` (Đợt 3). Đổi 6 tham chiếu số file: 5 chỗ `08-anti-tamper-architecture.md`→`09-anti-tamper-architecture.md` (mục 1, mục 3.1, mục 3.4, mục 4.3, ADR-37, mục 4.4 — 2 chỗ ở mục 4.3/4.4 là nợ kỹ thuật sót lại từ lần renumbering v0.1.1 trước đó, nay phát hiện và sửa luôn) và 1 chỗ `09-deployment-release-architecture.md`→`11-deployment-release-architecture.md` (mục 4.4), theo renumbering ở `00-INDEX.md` khi chèn `08-password-authentication-architecture.md` mới. Đóng câu hỏi mở mục 7 về dòng `event_type` `VisionNetworkBlocked` còn thiếu ở `04` (nay đã bổ sung, `04` v0.2.1). Không đổi nội dung quyết định bảo mật |
 | v0.1.1 | 2026-09-19 | PATCH — đổi 4 tham chiếu `07-anti-tamper-architecture.md` thành `08-anti-tamper-architecture.md` (mục 1, mục 3.1, mục 3.4, ADR-37), theo renumbering ở `00-INDEX.md` (chèn `07-overlay-architecture.md` mới cho Đợt 2). Không đổi nội dung quyết định |

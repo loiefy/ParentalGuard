@@ -29,16 +29,18 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
     /// <summary>Dùng làm <c>configureInitialPush</c> khi Overlay (re)connect — gửi lại state hiện hành (fail-secure).</summary>
     public void ConfigureInitialPush(IpcPayload payload) => payload.OverlayRects = BuildCommand();
 
-    public Task HandleVisionResultAsync(IpcPayload message, CancellationToken cancellationToken)
+    public async Task HandleVisionResultAsync(IpcPayload message, CancellationToken cancellationToken)
     {
         VisionInferenceResult result = message.VisionResult;
         bool violates = OverlayThresholdDecision.Violates(result.RiskScore, currentRiskThreshold());
         bool changed;
+        bool isNewViolation;
         lock (_sync)
         {
             if (violates)
             {
-                uint overlayId = _active.TryGetValue(result.WindowHandle, out OverlayRect? existing) ? existing.OverlayId : _nextOverlayId++;
+                bool wasActive = _active.TryGetValue(result.WindowHandle, out OverlayRect? existing);
+                uint overlayId = wasActive ? existing!.OverlayId : _nextOverlayId++;
                 var updated = new OverlayRect
                 {
                     WindowHandle = result.WindowHandle,
@@ -47,12 +49,14 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
                     OverlayId = overlayId,
                     Reason = OverlayReason.ContentViolation,
                 };
-                changed = !_active.TryGetValue(result.WindowHandle, out OverlayRect? current) || !RectEquals(current, updated);
+                changed = !wasActive || !RectEquals(existing!, updated);
+                isNewViolation = !wasActive; // ADR-137 (Architecture/04 mục 5.1): edge-triggered — CHUYỂN từ không-vi-phạm sang vi-phạm
                 _active[result.WindowHandle] = updated;
             }
             else
             {
                 changed = _active.Remove(result.WindowHandle);
+                isNewViolation = false;
             }
         }
 
@@ -61,7 +65,21 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
             PushCurrentList();
         }
 
-        return Task.CompletedTask;
+        if (isNewViolation)
+        {
+            // ADR-137: đúng 1 record/lượt block — không ghi lặp lại mỗi lần bbox đổi trong lúc vẫn
+            // đang vi phạm (đó là nhánh `changed=true && isNewViolation=false` ở trên, cố tình bỏ qua).
+            await auditLog.AppendAsync(
+                "ContentBlocked",
+                new
+                {
+                    windowHandle = result.WindowHandle,
+                    processName = result.ProcessName,
+                    riskScore = result.RiskScore,
+                    bbox = new { x = result.Bbox?.X ?? 0, y = result.Bbox?.Y ?? 0, width = result.Bbox?.Width ?? 0, height = result.Bbox?.Height ?? 0 },
+                },
+                CancellationToken.None).ConfigureAwait(false);
+        }
     }
 
     public async Task HandleForceCloseAsync(IpcPayload message, CancellationToken cancellationToken)
