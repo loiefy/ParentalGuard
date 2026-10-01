@@ -88,6 +88,10 @@ public sealed partial class DashboardViewModel(
     public partial bool VisionCpuFallback { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VisionStatusText))]
+    public partial bool VisionPipelineError { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OverlayStatusText))]
     public partial bool OverlayConnected { get; set; }
 
@@ -151,6 +155,8 @@ public sealed partial class DashboardViewModel(
     /// <summary>Mục 6.2.4/`FE-041` — so khớp chuỗi con đơn giản trên <c>vision_diagnostic_state</c>, không tự diễn giải thêm.</summary>
     public string VisionStatusText => !IsStatusKnown ? LocalizationService.Get("DashboardHealthChecking") : !VisionConnected
         ? LocalizationService.Get("DashboardHealthVisionDown")
+        : VisionPipelineError
+            ? LocalizationService.Get("DashboardHealthVisionPipelineError")
         : VisionCpuFallback
             ? LocalizationService.Get("DashboardHealthVisionCpuFallback")
             : LocalizationService.Get("DashboardHealthVisionOk");
@@ -223,6 +229,9 @@ public sealed partial class DashboardViewModel(
         DiskSpaceLow = status.AuditLogFreeDiskBytes < _diskSpaceWarningThresholdBytes;
         VisionDiagnosticStateDetail = status.VisionDiagnosticState;
         VisionCpuFallback = status.VisionDiagnosticState.Contains("cpu-fallback", StringComparison.Ordinal);
+        // FE-041a (2026-10-01): bỏ khung "Chi tiết kỹ thuật" (chuỗi chẩn đoán thô vô nghĩa với phụ huynh) — thay bằng
+        // cảnh báo rõ ràng ngay trên dòng Vision khi pipeline đang lỗi liên tiếp.
+        VisionPipelineError = status.VisionDiagnosticState.Contains("pipeline-error", StringComparison.Ordinal);
         ShowAnomalyBanner = status.PauseAnomalyPendingAck;
         IsPaused = status.IsPaused;
         PauseCountdownText = status.IsPaused ? FormatCountdown(status.PauseExpiresAtUnixMs) : string.Empty;

@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.2.10 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.2.11 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -285,6 +285,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.11 | 2026-10-01 | PATCH — Spec v0.8.5: (1) `FE-005c` ô lưới 190 DIP, bỏ trống 15%, lệch ngẫu nhiên ra ngoài ô, cỡ chùm 1.4–2.5x, màu cánh #222227/#F2F2F5. (2) `FE-006` `MainWindow` đặt màu `AppWindow.TitleBar` (nền/chữ/nút, active/inactive/hover) theo `ActualTheme` của `RootFrame`. (3) `FE-041a` bỏ `Expander` chẩn đoán; `DashboardViewModel.VisionPipelineError` (khớp chuỗi `pipeline-error` trong `vision_diagnostic_state`) → cảnh báo trên dòng Vision. (4) `S10` `AboutPage` (nav Tag `About`, không gate): giá trị tên đơn vị/email/PayPal đọc từ `UiStrings.resx` (`About*Value`) — trống hiện "(đang cập nhật)", URL http(s) → `HyperlinkButton` (trình duyệt mặc định), email → `mailto:` |
 | v0.2.10 | 2026-10-01 | PATCH — `FE-005b`: bỏ bông sen `Viewbox`; `FlowerCanvas` vẽ ở code-behind theo lưới ô 280 DIP neo góc trên-trái vùng nội dung, mỗi ô có/không 1 chùm (3 bông 5 cánh + chấm) vị trí/xoay suy tất định từ chỉ số ô — cỡ cố định, vẽ lại khi đổi kích thước/theme. `S4`: `PasswordBox` rộng 360 căn trái |
 | v0.2.9 | 2026-10-01 | PATCH — `FE-005a`: `S4` mỗi hạng mục = heading + `StackPanel` thụt 24px + `Border` 1px `DividerStrokeColorDefaultBrush` giữa các hạng mục; `MISC-030c`: nút "Khôi phục cài đặt gốc" (S5 `manage_whitelist`, tự mở lại S5 1 lần khi token hết hạn) |
 | v0.2.8 | 2026-10-01 | PATCH — `FE-005`: `MainShellPage` thêm 2 lớp nền phía sau `NavigationView` (nền nội dung + bông sen vector trong `Viewbox` lưới 1/8/1 ≈ 80%; nền thanh menu + hình tròn mờ vẽ ở code-behind theo dãy giả ngẫu nhiên tất định), override các brush nền của `NavigationView` thành trong suốt; `PaneDisplayMode=Left` (pane luôn nằm cạnh, không chồng lên nội dung — tránh pane trong suốt đè chữ), `OpenPaneLength=240`. Màu theo theme Dark/Light |

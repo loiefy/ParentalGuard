@@ -145,6 +145,48 @@
   <data name="NavSettings" xml:space="preserve">
     <value>Cài đặt</value>
   </data>
+  <data name="NavAbout" xml:space="preserve">
+    <value>Giới thiệu</value>
+  </data>
+
+  <!-- FE-090/FE-091 (2026-10-01): tab Giới thiệu + Donate. Giá trị *Value để trống = hiển thị "(đang cập nhật)";
+       chủ dự án điền sau trực tiếp tại đây (không cần sửa code). -->
+  <data name="AboutHeader" xml:space="preserve">
+    <value>Về chúng tôi</value>
+  </data>
+  <data name="AboutIntro" xml:space="preserve">
+    <value>ParentalGuard là dự án cộng đồng giúp bảo vệ trẻ em khỏi nội dung không phù hợp. Ứng dụng chạy hoàn toàn trên máy của bạn — không gửi hình ảnh hay dữ liệu cá nhân ra ngoài.</value>
+  </data>
+  <data name="AboutCompanyNameLabel" xml:space="preserve">
+    <value>Đơn vị phát triển</value>
+  </data>
+  <data name="AboutCompanyNameValue" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AboutEmailLabel" xml:space="preserve">
+    <value>Email liên hệ</value>
+  </data>
+  <data name="AboutEmailValue" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AboutVersionLabel" xml:space="preserve">
+    <value>Phiên bản</value>
+  </data>
+  <data name="AboutDonateHeader" xml:space="preserve">
+    <value>Ủng hộ dự án (Donate)</value>
+  </data>
+  <data name="AboutDonateIntro" xml:space="preserve">
+    <value>ParentalGuard miễn phí. Nếu thấy hữu ích, bạn có thể ủng hộ để dự án tiếp tục được duy trì và phát triển.</value>
+  </data>
+  <data name="AboutPayPalLabel" xml:space="preserve">
+    <value>PayPal</value>
+  </data>
+  <data name="AboutPayPalValue" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AboutNotYetAvailable" xml:space="preserve">
+    <value>(đang cập nhật)</value>
+  </data>
   <data name="PlaceholderInDevelopment" xml:space="preserve">
     <value>Đang phát triển</value>
   </data>
@@ -219,6 +261,9 @@
   <data name="DashboardHealthVisionOk" xml:space="preserve">
     <value>✓ Vision Engine hoạt động bình thường</value>
   </data>
+  <data name="DashboardHealthVisionPipelineError" xml:space="preserve">
+    <value>⚠ Vision Engine đang gặp lỗi xử lý ảnh — đang tự khôi phục. Nếu kéo dài, hãy khởi động lại máy.</value>
+  </data>
   <data name="DashboardHealthVisionCpuFallback" xml:space="preserve">
     <value>⚠ Vision Engine đang chạy chế độ CPU dự phòng (chậm hơn bình thường)</value>
   </data>
@@ -239,9 +284,6 @@
   </data>
   <data name="DashboardHealthFallbackConfig" xml:space="preserve">
     <value>⚠ Đang dùng cấu hình mặc định do sự cố, vui lòng kiểm tra</value>
-  </data>
-  <data name="DashboardHealthDetailsHeader" xml:space="preserve">
-    <value>Chi tiết kỹ thuật</value>
   </data>
 
   <!-- S2 Dashboard — biểu đồ (FE-070-072). -->

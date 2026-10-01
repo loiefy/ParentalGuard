@@ -64,10 +64,6 @@
                 <TextBlock Text="{x:Bind ViewModel.OverlayStatusText, Mode=OneWay}" />
                 <InfoBar x:Name="DiskSpaceLowInfoBar" Severity="Warning" IsOpen="{x:Bind ViewModel.DiskSpaceLow, Mode=OneWay}" IsClosable="False" />
                 <InfoBar x:Name="FallbackConfigInfoBar" Severity="Warning" IsOpen="{x:Bind ViewModel.UsingFallbackConfig, Mode=OneWay}" IsClosable="False" />
-                <Expander x:Name="HealthDetailsExpander" IsExpanded="False" HorizontalContentAlignment="Stretch">
-                    <TextBlock Text="{x:Bind ViewModel.VisionDiagnosticStateDetail, Mode=OneWay}" TextWrapping="Wrap"
-                               Style="{StaticResource CaptionTextBlockStyle}" Opacity="0.8" />
-                </Expander>
             </StackPanel>
 
             <!-- 5. Biểu đồ (mục 6.2.5, FE-070-072) -->

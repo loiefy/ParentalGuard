@@ -1,0 +1,60 @@
+<Page
+    x:Class="ParentalGuard.UI.Views.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- FE-090/FE-091 (Spec 03, 2026-10-01): tab Giới thiệu — thông tin đơn vị phát triển + Donate. Cùng bố cục FE-005a. -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid Padding="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20*" MaxWidth="760" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="1" Spacing="24">
+
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="AboutHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Spacing="12" Margin="24,0,0,0">
+                        <TextBlock x:Name="AboutIntroText" TextWrapping="Wrap" Opacity="0.8" />
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="CompanyLabel" Grid.Row="0" Opacity="0.7" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="CompanyValue" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                            <TextBlock x:Name="EmailLabel" Grid.Row="1" Opacity="0.7" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="EmailValue" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VersionLabel" Grid.Row="2" Opacity="0.7" VerticalAlignment="Center" />
+                            <TextBlock x:Name="VersionValue" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" IsTextSelectionEnabled="True" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="DonateHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Spacing="12" Margin="24,0,0,0">
+                        <TextBlock x:Name="DonateIntroText" TextWrapping="Wrap" Opacity="0.8" />
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PayPalLabel" Opacity="0.7" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="PayPalValue" Grid.Column="1" VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

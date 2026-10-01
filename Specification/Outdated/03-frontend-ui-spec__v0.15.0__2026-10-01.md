@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.16.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.15.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
@@ -8,8 +8,6 @@
 - `FE-002`: UI dành cho **phụ huynh** phải rõ ràng, không gây hoang mang — vì đây là công cụ bảo vệ, không phải công cụ giám sát bí mật.
 - `FE-005` **(ĐÃ CHỐT v0.13.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Dashboard (các tab Tổng quan, Lịch sử, Cài đặt) có **nền trang trí**: vùng nội dung có hình **1 bông sen** lớn (~80% diện tích vùng nội dung), màu chỉ **tối hơn màu nền một chút**, màu nền vùng nội dung sáng hơn mặc định một chút; thanh menu trái (Tổng quan/Lịch sử/Cài đặt) có nền sáng hơn một chút, phía sau là các **hình tròn mờ sắp xếp ngẫu nhiên**. Trang trí thuần thị giác — không được làm giảm độ tương phản/khả năng đọc nội dung (`FE-050`).
 - `FE-005b` **(ĐÃ CHỐT v0.15.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, supersedes riêng phần "bông sen ~80%" của `FE-005`; phần màu nền và thanh menu của `FE-005` giữ nguyên)**: Họa tiết nền vùng nội dung là **các chùm hoa nhỏ tối giản** rải trên nền (màu tối hơn nền 1 chút), **kích thước cố định** — thay đổi kích thước cửa sổ không làm hoa phóng to/thu nhỏ (chỉ hiện thêm/bớt ở mép). Ô nhập mật khẩu ở `S4` có độ rộng giới hạn (không kéo dài hết cột).
-- `FE-005c` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, chỉnh `FE-005b`)**: Họa tiết chùm hoa **to hơn, nhiều hơn, phân bố ngẫu nhiên** (lệch khỏi lưới), màu **gần màu nền hơn** nữa — vẫn giữ kích thước cố định khi đổi cỡ cửa sổ (`FE-005b`).
-- `FE-006` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Thanh tiêu đề (title bar) cửa sổ Dashboard **cùng tông màu với nền app** (theo theme Dark/Light), không dùng thanh xám sáng mặc định.
 - `FE-005a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Màn hình Cài đặt (`S4`): mỗi hạng mục cài đặt (Thông điệp chặn nội dung, Danh sách whitelist, Chế độ hiệu năng, Đổi mật khẩu…) trình bày dạng **heading + đoạn nội dung thụt vào** — tên hạng mục là heading, toàn bộ ô nhập/chữ/nút liên quan nằm thụt vào bên dưới; giữa các hạng mục có **1 đường kẻ mờ** phân cách.
 - `FE-003`: UI phía **trẻ em** (overlay, icon trạng thái) phải tối giản, không phán xét gay gắt, đủ rõ để hiểu hành động cần làm.
 
@@ -24,7 +22,6 @@
 | S5 | Xác thực mật khẩu (Auth Prompt) | Phụ huynh | Modal yêu cầu mật khẩu trước hành động nhạy cảm (tạm dừng, gỡ, đổi cấu hình) |
 | S6 | Quên mật khẩu / Khôi phục | Phụ huynh | Luồng recovery — xem `06-password-management-spec.md` |
 | S7 | **Overlay chặn nội dung** | Trẻ em | Màn hình blur phủ browser + thông điệp + nút "Tắt nội dung" |
-| S10 | Giới thiệu (About) | Phụ huynh | Thông tin đơn vị phát triển (tên, email), phiên bản, mục Donate (`FE-090`/`FE-091`) |
 | S8 | Icon trạng thái giám sát | Trẻ em & Phụ huynh | Icon cố định góc màn hình, hover hiện tooltip trạng thái |
 | S9 | Thông báo tạm dừng đang hoạt động | Cả hai | Banner nhỏ nhắc app đang ở chế độ tạm dừng, còn lại bao lâu |
 
@@ -81,11 +78,6 @@
 - `FE-030a` (ĐÃ CHỐT v0.5.0, liên kết `PWD-030a` ở `06-password-management-spec.md`): Bước "Thiết lập khôi phục mật khẩu" bắt buộc phụ huynh tick checkbox xác nhận **"Tôi đã lưu lại Recovery Key"** trước khi cho bấm nút Tiếp tục/Hoàn tất. Nếu chưa tick, không cho hoàn tất Onboarding — nghĩa là app **chưa bắt đầu kích hoạt giám sát**, toàn bộ thiết lập mật khẩu coi như chưa xong.
 - `FE-031`: Bắt buộc phụ huynh phải đọc và xác nhận 1 đoạn giải thích ngắn: dữ liệu không rời máy, ảnh không được lưu — tăng tính minh bạch, tránh hiểu lầm về mục đích sử dụng.
 
-### 3.4 S10 — Giới thiệu (About) — ĐÃ CHỐT v0.16.0, 2026-10-01
-
-- `FE-090`: Tab **Giới thiệu** trên thanh menu trái (cạnh Tổng quan/Lịch sử/Cài đặt), không gate mật khẩu. Nội dung: giới thiệu ngắn về dự án, **tên đơn vị phát triển**, **email liên hệ**, phiên bản app. Tên đơn vị và email **tạm thời để trống** (hiển thị "(đang cập nhật)"), chủ dự án điền sau.
-- `FE-091`: Trong tab Giới thiệu có mục **Ủng hộ dự án (Donate)**, hiện **tài khoản PayPal** (tạm thời để trống, hiển thị "(đang cập nhật)"). App **không** tự xử lý thanh toán — chỉ hiển thị thông tin/liên kết; liên kết mở bằng trình duyệt mặc định của hệ thống.
-
 ## 4. Design System (tham chiếu kỹ thuật)
 
 | Thành phần | Lựa chọn |
@@ -113,7 +105,6 @@
 ## 7. Trạng thái rỗng & lỗi (Empty/Error states)
 
 - `FE-040`: Màn hình lịch sử log khi chưa có sự kiện nào → hiển thị trạng thái tích cực ("Chưa phát hiện nội dung nào cần chặn"), tránh cảm giác trống trải tiêu cực.
-- `FE-041a` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án chốt, bổ sung `FE-041`)**: **Bỏ khung "Chi tiết kỹ thuật"** (chuỗi chẩn đoán thô như `ep=directml` — vô nghĩa với phụ huynh). Thay vào đó, dòng Vision trong phần Kiểm tra tình trạng tự hiện cảnh báo rõ ràng khi Vision đang lỗi xử lý ảnh liên tiếp (cùng kiểu cảnh báo CPU dự phòng đã có).
 - `FE-041`: Khi Vision Engine gặp lỗi (model load fail, GPU không hỗ trợ DirectML...) → Dashboard hiển thị cảnh báo rõ ràng kèm hướng dẫn khắc phục cơ bản, không fail âm thầm.
 
 ## 8. Accessibility
@@ -129,7 +120,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.16.0 | 2026-10-01 | **MINOR — `FE-005c`, `FE-006`, `FE-041a`, màn hình `S10` (`FE-090`/`FE-091`) (mới, chủ dự án yêu cầu trực tiếp)**: chùm hoa to/dày/ngẫu nhiên, màu gần nền hơn; title bar cùng tông app; bỏ "Chi tiết kỹ thuật" (cảnh báo lỗi pipeline hiện trên dòng Vision); tab Giới thiệu với tên đơn vị/email/Donate PayPal (để trống chờ điền) |
 | v0.15.0 | 2026-10-01 | **MINOR — `FE-005b` (mới, supersedes phần bông sen của `FE-005`)**: họa tiết chùm hoa tối giản cỡ cố định; giới hạn độ rộng ô nhập mật khẩu |
 | v0.14.0 | 2026-10-01 | **MINOR — `FE-005a`, `FE-021a` (mới)**: bố cục Cài đặt heading + nội dung thụt vào + đường kẻ mờ giữa các hạng mục; icon trạng thái có ký hiệu tick/pause/chấm than |
 | v0.13.0 | 2026-10-01 | **MINOR — `FE-005` (mới)**: nền trang trí Dashboard — bông sen ~80% vùng nội dung (tối hơn nền 1 chút), thanh menu trái sáng hơn với hình tròn mờ ngẫu nhiên |

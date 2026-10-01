@@ -38,7 +38,6 @@ public sealed partial class DashboardPage : Page
     private void ApplyStaticLabels()
     {
         HealthTitleText.Text = LocalizationService.Get("DashboardHealthTitle");
-        HealthDetailsExpander.Header = LocalizationService.Get("DashboardHealthDetailsHeader");
         PauseDurationLabel.Text = LocalizationService.Get("DashboardPauseDurationLabel");
         PauseButton.Content = LocalizationService.Get("DashboardPauseButton");
         ResumeButton.Content = LocalizationService.Get("DashboardResumeButton");

@@ -65,6 +65,17 @@ public sealed class DashboardViewModelTests
         Assert.Equal(DashboardCardState.Active, viewModel.CardState);
     }
 
+    /// <summary>FE-041a (2026-10-01): bỏ "Chi tiết kỹ thuật" — lỗi pipeline Vision phải hiện cảnh báo rõ ngay trên dòng Vision.</summary>
+    [Fact]
+    public void ApplyStatus_PipelineErrorDiagnostic_ShowsVisionWarning()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.ApplyStatus(_healthyActiveStatus with { VisionDiagnosticState = "pipeline-error(count=4)" });
+
+        Assert.Equal(LocalizationService.Get("DashboardHealthVisionPipelineError"), viewModel.VisionStatusText);
+    }
+
     [Fact]
     public void ApplyStatus_AllChannelsHealthyAndNotPaused_YieldsActiveState()
     {

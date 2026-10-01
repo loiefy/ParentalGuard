@@ -62,6 +62,12 @@
                         <SymbolIcon Symbol="Setting" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <!-- FE-090 (2026-10-01): tab Giới thiệu (thông tin đơn vị phát triển + Donate). -->
+                <NavigationViewItem x:Name="AboutItem" Tag="About">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <Frame x:Name="ContentFrame" />
         </NavigationView>
