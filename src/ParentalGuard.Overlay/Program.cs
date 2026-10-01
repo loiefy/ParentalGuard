@@ -68,7 +68,7 @@ internal static class Program
         // Handle Windows message loop tạo ngay (không cần Show()) để Invoke() từ Thread IPC hoạt
         // động được ngay cả trước khi Application.Run() bắt đầu bơm message.
         DebugLog("Trước new OverlayCoordinator.");
-        var coordinator = new OverlayCoordinator(request => SendForceClose(client, request), update => SendIconPosition(client, update));
+        var coordinator = new OverlayCoordinator(request => SendForceClose(client, request), update => SendIconPosition(client, update), () => SendOpenDashboard(client));
         _ = coordinator.Handle;
         DebugLog("Coordinator OK — trước Task.Run RunIpcAsync + Application.Run.");
 
@@ -145,6 +145,14 @@ internal static class Program
     {
         IpcPayload payload = client.NewEnvelope();
         payload.ForceClose = request;
+        client.EnqueueOutbound(payload);
+    }
+
+    /// <summary>`FE-023`: Overlay (Low IL) không tự spawn UI — xin Service mở bằng token user (Medium IL).</summary>
+    private static void SendOpenDashboard(IpcChildClient client)
+    {
+        IpcPayload payload = client.NewEnvelope();
+        payload.OpenDashboard = new OpenDashboardRequest();
         client.EnqueueOutbound(payload);
     }
 

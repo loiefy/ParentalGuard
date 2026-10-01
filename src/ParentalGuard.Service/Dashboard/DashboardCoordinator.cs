@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using ParentalGuard.Ipc.Framing;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
@@ -103,12 +102,13 @@ public sealed class DashboardCoordinator(
         return response;
     }
 
-    /// <summary>Gọi 1 lần lúc Service khởi động (fire-and-forget) — lần quét đầy đủ đầu tiên không rơi vào lúc phụ huynh mở Dashboard.</summary>
+    /// <summary>Gọi 1 lần lúc Service khởi động (fire-and-forget) — lần quét đầy đủ đầu tiên (biểu đồ + PAUSE-021) không rơi vào lúc phụ huynh thao tác.</summary>
     public async Task WarmUpChartCacheAsync(CancellationToken cancellationToken)
     {
         try
         {
             await GetContentBlockedCountsByDayAsync(cancellationToken).ConfigureAwait(false);
+            await AuditLogDailyEventCounter.CountByDayAsync(auditLogPath, "PauseActivated", cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException)
         {
@@ -116,114 +116,8 @@ public sealed class DashboardCoordinator(
         }
     }
 
-    private static readonly byte[] _contentBlockedMarker = "\"ContentBlocked\""u8.ToArray();
-
-    private readonly SemaphoreSlim _chartScanLock = new(1, 1);
-    private readonly Dictionary<DateOnly, uint> _chartCounts = [];
-    private long _chartScannedBytes;
-
-    /// <summary>Trả bản sao số lần <c>ContentBlocked</c> theo ngày UTC, sau khi quét phần mới của file.</summary>
-    internal async Task<Dictionary<DateOnly, uint>> GetContentBlockedCountsByDayAsync(CancellationToken cancellationToken)
-    {
-        await _chartScanLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (!File.Exists(auditLogPath))
-            {
-                _chartCounts.Clear();
-                _chartScannedBytes = 0;
-                return [];
-            }
-
-            await using var stream = new FileStream(auditLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, useAsync: true);
-            if (stream.Length < _chartScannedBytes)
-            {
-                // File bị thay/ghi lại ngắn hơn — quét lại từ đầu thay vì đếm sai.
-                _chartCounts.Clear();
-                _chartScannedBytes = 0;
-            }
-
-            stream.Seek(_chartScannedBytes, SeekOrigin.Begin);
-            byte[] buffer = new byte[1 << 20];
-            var pending = new List<byte>();
-            long consumed = _chartScannedBytes;
-            int read;
-            while ((read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-            {
-                int lineStart = 0;
-                for (int i = 0; i < read; i++)
-                {
-                    if (buffer[i] != (byte)'\n')
-                    {
-                        continue;
-                    }
-
-                    ReadOnlySpan<byte> chunk = buffer.AsSpan(lineStart, i - lineStart);
-                    if (pending.Count > 0)
-                    {
-                        pending.AddRange(chunk.ToArray());
-                        CountLine(CollectionsMarshal.AsSpan(pending));
-                        consumed += pending.Count + 1;
-                        pending.Clear();
-                    }
-                    else
-                    {
-                        CountLine(chunk);
-                        consumed += chunk.Length + 1;
-                    }
-
-                    lineStart = i + 1;
-                }
-
-                pending.AddRange(buffer.AsSpan(lineStart, read - lineStart).ToArray());
-            }
-
-            // Dòng cuối chưa có LF (đang ghi dở) — không tính, lần sau đọc lại từ đầu dòng đó.
-            _chartScannedBytes = consumed;
-            return new Dictionary<DateOnly, uint>(_chartCounts);
-        }
-        finally
-        {
-            _chartScanLock.Release();
-        }
-    }
-
-    private void CountLine(ReadOnlySpan<byte> line)
-    {
-        if (line.IndexOf(_contentBlockedMarker) < 0)
-        {
-            return; // lọc thô — tuyệt đại đa số dòng không phải ContentBlocked, không tốn parse JSON
-        }
-
-        AuditLogEntryRaw? entry = TryParseContentBlockedDate(System.Text.Encoding.UTF8.GetString(line));
-        if (entry is null)
-        {
-            return;
-        }
-
-        DateOnly date = DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(entry.TsUnixMs).UtcDateTime);
-        _chartCounts[date] = _chartCounts.GetValueOrDefault(date) + 1;
-    }
-
-    private static AuditLogEntryRaw? TryParseContentBlockedDate(string line)
-    {
-        try
-        {
-            System.Text.Json.Nodes.JsonObject obj = System.Text.Json.Nodes.JsonNode.Parse(line)!.AsObject();
-            string? eventType = obj["event_type"]?.GetValue<string>();
-            if (eventType != "ContentBlocked")
-            {
-                return null;
-            }
-
-            long tsUnixMs = obj["ts_unix_ms"]!.GetValue<long>();
-            return new AuditLogEntryRaw(0, tsUnixMs, eventType, "{}", "", 0f);
-        }
-        catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException or NullReferenceException)
-        {
-            return null; // Dòng hỏng/không parse được — fail-secure nghiêng về phía bỏ qua, không chặn cả biểu đồ (cùng tinh thần ReadPageAsync).
-        }
-    }
+    internal Task<Dictionary<DateOnly, uint>> GetContentBlockedCountsByDayAsync(CancellationToken cancellationToken) =>
+        AuditLogDailyEventCounter.CountByDayAsync(auditLogPath, "ContentBlocked", cancellationToken);
 
     private IpcPayload NewResponse(IpcPayload request) =>
         IpcEnvelope.NewEnvelope(ProcessType.Service, _messageIds.Next(), correlationId: request.MessageId);

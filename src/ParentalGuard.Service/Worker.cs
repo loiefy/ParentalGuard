@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Ipc.Tamper;
 using ParentalGuard.Service.Audit;
@@ -586,8 +587,30 @@ public sealed class Worker(
     {
         IpcPayload.BodyOneofCase.ForceClose => _overlayDecisionCoordinator!.HandleForceCloseAsync(message, cancellationToken),
         IpcPayload.BodyOneofCase.IconPositionUpdate => _iconPositionCoordinator!.HandleIconPositionUpdateAsync(message, cancellationToken),
+        IpcPayload.BodyOneofCase.OpenDashboard => OpenDashboardBestEffort(),
         _ => Task.CompletedTask,
     };
+
+    /// <summary>`FE-023`: double-click icon trạng thái — mở UI bằng token user của session hiện hành (xem <see cref="DashboardLauncher"/>).</summary>
+    private Task OpenDashboardBestEffort()
+    {
+        uint sessionId = _currentSessionId;
+        if (sessionId == SessionInterop.InvalidSessionId)
+        {
+            return Task.CompletedTask;
+        }
+
+        try
+        {
+            DashboardLauncher.Launch(sessionId, InstallPaths.UiExecutablePath);
+        }
+        catch (Exception ex) when (ex is Win32Exception or IOException)
+        {
+            logger.LogWarning(ex, "Could not open Dashboard on icon double-click.");
+        }
+
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// <paramref name="monitoringEnabled"/> tách riêng khỏi <paramref name="state"/>.MonitoringEnabled

@@ -257,6 +257,9 @@
   <data name="DashboardChartEmptyText" xml:space="preserve">
     <value>Chưa phát hiện nội dung nào cần chặn</value>
   </data>
+  <data name="DashboardChartBarTooltipFormat" xml:space="preserve">
+    <value>{0}: {1} lần chặn</value>
+  </data>
   <data name="DashboardChartSummaryFormat" xml:space="preserve">
     <value>{0} ngày qua: {1} lần chặn</value>
   </data>

@@ -46,6 +46,25 @@ public sealed class DashboardViewModelTests
         Assert.Equal(LocalizationService.Get("DashboardHealthVisionOk"), viewModel.VisionStatusText);
     }
 
+    /// <summary>Yêu cầu chủ dự án 2026-10-01: nút đổi "Tạm dừng" ↔ "Tiếp tục ngay" NGAY khi Service xác nhận, không chờ poll.</summary>
+    [Fact]
+    public void ApplyPausedLocally_ThenResumedLocally_TogglesImmediately()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.ApplyStatus(_healthyActiveStatus);
+
+        viewModel.ApplyPausedLocally(DateTimeOffset.UtcNow.AddHours(1).ToUnixTimeMilliseconds());
+
+        Assert.True(viewModel.IsPaused);
+        Assert.False(viewModel.IsNotPaused);
+        Assert.Equal(DashboardCardState.Paused, viewModel.CardState);
+
+        viewModel.ApplyResumedLocally();
+
+        Assert.False(viewModel.IsPaused);
+        Assert.Equal(DashboardCardState.Active, viewModel.CardState);
+    }
+
     [Fact]
     public void ApplyStatus_AllChannelsHealthyAndNotPaused_YieldsActiveState()
     {

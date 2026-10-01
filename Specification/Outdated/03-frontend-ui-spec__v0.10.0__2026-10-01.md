@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.11.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-09-30
 
 ## 1. Nguyên tắc thiết kế
 
@@ -64,8 +64,6 @@
 - `FE-020a` **(mới v0.3.0)**: Cho phép người dùng **kéo-thả (drag) icon bằng chuột đến bất kỳ vị trí nào trên màn hình**. Vị trí sau khi kéo được lưu lại (per-monitor, vì app hỗ trợ multi-monitor theo `BE-080`) và giữ nguyên cho các lần khởi động sau, cho đến khi người dùng kéo lại vị trí khác. Việc kéo icon không yêu cầu xác thực mật khẩu (đây chỉ là thay đổi vị trí hiển thị, không phải tắt/ẩn icon — icon vẫn luôn hiển thị đâu đó trên màn hình, không có cách nào làm icon biến mất qua thao tác kéo).
 - `FE-021`: 3 trạng thái hiển thị bằng màu sắc/icon khác nhau: Đang hoạt động (xanh) / Tạm dừng (vàng, kèm đếm ngược) / Lỗi-gián đoạn (đỏ, hiếm khi xảy ra, watchdog nên khắc phục nhanh).
 - `FE-022`: Hover vào icon hiện tooltip nhỏ, không hiện thông tin nhạy cảm (không hiện số liệu chi tiết ở đây, chỉ trạng thái chung).
-- `FE-022a` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, bổ sung cho `FE-022`, không supersede)**: Khi di chuột lên icon, hiển thị **1 dòng chữ ngay bên cạnh icon** (phía còn trống của màn hình — icon ở nửa phải thì chữ hiện bên trái và ngược lại), biến mất khi chuột rời icon, không chiếm focus, không chặn click. Nội dung theo trạng thái `FE-021`: Đang hoạt động → **"ParentalGuard đang hoạt động"**; Tạm dừng → "ParentalGuard đang tạm dừng — còn mm:ss"; Lỗi-gián đoạn → "ParentalGuard đang khôi phục…". Vẫn tuân thủ `FE-022` (chỉ trạng thái chung, không số liệu chi tiết).
-- `FE-023` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: **Double-click vào icon mở Dashboard** (`S2`). Nếu Dashboard đang mở thì đưa cửa sổ đó lên trước (single-instance), không mở cửa sổ thứ 2. Không yêu cầu mật khẩu ở bước mở (giống mở từ Start Menu) — các thao tác nhạy cảm bên trong Dashboard vẫn gate bằng mật khẩu như cũ (`S5`). Kéo-thả icon (`FE-020a`) giữ nguyên.
 
 ### 3.3 S1 — Onboarding
 
@@ -115,7 +113,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.11.0 | 2026-10-01 | **MINOR — `FE-022a`/`FE-023` (mới, chủ dự án yêu cầu trực tiếp)**: hover icon trạng thái hiện 1 dòng chữ bên cạnh ("ParentalGuard đang hoạt động" / tạm dừng / khôi phục); double-click icon mở Dashboard (single-instance, không gate mật khẩu ở bước mở) |
 | v0.10.0 | 2026-09-30 | **MINOR — `FE-016h` (mới)**: đếm ngược trực quan 60 giây bắt buộc trên overlay thường trước khi tự đóng cửa sổ vi phạm, đi kèm `BE-034`/`034a` (`02-backend-spec.md` v0.14.0 — overlay khoá cứng, auto-timeout 60s, chủ dự án chốt trực tiếp 2026-09-30) |
 | v0.9.2 | 2026-09-20 | **PATCH — sửa câu chữ, không đổi ý nghĩa/phạm vi tính năng**: phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI) — mô tả màn hình `S4` (mục 2) dùng chữ "Whitelist app/domain" mâu thuẫn với thực tế kỹ thuật: pipeline phát hiện của dự án thuần pixel/window (`BE-021`), không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`. Sửa thành "Whitelist theo tên process/ứng dụng". Không đổi ý nghĩa/phạm vi `MISC-030` (`10-additional-mechanisms-spec.md`) đã `APPROVED` — chỉ khớp lại câu chữ với năng lực kỹ thuật thật. |
 | v0.9.1 | 2026-09-19 | **PATCH — chốt câu hỏi mở của `FE-016g`**: chủ dự án xác nhận overlay full-screen lock (chế độ gộp) **bắt buộc hiển thị đếm ngược trực quan** cho auto-timeout 30 giây (`BE-089b`) — không được đếm ngầm rồi tự đóng bất ngờ. Bổ sung vào `FE-016g`: hiển thị dạng "Tự động đóng sau: 30s" giảm dần từng giây, đặt cạnh/gần nút "Tắt nội dung" duy nhất. Chi tiết font/màu/vị trí chính xác không phải quyết định sản phẩm, để `feature-dev` tự quyết định khi implement. Xoá câu hỏi mở tương ứng ở mục 9 (đánh dấu đã trả lời). Archive: `Specification/Outdated/03-frontend-ui-spec__v0.9.0__2026-09-19.md` |

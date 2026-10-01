@@ -234,6 +234,26 @@ public sealed partial class DashboardViewModel(
             : status.IsPaused ? DashboardCardState.Paused : DashboardCardState.Active;
     }
 
+    internal void ApplyPausedLocally(long pauseExpiresAtUnixMs)
+    {
+        IsPaused = true;
+        PauseCountdownText = pauseExpiresAtUnixMs > 0 ? FormatCountdown(pauseExpiresAtUnixMs) : string.Empty;
+        if (CardState != DashboardCardState.Error)
+        {
+            CardState = DashboardCardState.Paused;
+        }
+    }
+
+    internal void ApplyResumedLocally()
+    {
+        IsPaused = false;
+        PauseCountdownText = string.Empty;
+        if (CardState == DashboardCardState.Paused)
+        {
+            CardState = DashboardCardState.Active;
+        }
+    }
+
     private static string FormatCountdown(long expiresAtUnixMs)
     {
         TimeSpan remaining = DateTimeOffset.FromUnixTimeMilliseconds(expiresAtUnixMs) - DateTimeOffset.UtcNow;
@@ -278,6 +298,9 @@ public sealed partial class DashboardViewModel(
         {
             case PauseOutcome.Success:
             case PauseOutcome.AlreadyPaused:
+                // Phản hồi tức thì (yêu cầu chủ dự án 2026-10-01): đổi sang "Tiếp tục ngay" NGAY khi Service xác
+                // nhận, không chờ lượt poll — poll ngay sau đó chỉ để đồng bộ lại các chỉ số khác.
+                ApplyPausedLocally(result.PauseExpiresAtUnixMs);
                 await PollAsync().ConfigureAwait(true);
                 break;
             case PauseOutcome.InvalidToken:
@@ -332,6 +355,7 @@ public sealed partial class DashboardViewModel(
         {
             case ResumeOutcome.Success:
             case ResumeOutcome.NotPaused:
+                ApplyResumedLocally();
                 await PollAsync().ConfigureAwait(true);
                 break;
             case ResumeOutcome.InvalidToken:

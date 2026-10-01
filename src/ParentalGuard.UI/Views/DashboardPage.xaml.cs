@@ -108,19 +108,55 @@ public sealed partial class DashboardPage : Page
         double height = ChartCanvas.ActualHeight > 0 ? ChartCanvas.ActualHeight : 160;
         double slot = width / data.Count;
         double barWidth = Math.Max(2, slot * 0.6);
+        double plotHeight = height - _chartLabelSpace; // chừa chỗ phía trên cho số đếm của cột cao nhất
 
         for (int i = 0; i < data.Count; i++)
         {
-            double barHeight = Math.Max(1, data[i].BlockedCount / (double)max * (height - 4));
+            uint count = data[i].BlockedCount;
+            double barHeight = Math.Max(1, count / (double)max * (plotHeight - 4));
+            double left = (i * slot) + ((slot - barWidth) / 2);
             var rect = new Rectangle
             {
                 Width = barWidth,
                 Height = barHeight,
-                Fill = new SolidColorBrush(Microsoft.UI.Colors.IndianRed),
+                Fill = _barBrush,
+                RadiusX = 3,
+                RadiusY = 3,
             };
-            Canvas.SetLeft(rect, (i * slot) + ((slot - barWidth) / 2));
+            Canvas.SetLeft(rect, left);
             Canvas.SetTop(rect, height - barHeight);
+
+            // Yêu cầu chủ dự án 2026-10-01: hiệu ứng khi di chuột lên cột (sáng màu + tooltip ngày/số lần).
+            rect.PointerEntered += (_, _) => rect.Fill = _barHoverBrush;
+            rect.PointerExited += (_, _) => rect.Fill = _barBrush;
+            ToolTipService.SetToolTip(rect, LocalizationService.GetFormatted("DashboardChartBarTooltipFormat", FormatChartDate(data[i].DateUtc), count));
             ChartCanvas.Children.Add(rect);
+
+            // Yêu cầu chủ dự án 2026-10-01: hiện số lần chặn trên đầu mỗi cột có giá trị > 0.
+            if (count > 0)
+            {
+                var label = new TextBlock
+                {
+                    Text = count.ToString(System.Globalization.CultureInfo.CurrentCulture),
+                    Width = slot,
+                    TextAlignment = TextAlignment.Center,
+                    Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
+                    IsHitTestVisible = false,
+                };
+                Canvas.SetLeft(label, i * slot);
+                Canvas.SetTop(label, height - barHeight - _chartLabelSpace + 2);
+                ChartCanvas.Children.Add(label);
+            }
         }
     }
+
+    private const double _chartLabelSpace = 20;
+    private static readonly SolidColorBrush _barBrush = new(Microsoft.UI.Colors.IndianRed);
+    private static readonly SolidColorBrush _barHoverBrush = new(Microsoft.UI.ColorHelper.FromArgb(255, 240, 128, 128));
+
+    /// <summary>"yyyy-MM-dd" (UTC, từ Service) → "dd/MM" cho tooltip; giữ nguyên nếu không parse được.</summary>
+    private static string FormatChartDate(string dateUtc) =>
+        DateOnly.TryParseExact(dateUtc, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateOnly d)
+            ? d.ToString("dd/MM", System.Globalization.CultureInfo.InvariantCulture)
+            : dateUtc;
 }

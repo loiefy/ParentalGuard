@@ -31,11 +31,11 @@ public sealed class OverlayCoordinator : Form
     private bool _pendingZOrderResync;
     private string _blockedMessage = string.Empty; // ADR-110: OverlayMessageUpdate gần nhất (RAM)
 
-    public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition)
+    public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition, Action requestOpenDashboard)
     {
         _sendForceClose = sendForceClose;
         _sendIconPosition = sendIconPosition;
-        _iconManager = new StatusIconManager(sendIconPosition);
+        _iconManager = new StatusIconManager(sendIconPosition, requestOpenDashboard);
 
         ShowInTaskbar = false;
         FormBorderStyle = FormBorderStyle.FixedToolWindow;

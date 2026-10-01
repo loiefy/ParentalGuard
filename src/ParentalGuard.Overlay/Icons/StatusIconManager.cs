@@ -19,14 +19,16 @@ public sealed class StatusIconManager : IDisposable
     private readonly Dictionary<string, StatusIconForm> _icons = [];
     private readonly Dictionary<string, Point> _savedPositions = [];
     private readonly Action<IconPositionUpdate> _sendIconPosition;
+    private readonly Action _requestOpenDashboard;
     private readonly System.Windows.Forms.Timer _pauseCountdownTimer;
 
     private IconState _state = IconState.Error;
     private long _pauseExpiresAtUnixMs;
 
-    public StatusIconManager(Action<IconPositionUpdate> sendIconPosition)
+    public StatusIconManager(Action<IconPositionUpdate> sendIconPosition, Action requestOpenDashboard)
     {
         _sendIconPosition = sendIconPosition;
+        _requestOpenDashboard = requestOpenDashboard;
         _pauseCountdownTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _pauseCountdownTimer.Tick += (_, _) => RefreshAllAppearance();
     }
@@ -53,8 +55,8 @@ public sealed class StatusIconManager : IDisposable
                 continue;
             }
 
-            Point location = _savedPositions.TryGetValue(monitor.DeviceName, out Point saved) ? saved : DefaultLocation(monitor);
-            var form = new StatusIconForm(monitor.DeviceName, location, OnPositionCommitted);
+            Point? saved = _savedPositions.TryGetValue(monitor.DeviceName, out Point s) ? s : null;
+            var form = new StatusIconForm(monitor.DeviceName, monitor.WorkArea, saved, OnPositionCommitted, _requestOpenDashboard);
             _icons[monitor.DeviceName] = form;
             form.Show();
             ApplyAppearance(form);
@@ -130,16 +132,6 @@ public sealed class StatusIconManager : IDisposable
         TimeSpan remaining = remainingMs > 0 ? TimeSpan.FromMilliseconds(remainingMs) : TimeSpan.Zero;
         return $"{(int)remaining.TotalMinutes:D2}:{remaining.Seconds:D2}";
     }
-
-    /// <summary>`FE-020`: góc dưới-phải work area (không đè taskbar).</summary>
-    private static Point DefaultLocation(MonitorInfo monitor)
-    {
-        const int margin = 8;
-        return new Point(monitor.WorkArea.Right - StatusIconFormSize - margin, monitor.WorkArea.Bottom - StatusIconFormSize - margin);
-    }
-
-    // Xấp xỉ 100% DPI — vị trí mặc định chỉ cần "trong work area", DPI thật áp dụng khi StatusIconForm tự resize.
-    private const int StatusIconFormSize = 40;
 
     public void Dispose()
     {
