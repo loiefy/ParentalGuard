@@ -9,7 +9,7 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="PgContentBackgroundBrush" Color="#26262B" />
+                    <SolidColorBrush x:Key="PgContentBackgroundBrush" Color="#1F1F23" />
                     <SolidColorBrush x:Key="PgPaneBackgroundBrush" Color="#303037" />
                     <Color x:Key="PgPaneCircleColor">#3C3C45</Color>
                 </ResourceDictionary>
@@ -46,6 +46,10 @@
                 <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
             </NavigationView.Resources>
+            <!-- FE-007: phiên bản phần mềm ở chân thanh menu (theo cấu hình build). Ẩn khi thanh menu thu gọn 48px. -->
+            <NavigationView.PaneFooter>
+                <TextBlock x:Name="VersionFooterText" Margin="16,8,16,12" FontSize="12" Opacity="0.6" />
+            </NavigationView.PaneFooter>
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="DashboardItem" Tag="Dashboard">
                     <NavigationViewItem.Icon>

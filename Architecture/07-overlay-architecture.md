@@ -1,6 +1,6 @@
 # 07 — Overlay Architecture (vùng loại trừ, đa cửa sổ/z-index/gộp, multi-monitor)
 
-> Version: v0.3.3 | Trạng thái: Draft | Cập nhật: 2026-10-01
+> Version: v0.3.4 | Trạng thái: Draft | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu (vì sao có file này, vì sao đánh số `07`)
 
@@ -333,6 +333,7 @@ Phát hiện khi viết `10-ui-architecture.md` (Đợt 6, `S4` Cài đặt nân
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.4 | 2026-10-01 | PATCH — nút bánh răng overlay cùng màu nền overlay (#18181C), chỉ sáng nhẹ khi hover/nhấn |
 | v0.3.3 | 2026-10-01 | PATCH — `FE-021a`: icon trạng thái vẽ thêm ký hiệu trắng theo tỉ lệ cỡ icon — tick (Active), 2 vạch pause (Paused), chấm than (Error) |
 | v0.3.2 | 2026-10-01 | PATCH — Spec v0.8.1 (`BE-088b`/`BE-089c`/`FE-016i`). (1) Overlay gộp tự nhóm lại theo màn hình THẬT (`MonitorFromWindow`, mở rộng ADR-58) thay vì `monitor_id` của Service — bug thật: `monitor_id` là chỉ số output DXGI theo từng adapter nên 2 màn hình khác adapter trùng id → 1 overlay dùng chung; mỗi màn hình 1 form full-screen với đúng danh sách cửa sổ của màn hình đó, nút/timeout chỉ đóng các cửa sổ đó (`ForceCloseRequest` từng handle như cũ), form gộp không tham gia `ZOrderSync`. (2) Bounds overlay gộp = work area (`rcWork`) — chừa taskbar. (3) Nút bánh răng (Segoe MDL2 `\uE713`) góc trên-trái mọi overlay → `OpenDashboardRequest` (field 67) |
 | v0.3.1 | 2026-10-01 | PATCH — chủ dự án yêu cầu: icon trạng thái giảm còn 70% — 28px ở 100% DPI (trước 40px), vẫn scale theo DPI từng màn hình |

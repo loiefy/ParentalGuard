@@ -31,6 +31,7 @@ public sealed class CaptureLoopWorker
     private readonly OutputCaptureContextPool _contextPool;
     private WindowMessagePump? _messagePump;
     private readonly ManualResetEventSlim _wakeEvent = new(initialState: false);
+    private int _candidateRotation;
     private ulong _frameId;
     private Thread? _thread;
     private int _consecutiveFailures;
@@ -183,7 +184,9 @@ public sealed class CaptureLoopWorker
         IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectVisibleCandidates(
             fgHwnd,
             SnapshotWindowsInZOrder(excludeProcessNames),
-            coveredWindowHandles); // BE-034b: cửa sổ đang bị overlay che bị loại ngay trong lúc chọn
+            coveredWindowHandles, // BE-034b: cửa sổ đang bị overlay che bị loại ngay trong lúc chọn
+            _candidateRotation);
+        _candidateRotation += CandidateWindowSelector.MaxCandidatesPerCycle - 1; // BE-071b: xoay vòng sang nhóm kế tiếp
         DebugLog($"ProcessCycle: {candidates.Count} candidate(s).");
         var usedOutputIndexes = new HashSet<int>();
         var usedWindowHandles = new HashSet<IntPtr>();

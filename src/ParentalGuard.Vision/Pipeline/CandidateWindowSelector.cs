@@ -29,7 +29,8 @@ public static class CandidateWindowSelector
     public static IReadOnlyList<IntPtr> SelectVisibleCandidates(
         IntPtr foregroundHwnd,
         IReadOnlyList<WindowSnapshot> windowsInZOrder,
-        IReadOnlySet<ulong> coveredWindowHandles)
+        IReadOnlySet<ulong> coveredWindowHandles,
+        int rotationOffset = 0)
     {
         var occluders = new List<WindowRect>();
         var visible = new List<IntPtr>();
@@ -61,17 +62,21 @@ public static class CandidateWindowSelector
             ordered.Add(foregroundHwnd);
         }
 
-        foreach (IntPtr hwnd in visible)
+        // BE-071b (2026-10-01): bug real-hardware — luôn lấy 3 cửa sổ CAO NHẤT theo Z-order khiến cửa sổ thứ 5 trở đi
+        // KHÔNG BAO GIỜ được quét khi mở nhiều cửa sổ (lọt nội dung vi phạm). Các suất còn lại xoay vòng qua toàn bộ
+        // cửa sổ đang hiển thị (bắt đầu từ rotationOffset, giữ thứ tự Z-order) — mọi cửa sổ đều tới lượt sau vài chu kỳ.
+        List<IntPtr> others = visible.Where(h => h != foregroundHwnd).ToList();
+        int slots = MaxCandidatesPerCycle - ordered.Count;
+        if (others.Count <= slots)
         {
-            if (ordered.Count >= MaxCandidatesPerCycle)
-            {
-                break;
-            }
+            ordered.AddRange(others);
+            return ordered;
+        }
 
-            if (hwnd != foregroundHwnd)
-            {
-                ordered.Add(hwnd);
-            }
+        int start = ((rotationOffset % others.Count) + others.Count) % others.Count;
+        for (int i = 0; i < slots; i++)
+        {
+            ordered.Add(others[(start + i) % others.Count]);
         }
 
         return ordered;

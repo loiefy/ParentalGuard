@@ -17,6 +17,7 @@ public sealed partial class MainShellPage : Page
         AuditLogItem.Content = LocalizationService.Get("NavAuditLog");
         SettingsItem.Content = LocalizationService.Get("NavSettings");
         AboutItem.Content = LocalizationService.Get("NavAbout");
+        VersionFooterText.Text = LocalizationService.GetFormatted("PaneVersionFormat", AppVersionInfo.DisplayVersion);
 
         Loaded += (_, _) =>
         {
@@ -26,8 +27,16 @@ public sealed partial class MainShellPage : Page
         };
 
         // FE-005: 2 lớp nền phía sau NavigationView phải bám đúng bề rộng thanh menu (mở 240 / thu gọn 48).
-        Nav.PaneOpening += (_, _) => UpdateBackdropLayout(paneOpen: true);
-        Nav.PaneClosing += (_, _) => UpdateBackdropLayout(paneOpen: false);
+        Nav.PaneOpening += (_, _) =>
+        {
+            UpdateBackdropLayout(paneOpen: true);
+            VersionFooterText.Visibility = Visibility.Visible;
+        };
+        Nav.PaneClosing += (_, _) =>
+        {
+            UpdateBackdropLayout(paneOpen: false);
+            VersionFooterText.Visibility = Visibility.Collapsed;
+        };
         Nav.DisplayModeChanged += (_, _) => UpdateBackdropLayout();
         SizeChanged += (_, _) => UpdateBackdropLayout();
         ActualThemeChanged += (_, _) =>
@@ -117,14 +126,16 @@ public sealed partial class MainShellPage : Page
         Brush B(byte r, byte g, byte b, byte lr, byte lg, byte lb) =>
             new SolidColorBrush(light ? ColorHelper.FromArgb(255, lr, lg, lb) : ColorHelper.FromArgb(255, r, g, b));
 
-        Brush farMountain = B(0x2A, 0x2A, 0x30, 0xF2, 0xF2, 0xF6);
-        Brush nearMountain = B(0x23, 0x23, 0x29, 0xEA, 0xEB, 0xF0);
-        Brush forest = B(0x20, 0x20, 0x25, 0xE3, 0xE5, 0xEB);
-        Brush lake = B(0x2B, 0x2C, 0x33, 0xF3, 0xF5, 0xF9);
-        Brush ripple = B(0x31, 0x32, 0x3A, 0xEC, 0xF0, 0xF6);
-        Brush trunk = B(0x1C, 0x1C, 0x21, 0xDB, 0xDB, 0xE1);
-        Brush blossom = B(0x30, 0x2A, 0x2E, 0xF7, 0xEC, 0xF0);
-        Brush blossomDeep = B(0x35, 0x2D, 0x32, 0xF3, 0xE3, 0xE9);
+        // 2026-10-01 (chủ dự án: chữ khó đọc): nền vùng nội dung đậm hơn (#1F1F23) và cảnh chỉ lệch nền 2–5 mức
+        // màu — vẫn nhận ra hình nhưng không còn cạnh tranh với chữ.
+        Brush farMountain = B(0x22, 0x22, 0x26, 0xF4, 0xF4, 0xF7);
+        Brush nearMountain = B(0x1D, 0x1D, 0x21, 0xEF, 0xEF, 0xF3);
+        Brush forest = B(0x1B, 0x1B, 0x1F, 0xEB, 0xEC, 0xF0);
+        Brush lake = B(0x22, 0x23, 0x28, 0xF5, 0xF6, 0xF9);
+        Brush ripple = B(0x26, 0x27, 0x2D, 0xF0, 0xF2, 0xF6);
+        Brush trunk = B(0x1A, 0x1A, 0x1D, 0xE6, 0xE6, 0xEA);
+        Brush blossom = B(0x25, 0x21, 0x25, 0xF7, 0xF0, 0xF2);
+        Brush blossomDeep = B(0x28, 0x23, 0x27, 0xF4, 0xEA, 0xED);
 
         double horizon = h - 300; // mép trên mặt hồ: cách đáy cố định 300 DIP
 

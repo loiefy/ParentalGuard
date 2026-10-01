@@ -145,6 +145,9 @@
   <data name="NavSettings" xml:space="preserve">
     <value>Cài đặt</value>
   </data>
+  <data name="PaneVersionFormat" xml:space="preserve">
+    <value>Phiên bản {0}</value>
+  </data>
   <data name="NavAbout" xml:space="preserve">
     <value>Giới thiệu</value>
   </data>

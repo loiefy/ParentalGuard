@@ -94,7 +94,7 @@ public sealed class ContentBlurOverlayForm : Form
             Text = "\uE713", // Segoe MDL2 Assets: Settings (bánh răng)
             Font = new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular),
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.FromArgb(48, 48, 54),
+            BackColor = Color.FromArgb(24, 24, 28), // hoà vào nền overlay — không hiện thành khối chữ nhật
             ForeColor = Color.White,
             AutoSize = true,
             Padding = new Padding(6),
@@ -102,6 +102,8 @@ public sealed class ContentBlurOverlayForm : Form
             Visible = onOpenDashboard is not null,
         };
         _settingsButton.FlatAppearance.BorderSize = 0;
+        _settingsButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(44, 44, 50); // chỉ sáng nhẹ khi rê chuột
+        _settingsButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(56, 56, 64);
         _settingsButton.Click += (_, _) => onOpenDashboard?.Invoke();
         _toolTip.SetToolTip(_settingsButton, OverlayStrings.OpenDashboardTooltip);
 

@@ -89,6 +89,25 @@ public class CandidateWindowSelectorTests
         Assert.Equal([new IntPtr(6), new IntPtr(1), new IntPtr(2), new IntPtr(3)], result);
     }
 
+    /// <summary>BE-071b (bug real-hardware 2026-10-01): mở nhiều cửa sổ — cửa sổ thứ 5 trở đi từng KHÔNG BAO GIỜ được quét. Xoay vòng: mọi cửa sổ đều tới lượt, foreground luôn có mặt.</summary>
+    [Fact]
+    public void ManyVisibleWindows_RotationCoversEveryWindow_ForegroundEveryCycle()
+    {
+        IReadOnlyList<WindowSnapshot> z = [.. Enumerable.Range(1, 10).Select(i => Win(i, i * 1000, 0, 900, 900))];
+        var seen = new HashSet<IntPtr>();
+        int rotation = 0;
+        for (int cycle = 0; cycle < 3; cycle++)
+        {
+            IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(10), z, _noneCovered, rotation);
+            Assert.Equal(new IntPtr(10), result[0]);
+            Assert.Equal(CandidateWindowSelector.MaxCandidatesPerCycle, result.Count);
+            seen.UnionWith(result);
+            rotation += CandidateWindowSelector.MaxCandidatesPerCycle - 1;
+        }
+
+        Assert.Equal(10, seen.Count); // 9 cửa sổ còn lại / 3 suất mỗi chu kỳ = 3 chu kỳ là quét đủ
+    }
+
     [Fact]
     public void WindowWithUnresolvedRect_Skipped()
     {

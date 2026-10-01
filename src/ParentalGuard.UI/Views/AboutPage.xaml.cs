@@ -1,4 +1,3 @@
-using System.Reflection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using ParentalGuard.UI.Services;
@@ -28,8 +27,7 @@ public sealed partial class AboutPage : Page
         CompanyValue.Content = BuildValue(LocalizationService.Get("AboutCompanyNameValue"), isEmail: false);
         EmailValue.Content = BuildValue(LocalizationService.Get("AboutEmailValue"), isEmail: true);
         PayPalValue.Content = BuildValue(LocalizationService.Get("AboutPayPalValue"), isEmail: false);
-        VersionValue.Text = typeof(App).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]
-            ?? typeof(App).Assembly.GetName().Version?.ToString() ?? string.Empty;
+        VersionValue.Text = AppVersionInfo.DisplayVersion;
     }
 
     private static UIElement BuildValue(string value, bool isEmail)
