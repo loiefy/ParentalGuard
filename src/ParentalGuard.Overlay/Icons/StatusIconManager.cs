@@ -117,13 +117,13 @@ public sealed class StatusIconManager : IDisposable
 
     private void ApplyAppearance(StatusIconForm form)
     {
-        (Color color, string tooltip) = _state switch
+        (Color color, string tooltip, StatusGlyph glyph) = _state switch
         {
-            IconState.Active => (_activeColor, OverlayStrings.IconTooltipActive),
-            IconState.Paused => (_pausedColor, OverlayStrings.IconTooltipPaused(FormatCountdown())),
-            _ => (_errorColor, OverlayStrings.IconTooltipError),
+            IconState.Active => (_activeColor, OverlayStrings.IconTooltipActive, StatusGlyph.Check),
+            IconState.Paused => (_pausedColor, OverlayStrings.IconTooltipPaused(FormatCountdown()), StatusGlyph.Pause),
+            _ => (_errorColor, OverlayStrings.IconTooltipError, StatusGlyph.Alert),
         };
-        form.ApplyAppearance(color, tooltip);
+        form.ApplyAppearance(color, tooltip, glyph);
     }
 
     private string FormatCountdown()

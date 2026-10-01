@@ -96,6 +96,9 @@ message IpcPayload {
     // Đợt 8 (MISC-010 hoàn chỉnh) — verify toàn bộ hash-chain on-demand, Architecture/03 mục 3.7 (ADR-136)
     VerifyAuditChainRequest verify_audit_chain_req = 154;
     VerifyAuditChainResponse verify_audit_chain_resp = 155;
+    // 2026-10-01 (MISC-030c) — nút "Khôi phục cài đặt gốc" của whitelist `S4`
+    ResetWhitelistRequest reset_whitelist_req = 156;
+    ResetWhitelistResponse reset_whitelist_resp = 157;
   }
 }
 
@@ -628,6 +631,22 @@ enum RemoveWhitelistEntryResult {
   REMOVE_WHITELIST_ENTRY_RESULT_SUCCESS = 1;
   REMOVE_WHITELIST_ENTRY_RESULT_INVALID_TOKEN = 2;
   REMOVE_WHITELIST_ENTRY_RESULT_NOT_FOUND = 3;
+}
+
+// MISC-030c: khôi phục whitelist về đúng danh sách cấp sẵn trong spec (BE-073a), bỏ mọi mục khác.
+message ResetWhitelistRequest { // field 156
+  bytes action_token = 1; // action_context="manage_whitelist" — khôi phục THÊM lại ứng dụng không bị giám sát
+}
+
+message ResetWhitelistResponse { // field 157
+  ResetWhitelistResult result = 1;
+  repeated string whitelist = 2; // whitelist hiệu dụng sau khi khôi phục (chỉ có ý nghĩa khi SUCCESS)
+}
+
+enum ResetWhitelistResult {
+  RESET_WHITELIST_RESULT_UNSPECIFIED = 0;
+  RESET_WHITELIST_RESULT_SUCCESS = 1;
+  RESET_WHITELIST_RESULT_INVALID_TOKEN = 2;
 }
 
 // --- Đợt 8, `S3` Kiểm tra tính toàn vẹn audit log (field 154/155 của khối UI 140-159) ---

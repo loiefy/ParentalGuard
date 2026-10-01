@@ -33,6 +33,7 @@ public sealed partial class SettingsPage : Page
         ResetOverlayMessageButton.Content = LocalizationService.Get("SettingsResetToDefaultButton");
         WhitelistHeaderText.Text = LocalizationService.Get("SettingsWhitelistHeader");
         WhitelistHintText.Text = LocalizationService.Get("SettingsWhitelistHint");
+        ResetWhitelistButton.Content = LocalizationService.Get("SettingsWhitelistResetButton");
         PerformanceModeHeaderText.Text = LocalizationService.Get("SettingsPerformanceModeHeader");
         BalancedRadio.Content = LocalizationService.Get("SettingsPerformanceModeBalanced");
         MaximumProtectionRadio.Content = LocalizationService.Get("SettingsPerformanceModeMaximumProtection");
@@ -113,6 +114,8 @@ public sealed partial class SettingsPage : Page
     private async void OnSaveOverlayMessageClick(object sender, RoutedEventArgs e) => await ViewModel.SaveOverlayMessageAsync(CancellationToken.None);
 
     private async void OnResetOverlayMessageClick(object sender, RoutedEventArgs e) => await ViewModel.ResetOverlayMessageToDefaultAsync(CancellationToken.None);
+
+    private async void OnResetWhitelistClick(object sender, RoutedEventArgs e) => await ViewModel.ResetWhitelistAsync(XamlRoot);
 
     private async void OnRemoveWhitelistEntryClick(object sender, RoutedEventArgs e)
     {

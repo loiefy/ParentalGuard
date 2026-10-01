@@ -185,7 +185,8 @@ public sealed class UiSessionServer(
         IpcPayload.BodyOneofCase.AckPauseAnomalyReq => pauseCoordinator.HandleAsync(request, token),
         IpcPayload.BodyOneofCase.ConfigQuery or
         IpcPayload.BodyOneofCase.ConfigUpdateReq or
-        IpcPayload.BodyOneofCase.RemoveWhitelistReq => configCoordinator.HandleAsync(request, token),
+        IpcPayload.BodyOneofCase.RemoveWhitelistReq or
+        IpcPayload.BodyOneofCase.ResetWhitelistReq => configCoordinator.HandleAsync(request, token),
         IpcPayload.BodyOneofCase.AuditLogQuery or
         IpcPayload.BodyOneofCase.MarkFalsePositiveReq or
         IpcPayload.BodyOneofCase.VerifyAuditChainReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),

@@ -24,6 +24,9 @@ public interface IConfigFacade
 
     /// <summary><c>RemoveWhitelistEntryRequest{action_token, process_name}</c> (mục 6.4, `MISC-030`).</summary>
     Task<RemoveWhitelistOutcome> RemoveWhitelistEntryAsync(byte[] actionToken, string processName, CancellationToken cancellationToken);
+
+    /// <summary><c>ResetWhitelistRequest{action_token}</c> (`MISC-030c`) — khôi phục whitelist về danh sách cấp sẵn trong spec.</summary>
+    Task<WhitelistResetOutcome> ResetWhitelistAsync(byte[] actionToken, CancellationToken cancellationToken);
 }
 
 public sealed record ConfigSnapshot(string OverlayMessage, IReadOnlyList<string> WhitelistedProcessNames, PerformanceModeOption PerformanceMode);
@@ -41,6 +44,8 @@ public enum ConfigUpdateOutcome
     InvalidCharacters,
     TooLong,
 }
+
+public sealed record WhitelistResetOutcome(RemoveWhitelistOutcome Outcome, IReadOnlyList<string> Whitelist);
 
 public enum RemoveWhitelistOutcome
 {

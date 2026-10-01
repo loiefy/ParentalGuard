@@ -154,6 +154,25 @@ public sealed class SettingsViewModelTests
         Assert.Equal("Tiếng Việt", Assert.Single(configFacade.OverlayMessagesReceived));
     }
 
+    /// <summary>`MISC-030c`: khôi phục cài đặt gốc thay danh sách hiển thị bằng danh sách Service trả về.</summary>
+    [Fact]
+    public async Task ResetWhitelistAsync_Success_ReplacesListAndSetsStatus()
+    {
+        var configFacade = new FakeConfigFacade
+        {
+            Snapshot = new ConfigSnapshot(string.Empty, ["a.exe"], PerformanceModeOption.Balanced),
+            ResetResults = [new WhitelistResetOutcome(RemoveWhitelistOutcome.Success, ["Taskmgr.exe", "regedit.exe"])],
+        };
+        var viewModel = CreateViewModel(configFacade);
+        await viewModel.InitializeAsync(CancellationToken.None);
+
+        await viewModel.ResetWhitelistAsync(null!);
+
+        Assert.Equal(["Taskmgr.exe", "regedit.exe"], viewModel.WhitelistedProcessNames);
+        Assert.True(viewModel.HasWhitelistStatus);
+        Assert.False(viewModel.HasWhitelistError);
+    }
+
     [Fact]
     public async Task SetPerformanceModeAsync_Success_UpdatesMode_SendsLastSavedOverlayMessage_NotDraft()
     {
@@ -440,6 +459,15 @@ public sealed class SettingsViewModelTests
             ConfigUpdateOutcome outcome = _updateIndex < UpdateOutcomes.Count ? UpdateOutcomes[_updateIndex] : throw new InvalidOperationException("No more fake update outcomes configured.");
             _updateIndex++;
             return Task.FromResult(outcome);
+        }
+
+        public List<WhitelistResetOutcome> ResetResults { get; set; } = [];
+
+        public Task<WhitelistResetOutcome> ResetWhitelistAsync(byte[] actionToken, CancellationToken cancellationToken)
+        {
+            WhitelistResetOutcome result = ResetResults.Count > 0 ? ResetResults[0] : throw new InvalidOperationException("No fake reset result configured.");
+            ResetResults.RemoveAt(0);
+            return Task.FromResult(result);
         }
 
         public Task<RemoveWhitelistOutcome> RemoveWhitelistEntryAsync(byte[] actionToken, string processName, CancellationToken cancellationToken)

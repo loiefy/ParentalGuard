@@ -1,6 +1,6 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.5.0 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`| Cập nhật: 2026-10-01
+> Version: v0.4.0 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
 > Cập nhật: 2026-09-29
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
@@ -22,7 +22,6 @@
 
 - `MISC-030a` **(ĐÃ CHỐT v0.3.0, 2026-10-01 — chủ dự án chốt trực tiếp, supersedes `MISC-030`)**: **Bỏ thao tác "Đánh dấu sai"** khỏi màn hình Lịch sử (`S3`) và không có cách nào khác để thêm ứng dụng vào whitelist từ UI. Lý do: thao tác này thực chất loại **cả ứng dụng** (vd trình duyệt) khỏi giám sát chỉ vì 1 lần chặn nhầm — rủi ro bảo vệ lớn hơn lợi ích; app cũng không lưu ảnh (`IMG-0xx`) nên không có cơ chế "học lại" từ lần chặn sai. `Service` từ chối yêu cầu `MarkFalsePositiveRequest` nếu có client gửi tới. Danh sách whitelist đã có từ trước (nếu có) vẫn hiển thị ở `S4` để phụ huynh **xoá** (không thêm mới).
 - `MISC-030b` **(ĐÃ CHỐT v0.4.0, 2026-10-01 — chủ dự án chốt trực tiếp, bổ sung `MISC-030a`)**: Cài đặt nâng cao (`S4`) có mục **Whitelist** = **danh sách ứng dụng do chủ dự án cấp sẵn, liệt kê trong spec** (`BE-073a`, `02-backend-spec.md`) cộng các mục cũ người dùng đã thêm trước `MISC-030a` (nếu có). Phụ huynh **chỉ có thể xoá** từng mục (gate mật khẩu `manage_whitelist`; xoá xong ứng dụng đó được giám sát trở lại), **không thể thêm** ứng dụng nào. Muốn thêm/đổi danh sách cấp sẵn phải sửa `BE-073a` trong spec (quyết định của chủ dự án, phát hành kèm bản cập nhật).
-- `MISC-030c` **(ĐÃ CHỐT v0.5.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, bổ sung `MISC-030b`)**: Mục Whitelist ở `S4` có nút **"Khôi phục cài đặt gốc"** — đưa whitelist về **đúng danh sách cấp sẵn trong spec** (`BE-073a`), bỏ mọi mục khác. Yêu cầu xác thực mật khẩu (`manage_whitelist`) vì có thể thêm lại ứng dụng không bị giám sát.
 - ~~`MISC-030`~~ **DEPRECATED v0.3.0 — superseded bởi `MISC-030a`**. Nội dung cũ: Khi phụ huynh xem lại audit log, cho phép đánh dấu 1 sự kiện chặn là "sai" (false positive) → thêm **tên process/ứng dụng** đó vào whitelist cục bộ để không bị chặn lại (**không phải whitelist theo domain/URL** — pipeline phát hiện của dự án thuần pixel/window theo `BE-021`, không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`).
 - Không gửi feedback này ra ngoài (không có cơ chế "gửi để cải thiện model chung" trừ khi có quyết định riêng sau này về việc xây dựng cơ chế đóng góp dữ liệu ẩn danh, hoàn toàn tự nguyện — hiện tại ngoài scope).
 
@@ -76,7 +75,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.5.0 | 2026-10-01 | **MINOR — `MISC-030c` (mới)**: nút "Khôi phục cài đặt gốc" cho whitelist (về đúng `BE-073a`, gate mật khẩu) |
 | v0.4.0 | 2026-10-01 | **MINOR — `MISC-030b` (mới)**: whitelist ở `S4` = danh sách cấp sẵn `BE-073a` (+ mục cũ nếu có), chỉ xoá, không thêm |
 | v0.3.0 | 2026-10-01 | **MINOR — `MISC-030a` (mới, chủ dự án chốt trực tiếp, supersedes `MISC-030` → DEPRECATED)**: bỏ nút "Đánh dấu sai" ở Lịch sử — thao tác đó loại cả ứng dụng khỏi giám sát chỉ vì 1 lần chặn nhầm, và app không lưu ảnh nên không có học lại; Service từ chối `MarkFalsePositiveRequest`; whitelist cũ ở `S4` chỉ còn xoá |
 | v0.2.3 | 2026-09-29 | **PATCH — làm rõ phạm vi bảo vệ, không đổi ý nghĩa/yêu cầu đã `APPROVED`**: thêm `MISC-010a` làm rõ hash-chain audit log (`MISC-010`) là SHA-256 thuần, không HMAC/chữ ký, nên chỉ chống được sửa/xoá entry ngẫu nhiên hoặc kẻ tấn công không có đồng thời (quyền ghi trực tiếp file audit log + khả năng khiến Service restart) — không tự nó chống lại kẻ tấn công SYSTEM-level chủ động có cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không anchor ngoài, không phải bug). Lớp phòng thủ thực sự cho nhóm đó nằm ở ACL file (`04-security-spec.md` mục 2) + anti-tamper (`05-anti-uninstall-tamper-spec.md`). Phát hiện bởi `security-privacy-auditor` khi audit fix Đợt 8 cho `MISC-010`/`SEC-041`. Đồng bộ với `04-security-spec.md` → v0.6.2 (`SEC-041a`). Archive: `Specification/Outdated/10-additional-mechanisms-spec__v0.2.2__2026-09-29.md` |

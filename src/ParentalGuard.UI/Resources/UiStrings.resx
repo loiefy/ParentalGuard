@@ -374,6 +374,12 @@
   <data name="SettingsWhitelistHint" xml:space="preserve">
     <value>Danh sách do ParentalGuard cấp sẵn. Bạn chỉ có thể xoá bớt (ứng dụng bị xoá sẽ được giám sát trở lại), không thể thêm ứng dụng mới.</value>
   </data>
+  <data name="SettingsWhitelistResetButton" xml:space="preserve">
+    <value>Khôi phục cài đặt gốc</value>
+  </data>
+  <data name="SettingsWhitelistResetDone" xml:space="preserve">
+    <value>Đã khôi phục danh sách về cài đặt gốc.</value>
+  </data>
   <data name="SettingsWhitelistRemoveButton" xml:space="preserve">
     <value>Xoá</value>
   </data>

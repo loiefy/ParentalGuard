@@ -247,6 +247,51 @@ public sealed partial class SettingsViewModel(
         }
     }
 
+    /// <summary>
+    /// `MISC-030c` (ĐÃ CHỐT 2026-10-01): nút "Khôi phục cài đặt gốc" → `S5` (`manage_whitelist`) → whitelist về đúng
+    /// danh sách cấp sẵn trong spec. Cùng cơ chế tự mở lại `S5` đúng 1 lần khi token hết hạn giữa chừng.
+    /// </summary>
+    public async Task ResetWhitelistAsync(XamlRoot xamlRoot)
+    {
+        WhitelistError = null;
+        WhitelistStatus = null;
+        try
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(ManageWhitelistActionContext, xamlRoot).ConfigureAwait(true);
+                if (actionToken is null)
+                {
+                    return;
+                }
+
+                WhitelistResetOutcome result;
+                try
+                {
+                    result = await configFacade.ResetWhitelistAsync(actionToken, CancellationToken.None).ConfigureAwait(true);
+                }
+                finally
+                {
+                    CryptographicOperations.ZeroMemory(actionToken);
+                }
+
+                if (result.Outcome == RemoveWhitelistOutcome.Success)
+                {
+                    WhitelistError = null;
+                    WhitelistedProcessNames = new ObservableCollection<string>(result.Whitelist);
+                    WhitelistStatus = LocalizationService.Get("SettingsWhitelistResetDone");
+                    return;
+                }
+
+                WhitelistError = LocalizationService.Get("DashboardActionTokenExpired");
+            }
+        }
+        catch (UiIpcConnectionException ex)
+        {
+            WhitelistError = ex.Message;
+        }
+    }
+
     /// <summary>Mục 6.5 — cùng cơ chế tự mở lại `S5` đúng 1 lần khi `action_token` hết hạn giữa chừng như <see cref="AuditLogViewModel"/>.</summary>
     private async Task RemoveWhitelistEntryWithTokenAsync(byte[] actionToken, string processName, XamlRoot xamlRoot, bool allowRetry)
     {

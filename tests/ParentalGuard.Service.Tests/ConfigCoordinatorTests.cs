@@ -201,6 +201,41 @@ public class ConfigCoordinatorTests : IDisposable
         Assert.DoesNotContain("Taskmgr.exe", db.ReadSnapshot().MonitoringState.ExcludeProcessNames);
     }
 
+    /// <summary>`MISC-030c`: "Khôi phục cài đặt gốc" → whitelist về đúng danh sách BE-073a, bỏ mục cũ người dùng thêm.</summary>
+    [Fact]
+    public async Task ResetWhitelist_RestoresBuiltInList_DropsLegacyEntries()
+    {
+        Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with
+        {
+            ExcludeProcessNames = ["regedit.exe"],
+            UserWhitelistedProcessNames = ["chrome.exe"],
+        });
+        byte[] token = await GetValidActionTokenAsync(fx.Auth);
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, ResetWhitelistReq = new ResetWhitelistRequest { ActionToken = ByteString.CopyFrom(token) } },
+            CancellationToken.None);
+
+        Assert.Equal(ResetWhitelistResult.Success, response.ResetWhitelistResp.Result);
+        Assert.Equal(MonitoringStateData.InitialExcludeProcessNames, response.ResetWhitelistResp.Whitelist);
+        Assert.Equal(MonitoringStateData.InitialExcludeProcessNames, fx.Holder.Current.ExcludeProcessNames);
+        Assert.Empty(fx.Holder.Current.UserWhitelistedProcessNames);
+        Assert.Equal(1, fx.PushCount());
+    }
+
+    [Fact]
+    public async Task ResetWhitelist_InvalidToken_Rejected_StateUnchanged()
+    {
+        Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { ExcludeProcessNames = ["regedit.exe"] });
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, ResetWhitelistReq = new ResetWhitelistRequest { ActionToken = ByteString.CopyFrom([1, 2, 3]) } },
+            CancellationToken.None);
+
+        Assert.Equal(ResetWhitelistResult.InvalidToken, response.ResetWhitelistResp.Result);
+        Assert.Equal(["regedit.exe"], fx.Holder.Current.ExcludeProcessNames);
+    }
+
     public void Dispose()
     {
         foreach (string path in new[] { _authDatPath, _auditLogPath, _configDbPath, _configDbPath + "-wal", _configDbPath + "-shm" })

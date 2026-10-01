@@ -33,6 +33,7 @@ public sealed class ConfigCoordinator(
         IpcPayload.BodyOneofCase.ConfigQuery => HandleConfigQueryAsync(request),
         IpcPayload.BodyOneofCase.ConfigUpdateReq => HandleConfigUpdateAsync(request, cancellationToken),
         IpcPayload.BodyOneofCase.RemoveWhitelistReq => HandleRemoveWhitelistAsync(request, cancellationToken),
+        IpcPayload.BodyOneofCase.ResetWhitelistReq => HandleResetWhitelistAsync(request, cancellationToken),
         _ => throw new InvalidOperationException($"ConfigCoordinator received unexpected message: {request.BodyCase}."),
     };
 
@@ -161,6 +162,50 @@ public sealed class ConfigCoordinator(
                 CancellationToken.None).ConfigureAwait(false);
 
             response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.Success };
+            return response;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// `MISC-030c` (ĐÃ CHỐT 2026-10-01): "Khôi phục cài đặt gốc" — whitelist về ĐÚNG danh sách cấp sẵn trong spec
+    /// (`BE-073a`, <see cref="MonitoringStateData.InitialExcludeProcessNames"/>), bỏ mọi mục cũ người dùng thêm.
+    /// Gate `manage_whitelist`: thao tác này có thể THÊM lại ứng dụng không bị giám sát.
+    /// </summary>
+    private async Task<IpcPayload> HandleResetWhitelistAsync(IpcPayload request, CancellationToken cancellationToken)
+    {
+        IpcPayload response = NewResponse(request);
+        if (!await ConsumeManageWhitelistTokenAsync(request.ResetWhitelistReq.ActionToken, cancellationToken).ConfigureAwait(false))
+        {
+            response.ResetWhitelistResp = new ResetWhitelistResponse { Result = ResetWhitelistResult.InvalidToken };
+            return response;
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            MonitoringStateData current = monitoringStateHolder.Current;
+            MonitoringStateData updated = current with
+            {
+                ExcludeProcessNames = [.. MonitoringStateData.InitialExcludeProcessNames],
+                UserWhitelistedProcessNames = [],
+            };
+            if (!TryPersist(updated))
+            {
+                response.ResetWhitelistResp = new ResetWhitelistResponse { Result = ResetWhitelistResult.Unspecified };
+                return response;
+            }
+
+            monitoringStateHolder.Update(updated);
+            pushControlVisionCommand();
+            await auditLog.AppendAsync("ConfigChanged", new { field = "whitelist", action = "reset" }, CancellationToken.None).ConfigureAwait(false);
+
+            var resp = new ResetWhitelistResponse { Result = ResetWhitelistResult.Success };
+            resp.Whitelist.AddRange(EffectiveWhitelist(updated));
+            response.ResetWhitelistResp = resp;
             return response;
         }
         finally

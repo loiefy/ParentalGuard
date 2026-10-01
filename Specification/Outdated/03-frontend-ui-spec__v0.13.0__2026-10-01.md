@@ -1,13 +1,12 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.14.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.13.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
 - `FE-001`: UI hiện đại theo Fluent Design của Windows 11 — dùng Mica/Acrylic material, dark mode tự động theo hệ thống, rounded corner, animation mượt (dùng khả năng sẵn có của WinUI 3, không tự vẽ lại).
 - `FE-002`: UI dành cho **phụ huynh** phải rõ ràng, không gây hoang mang — vì đây là công cụ bảo vệ, không phải công cụ giám sát bí mật.
 - `FE-005` **(ĐÃ CHỐT v0.13.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Dashboard (các tab Tổng quan, Lịch sử, Cài đặt) có **nền trang trí**: vùng nội dung có hình **1 bông sen** lớn (~80% diện tích vùng nội dung), màu chỉ **tối hơn màu nền một chút**, màu nền vùng nội dung sáng hơn mặc định một chút; thanh menu trái (Tổng quan/Lịch sử/Cài đặt) có nền sáng hơn một chút, phía sau là các **hình tròn mờ sắp xếp ngẫu nhiên**. Trang trí thuần thị giác — không được làm giảm độ tương phản/khả năng đọc nội dung (`FE-050`).
-- `FE-005a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Màn hình Cài đặt (`S4`): mỗi hạng mục cài đặt (Thông điệp chặn nội dung, Danh sách whitelist, Chế độ hiệu năng, Đổi mật khẩu…) trình bày dạng **heading + đoạn nội dung thụt vào** — tên hạng mục là heading, toàn bộ ô nhập/chữ/nút liên quan nằm thụt vào bên dưới; giữa các hạng mục có **1 đường kẻ mờ** phân cách.
 - `FE-003`: UI phía **trẻ em** (overlay, icon trạng thái) phải tối giản, không phán xét gay gắt, đủ rõ để hiểu hành động cần làm.
 
 ## 2. Danh sách màn hình (Screens)
@@ -66,7 +65,6 @@
 - `FE-020` **(cập nhật v0.3.0)**: Icon nhỏ, vị trí **mặc định là góc dưới-phải (bottom-right)** màn hình — **không đặt mặc định ở góc trên-phải** vì đây là vùng thường trùng với nút đóng (X) của phần lớn cửa sổ ứng dụng, dễ gây nhầm lẫn thao tác hoặc bị che khuất bởi chính cửa sổ ứng dụng đang mở. Icon luôn `topmost` nhưng không chặn tương tác với nội dung bên dưới (click-through cho vùng ngoài icon).
 - `FE-020a` **(mới v0.3.0)**: Cho phép người dùng **kéo-thả (drag) icon bằng chuột đến bất kỳ vị trí nào trên màn hình**. Vị trí sau khi kéo được lưu lại (per-monitor, vì app hỗ trợ multi-monitor theo `BE-080`) và giữ nguyên cho các lần khởi động sau, cho đến khi người dùng kéo lại vị trí khác. Việc kéo icon không yêu cầu xác thực mật khẩu (đây chỉ là thay đổi vị trí hiển thị, không phải tắt/ẩn icon — icon vẫn luôn hiển thị đâu đó trên màn hình, không có cách nào làm icon biến mất qua thao tác kéo).
 - `FE-021`: 3 trạng thái hiển thị bằng màu sắc/icon khác nhau: Đang hoạt động (xanh) / Tạm dừng (vàng, kèm đếm ngược) / Lỗi-gián đoạn (đỏ, hiếm khi xảy ra, watchdog nên khắc phục nhanh).
-- `FE-021a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, bổ sung `FE-021`)**: Ngoài màu, icon trạng thái có **ký hiệu**: đang giám sát → **dấu tick**; tạm dừng → **biểu tượng pause** (2 vạch); lỗi-gián đoạn → dấu chấm than.
 - `FE-022`: Hover vào icon hiện tooltip nhỏ, không hiện thông tin nhạy cảm (không hiện số liệu chi tiết ở đây, chỉ trạng thái chung).
 - `FE-022a` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, bổ sung cho `FE-022`, không supersede)**: Khi di chuột lên icon, hiển thị **1 dòng chữ ngay bên cạnh icon** (phía còn trống của màn hình — icon ở nửa phải thì chữ hiện bên trái và ngược lại), biến mất khi chuột rời icon, không chiếm focus, không chặn click. Nội dung theo trạng thái `FE-021`: Đang hoạt động → **"ParentalGuard đang hoạt động"**; Tạm dừng → "ParentalGuard đang tạm dừng — còn mm:ss"; Lỗi-gián đoạn → "ParentalGuard đang khôi phục…". Vẫn tuân thủ `FE-022` (chỉ trạng thái chung, không số liệu chi tiết).
 - `FE-023` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: **Double-click vào icon mở Dashboard** (`S2`). Nếu Dashboard đang mở thì đưa cửa sổ đó lên trước (single-instance), không mở cửa sổ thứ 2. Không yêu cầu mật khẩu ở bước mở (giống mở từ Start Menu) — các thao tác nhạy cảm bên trong Dashboard vẫn gate bằng mật khẩu như cũ (`S5`). Kéo-thả icon (`FE-020a`) giữ nguyên.
@@ -119,7 +117,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.14.0 | 2026-10-01 | **MINOR — `FE-005a`, `FE-021a` (mới)**: bố cục Cài đặt heading + nội dung thụt vào + đường kẻ mờ giữa các hạng mục; icon trạng thái có ký hiệu tick/pause/chấm than |
 | v0.13.0 | 2026-10-01 | **MINOR — `FE-005` (mới)**: nền trang trí Dashboard — bông sen ~80% vùng nội dung (tối hơn nền 1 chút), thanh menu trái sáng hơn với hình tròn mờ ngẫu nhiên |
 | v0.12.0 | 2026-10-01 | **MINOR — `FE-016i` (mới)**: nút bánh răng góc trên-trái trên mọi overlay, mở Dashboard. Đồng bộ `02` v0.16.0 (`BE-088b`: overlay full-screen chừa taskbar — thay phần "toàn bộ màn hình" của `FE-016f`) |
 | v0.11.0 | 2026-10-01 | **MINOR — `FE-022a`/`FE-023` (mới, chủ dự án yêu cầu trực tiếp)**: hover icon trạng thái hiện 1 dòng chữ bên cạnh ("ParentalGuard đang hoạt động" / tạm dừng / khôi phục); double-click icon mở Dashboard (single-instance, không gate mật khẩu ở bước mở) |

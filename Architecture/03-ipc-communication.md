@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.9.2 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.9.3 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Mục đích
 
@@ -943,6 +943,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.9.3 | 2026-10-01 | PATCH — `MISC-030c`: field 156/157 `ResetWhitelistRequest{action_token}`/`ResetWhitelistResponse{result, whitelist}` (khối UI 140-159), gate `manage_whitelist`; Service đặt `exclude_process_names` = `BE-073a`, xoá mục cũ người dùng, push `ControlVisionCommand`, audit `ConfigChanged{field="whitelist", action="reset"}` |
 | v0.9.2 | 2026-10-01 | PATCH — `MISC-030b`: `ConfigResponse.user_whitelisted_process_names` nay trả whitelist HIỆU DỤNG = `exclude_process_names` (danh sách cấp sẵn `BE-073a`) ∪ mục cũ người dùng thêm (không trùng, không phân biệt hoa thường) — giữ nguyên số field; `RemoveWhitelistEntryRequest` xoá khỏi cả 2 danh sách, audit `ConfigChanged{field="whitelist"}` |
 | v0.9.1 | 2026-10-01 | PATCH — `MISC-030a`: field 146/147 `MarkFalsePositiveRequest/Response` DEPRECATED (giữ số field, không xoá — đúng quy tắc mục 2); `Service` luôn trả `MARK_FALSE_POSITIVE_RESULT_UNSPECIFIED`, không tiêu thụ `action_token`, không ghi whitelist; xoá `ConfigCoordinator.TryAddUserWhitelistEntryAsync` (không còn đường thêm whitelist nào) |
 | v0.9.0 | 2026-10-01 | MINOR — field 67 `OpenDashboardRequest {}` (Overlay → Service, `FE-023`): double-click icon trạng thái. Service mở `ParentalGuard.UI.exe` (đường dẫn cố định, không tham số, không kế thừa handle) bằng token của user session hiện hành qua `WTSQueryUserToken` + `CreateEnvironmentBlock` + `CreateProcessAsUser` (Medium IL — khác token hạn chế Low IL dùng cho Vision/Overlay), chống spam tối đa 1 lần/2 giây (`DashboardLauncher`); UI đang mở thì single-instance (ADR-117a) tự đưa cửa sổ lên. Không gate mật khẩu ở bước mở (giống mở từ Start Menu) |

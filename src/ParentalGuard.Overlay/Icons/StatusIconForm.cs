@@ -10,6 +10,19 @@ namespace ParentalGuard.Overlay.Icons;
 /// layered window ~40×40px (ADR-64), kéo-thả (`FE-020a`), tooltip (`FE-022`). Click-through ngoài
 /// icon đạt được tự nhiên (form nhỏ, không cần <see cref="Region"/> loại trừ như overlay blur).
 /// </summary>
+/// <summary>`FE-021a` (ĐÃ CHỐT 2026-10-01): ký hiệu trên icon trạng thái.</summary>
+public enum StatusGlyph
+{
+    /// <summary>Đang giám sát — dấu tick.</summary>
+    Check,
+
+    /// <summary>Tạm dừng giám sát — biểu tượng pause (2 vạch).</summary>
+    Pause,
+
+    /// <summary>Gián đoạn/đang khôi phục — dấu chấm than.</summary>
+    Alert,
+}
+
 public sealed class StatusIconForm : Form
 {
     // Yêu cầu chủ dự án 2026-10-01: giảm còn 70% (40px → 28px ở 100% DPI).
@@ -26,6 +39,7 @@ public sealed class StatusIconForm : Form
     private bool _hovering;
     private Color _currentColor = Color.Gray;
     private string _statusText = string.Empty;
+    private StatusGlyph _glyph = StatusGlyph.Alert;
 
     private const int _wmDpiChanged = 0x02E0;
     private const int _marginAt100Dpi = 8;
@@ -161,9 +175,10 @@ public sealed class StatusIconForm : Form
     }
 
     /// <summary>`FE-021`/`022`: ánh xạ trạng thái → màu + tooltip (mã hex/glyph cụ thể là chi tiết asset, mục 4.1.1 — không chặn thiết kế).</summary>
-    public void ApplyAppearance(Color fillColor, string statusText)
+    public void ApplyAppearance(Color fillColor, string statusText, StatusGlyph glyph)
     {
         _currentColor = fillColor;
+        _glyph = glyph;
         _statusText = statusText;
         if (_hovering && !_dragging)
         {
@@ -189,6 +204,33 @@ public sealed class StatusIconForm : Form
         e.Graphics.Clear(_currentColor);
         using var brush = new SolidBrush(_currentColor);
         e.Graphics.FillEllipse(brush, 0, 0, Width - 1, Height - 1);
+        DrawGlyph(e.Graphics, _glyph, Width);
+    }
+
+    /// <summary>`FE-021a`: ký hiệu trắng vẽ theo tỉ lệ cỡ icon (đúng ở mọi DPI).</summary>
+    private static void DrawGlyph(Graphics g, StatusGlyph glyph, int size)
+    {
+        float s = size;
+        using var pen = new Pen(Color.White, Math.Max(2f, s * 0.11f)) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round };
+        using var white = new SolidBrush(Color.White);
+        switch (glyph)
+        {
+            case StatusGlyph.Check:
+                g.DrawLines(pen, [new PointF(s * 0.28f, s * 0.52f), new PointF(s * 0.44f, s * 0.67f), new PointF(s * 0.73f, s * 0.36f)]);
+                break;
+            case StatusGlyph.Pause:
+                float barW = s * 0.12f;
+                float barH = s * 0.40f;
+                float top = s * 0.30f;
+                g.FillRectangle(white, s * 0.34f, top, barW, barH);
+                g.FillRectangle(white, s * 0.54f, top, barW, barH);
+                break;
+            default:
+                g.DrawLine(pen, s * 0.5f, s * 0.27f, s * 0.5f, s * 0.56f);
+                float dot = Math.Max(2f, s * 0.12f);
+                g.FillEllipse(white, (s - dot) / 2f, s * 0.68f, dot, dot);
+                break;
+        }
     }
 
     protected override void OnPaintBackground(PaintEventArgs e)

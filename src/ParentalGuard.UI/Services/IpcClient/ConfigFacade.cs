@@ -66,6 +66,26 @@ public sealed class ConfigFacade(UiIpcClient client) : IConfigFacade
         return await client.SendRequestAsync(request, MapRemoveWhitelistResponse, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<WhitelistResetOutcome> ResetWhitelistAsync(byte[] actionToken, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(actionToken);
+
+        IpcPayload request = client.NewEnvelope();
+        request.ResetWhitelistReq = new ResetWhitelistRequest { ActionToken = ByteString.CopyFrom(actionToken) };
+        return await client.SendRequestAsync(request, MapResetWhitelistResponse, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static WhitelistResetOutcome MapResetWhitelistResponse(IpcPayload response)
+    {
+        ResetWhitelistResponse resp = response.ResetWhitelistResp;
+        return resp.Result switch
+        {
+            Ipc.Protocol.ResetWhitelistResult.Success => new WhitelistResetOutcome(RemoveWhitelistOutcome.Success, [.. resp.Whitelist]),
+            Ipc.Protocol.ResetWhitelistResult.InvalidToken => new WhitelistResetOutcome(RemoveWhitelistOutcome.InvalidToken, []),
+            _ => throw new UiIpcConnectionException($"Unexpected WhitelistResetOutcome: {resp.Result}."),
+        };
+    }
+
     private static RemoveWhitelistOutcome MapRemoveWhitelistResponse(IpcPayload response)
     {
         RemoveWhitelistEntryResponse resp = response.RemoveWhitelistResp;

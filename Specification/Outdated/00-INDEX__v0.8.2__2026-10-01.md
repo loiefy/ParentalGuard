@@ -2,7 +2,7 @@
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
 > **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.8.3` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.16.0, `03-frontend-ui-spec.md` → v0.14.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.3.1, `07-pause-resume-spec.md` → v0.2.2, `08-performance-cpu-spec.md` → v0.8.0, `09-image-processing-spec.md` → v0.6.0, `10-additional-mechanisms-spec.md` → v0.5.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.4.1). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Trạng thái spec**: `APPROVED v0.8.2` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.16.0, `03-frontend-ui-spec.md` → v0.13.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.3.1, `07-pause-resume-spec.md` → v0.2.2, `08-performance-cpu-spec.md` → v0.8.0, `09-image-processing-spec.md` → v0.6.0, `10-additional-mechanisms-spec.md` → v0.4.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.4.1). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-01
 
 ---
@@ -75,7 +75,6 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
-| v0.8.3 | 2026-10-01 | **`03` → v0.14.0 (`FE-005a`, `FE-021a`)**, **`10` → v0.5.0 (`MISC-030c`)** — chủ dự án yêu cầu: bố cục Cài đặt heading/đoạn/đường kẻ; icon trạng thái tick/pause; nút khôi phục whitelist gốc. Archive bản cũ vào `Outdated/` |
 | v0.8.2 | 2026-10-01 | **`03-frontend-ui-spec.md` → v0.13.0 (MINOR, `FE-005`)**: nền trang trí Dashboard (bông sen, hình tròn ở thanh menu). Archive: `Outdated/03-frontend-ui-spec__v0.12.0__2026-10-01.md`, `Outdated/00-INDEX__v0.8.1__2026-10-01.md` |
 | v0.8.1 | 2026-10-01 | **`02` → v0.16.0 (`BE-088b`, `BE-089c`)**, **`03` → v0.12.0 (`FE-016i`)**, **`10` → v0.4.0 (`MISC-030b`)** — chủ dự án chốt trực tiếp: overlay full-screen mỗi màn hình 1 cửa sổ riêng, chừa taskbar, nút/timeout chỉ đóng cửa sổ của màn hình đó, gỡ overlay nhỏ cùng màn hình; nút bánh răng góc trái mọi overlay mở Dashboard; whitelist `S4` = danh sách cấp sẵn `BE-073a`, chỉ xoá. Archive các bản cũ vào `Outdated/` (`02` v0.15.0, `03` v0.11.0, `10` v0.3.0, `00-INDEX` v0.8.0) |
 | v0.8.0 | 2026-10-01 | **`10-additional-mechanisms-spec.md` → v0.3.0 (MINOR, `MISC-030a` supersedes `MISC-030`)**: chủ dự án chốt bỏ nút "Đánh dấu sai" ở Lịch sử (thao tác đó loại cả ứng dụng khỏi giám sát; app không lưu ảnh nên không có học lại). Archive: `Outdated/10-additional-mechanisms-spec__v0.2.3__2026-10-01.md`, `Outdated/00-INDEX__v0.7.9__2026-10-01.md` |
