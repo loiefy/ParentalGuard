@@ -45,6 +45,8 @@
                 <!-- Mục 6.4 — Quản lý whitelist (MISC-030). -->
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="WhitelistHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <!-- MISC-030b: danh sách cấp sẵn theo spec (BE-073a) — chỉ xoá, không thêm. -->
+                    <TextBlock x:Name="WhitelistHintText" TextWrapping="Wrap" Opacity="0.7" />
                     <InfoBar Severity="Error" IsClosable="False"
                              IsOpen="{x:Bind ViewModel.HasWhitelistError, Mode=OneWay}"
                              Message="{x:Bind ViewModel.WhitelistError, Mode=OneWay}" />

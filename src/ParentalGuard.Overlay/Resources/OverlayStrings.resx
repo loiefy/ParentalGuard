@@ -49,6 +49,10 @@
     <value>Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.</value>
   </data>
   <!-- FE-012: nhãn nút chính — qua resource (FE-060), phụ huynh không tự đổi được. -->
+  <!-- FE-016i: tooltip nút bánh răng (góc trên-trái overlay) mở Dashboard. -->
+  <data name="OpenDashboardTooltip" xml:space="preserve">
+    <value>Mở bảng điều khiển ParentalGuard</value>
+  </data>
   <data name="CloseButtonLabel" xml:space="preserve">
     <value>Tắt nội dung</value>
   </data>

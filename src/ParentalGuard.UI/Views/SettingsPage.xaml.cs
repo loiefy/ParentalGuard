@@ -32,6 +32,7 @@ public sealed partial class SettingsPage : Page
         SaveOverlayMessageButton.Content = LocalizationService.Get("SettingsSaveButton");
         ResetOverlayMessageButton.Content = LocalizationService.Get("SettingsResetToDefaultButton");
         WhitelistHeaderText.Text = LocalizationService.Get("SettingsWhitelistHeader");
+        WhitelistHintText.Text = LocalizationService.Get("SettingsWhitelistHint");
         PerformanceModeHeaderText.Text = LocalizationService.Get("SettingsPerformanceModeHeader");
         BalancedRadio.Content = LocalizationService.Get("SettingsPerformanceModeBalanced");
         MaximumProtectionRadio.Content = LocalizationService.Get("SettingsPerformanceModeMaximumProtection");

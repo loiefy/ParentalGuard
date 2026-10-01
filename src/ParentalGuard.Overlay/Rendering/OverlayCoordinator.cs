@@ -23,6 +23,7 @@ public sealed class OverlayCoordinator : Form
     private readonly Action<IconPositionUpdate> _sendIconPosition;
     private readonly HashSet<IntPtr> _pendingLocationChangeHandles = [];
     private readonly StatusIconManager _iconManager;
+    private readonly Action _requestOpenDashboard;
 
     private IDisposable? _winEventRegistration;
     private System.Windows.Forms.Timer? _debounceTimer;
@@ -35,6 +36,7 @@ public sealed class OverlayCoordinator : Form
     {
         _sendForceClose = sendForceClose;
         _sendIconPosition = sendIconPosition;
+        _requestOpenDashboard = requestOpenDashboard;
         _iconManager = new StatusIconManager(sendIconPosition, requestOpenDashboard);
 
         ShowInTaskbar = false;
@@ -64,17 +66,19 @@ public sealed class OverlayCoordinator : Form
             return;
         }
 
-        var incomingHandles = command.Rects.Select(r => r.WindowHandle).ToHashSet();
+        IReadOnlyList<OverlayRect> desired = RegroupMergedByRealMonitor(command.Rects);
+        var incomingHandles = desired.Select(r => r.WindowHandle).ToHashSet();
         foreach (ulong staleHandle in _overlays.Keys.Where(h => !incomingHandles.Contains(h)).ToList())
         {
             RemoveOverlay(staleHandle);
         }
 
-        foreach (OverlayRect rect in command.Rects)
+        foreach (OverlayRect rect in desired)
         {
             if (_overlays.TryGetValue(rect.WindowHandle, out ContentBlurOverlayForm? existing))
             {
-                if (existing.IsMerged != rect.IsMerged)
+                bool mergedSetChanged = rect.IsMerged && !existing.CoveredWindowHandles.ToHashSet().SetEquals(rect.MergedWindowHandles);
+                if (existing.IsMerged != rect.IsMerged || mergedSetChanged)
                 {
                     // Mục 3.3: cấu trúc control khác nhau giữa 2 chế độ (có/không vùng loại trừ) — xoá + tạo lại, không tái dùng ApplyRect tại chỗ.
                     RemoveOverlay(rect.WindowHandle);
@@ -116,6 +120,47 @@ public sealed class OverlayCoordinator : Form
         }
 
         _blockedMessage = update.Text;
+    }
+
+    /// <summary>
+    /// `BE-089c` (ĐÃ CHỐT 2026-10-01): mỗi màn hình đúng 1 overlay full-screen riêng, chỉ chứa cửa sổ vi phạm của
+    /// CHÍNH màn hình đó. Bug real-hardware: Service nhóm theo <c>monitor_id</c> = chỉ số output DXGI THEO TỪNG
+    /// card đồ hoạ — máy laptop + màn hình ngoài khác adapter có thể cùng chỉ số 0 → cửa sổ của 2 màn hình bị gộp
+    /// chung 1 overlay. Overlay (đã ở đúng session, ADR-58) tự nhóm lại theo màn hình thật qua MonitorFromWindow.
+    /// Rect thường (không gộp) giữ nguyên.
+    /// </summary>
+    internal static IReadOnlyList<OverlayRect> RegroupMergedByRealMonitor(IEnumerable<OverlayRect> rects, Func<ulong, string>? monitorKeyOf = null)
+    {
+        monitorKeyOf ??= h => MonitorInterop.GetMonitorInfoForWindow(new IntPtr(unchecked((long)h)))?.DeviceName ?? string.Empty;
+        var result = new List<OverlayRect>();
+        var merged = new List<OverlayRect>();
+        foreach (OverlayRect rect in rects)
+        {
+            (rect.IsMerged ? merged : result).Add(rect);
+        }
+
+        if (merged.Count == 0)
+        {
+            return result;
+        }
+
+        uint overlayId = merged.Min(r => r.OverlayId);
+        IEnumerable<ulong> allHandles = merged.SelectMany(r => r.MergedWindowHandles).Concat(merged.Select(r => r.WindowHandle)).Distinct();
+        foreach (IGrouping<string, ulong> group in allHandles.GroupBy(monitorKeyOf).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            List<ulong> handles = [.. group.OrderBy(h => h)];
+            var perMonitor = new OverlayRect
+            {
+                WindowHandle = handles[0], // đại diện: Overlay tự resolve bounds màn hình từ handle này
+                OverlayId = overlayId,
+                Reason = OverlayReason.ContentViolation,
+                IsMerged = true,
+            };
+            perMonitor.MergedWindowHandles.AddRange(handles);
+            result.Add(perMonitor);
+        }
+
+        return result;
     }
 
     public void ApplyMonitoringStatus(MonitoringStatusUpdate status)
@@ -164,7 +209,7 @@ public sealed class OverlayCoordinator : Form
 
     private void CreateAndShow(OverlayRect rect)
     {
-        var form = new ContentBlurOverlayForm(rect, HandleCloseButtonClicked, HandleMergedCloseTriggered, _blockedMessage);
+        var form = new ContentBlurOverlayForm(rect, HandleCloseButtonClicked, HandleMergedCloseTriggered, _blockedMessage, _requestOpenDashboard);
         _overlays[rect.WindowHandle] = form;
         form.Show();
     }
@@ -231,7 +276,7 @@ public sealed class OverlayCoordinator : Form
             });
         }
 
-        RemoveOverlayByOverlayId(overlayId);
+        RemoveMergedOverlay(mergedWindowHandles);
     }
 
     private void RemoveOverlay(ulong windowHandle)
@@ -243,10 +288,10 @@ public sealed class OverlayCoordinator : Form
         }
     }
 
-    /// <summary>Overlay gộp được keyed trong <see cref="_overlays"/> theo window_handle đại diện — tìm đúng entry giữ <paramref name="overlayId"/> này rồi xoá.</summary>
-    private void RemoveOverlayByOverlayId(uint overlayId)
+    /// <summary>Overlay gộp keyed theo handle đại diện — nhiều màn hình có thể cùng overlay_id (`BE-089c`), nên tìm đúng form theo chính danh sách handle của nó.</summary>
+    private void RemoveMergedOverlay(IReadOnlyList<ulong> mergedWindowHandles)
     {
-        ulong? key = _overlays.Where(kv => kv.Value.IsMerged && kv.Value.OverlayId == overlayId).Select(kv => (ulong?)kv.Key).FirstOrDefault();
+        ulong? key = _overlays.Where(kv => kv.Value.IsMerged && ReferenceEquals(kv.Value.CoveredWindowHandles, mergedWindowHandles)).Select(kv => (ulong?)kv.Key).FirstOrDefault();
         if (key is { } handle)
         {
             RemoveOverlay(handle);
@@ -312,7 +357,8 @@ public sealed class OverlayCoordinator : Form
     /// <summary>`BE-087`: z-index cục bộ — ADR-56.</summary>
     private void ResyncZOrder()
     {
-        var tracked = new HashSet<IntPtr>(_overlays.Keys.Select(h => new IntPtr(unchecked((long)h))));
+        // Overlay full-screen (gộp) luôn trên cùng — không xếp theo Z-order cửa sổ đại diện.
+        var tracked = new HashSet<IntPtr>(_overlays.Where(kv => !kv.Value.IsMerged).Select(kv => new IntPtr(unchecked((long)kv.Key))));
         if (tracked.Count == 0)
         {
             return;

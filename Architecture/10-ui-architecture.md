@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.2.6 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.2.7 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -285,6 +285,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.7 | 2026-10-01 | PATCH — `MISC-030b`: mục Whitelist ở `S4` hiển thị danh sách cấp sẵn (`BE-073a`) + mục cũ, thêm dòng ghi chú "chỉ có thể xoá, không thể thêm"; luồng xoá (gate `manage_whitelist`) giữ nguyên |
 | v0.2.6 | 2026-10-01 | PATCH — `MISC-030a` (Spec `10` v0.3.0, chủ dự án chốt): bỏ nút "Đánh dấu sai" khỏi `S3` (mục 6.3) cùng toàn bộ luồng `S5` `manage_whitelist` từ `S3`, `IAuditFacade.MarkFalsePositiveAsync`, chuỗi resource liên quan. `S4` whitelist chỉ còn hiển thị + xoá mục cũ (không đổi) |
 | v0.2.5 | 2026-10-01 | PATCH — yêu cầu chủ dự án sau real-hardware test: (1) `S2` Tạm dừng/Tiếp tục: đổi nút NGAY khi Service trả Success (`ApplyPausedLocally`/`ApplyResumedLocally`), poll sau đó chỉ để đồng bộ; nguyên nhân chậm ~8s ở phía Service (`04` v0.5.2). (2) Biểu đồ: số lần chặn trên đầu mỗi cột > 0, hiệu ứng hover (sáng màu) + tooltip "dd/MM: N lần chặn". (3) Dashboard hiện "Đang kiểm tra…" trước response trạng thái đầu tiên, gửi status trước chart (pipe UI tuần tự). (4) Dashboard có thể được Service mở qua double-click icon (`FE-023`, `03` field 67) — single-instance giữ nguyên |
 | v0.2.4 | 2026-10-01 | PATCH — **real-hardware feedback (Đợt 9)**: (1) mục 6.4 thông điệp overlay — bỏ x:Bind TwoWay (cập nhật ViewModel chỉ khi LostFocus, bộ đếm ký tự đứng yên) và bỏ huỷ `BeforeTextChanging`; đồng bộ ở code-behind qua `TextChanged`, lọc ký tự cấm sau khi text đổi, NFC trước khi gửi; ô nhập hiện câu mặc định (`FE-062`) thay vì để trống, lưu câu mặc định → `""`. (2) `S3` trống trơn: `AuditLogPage.OnNavigatedTo` truyền `XamlRoot` khi Page chưa vào visual tree (null) → `ContentDialog` `S5` ném exception bị `_ =` nuốt mất; nay chờ `Loaded` và hiện lỗi nếu có. (3) Bố cục `S2`/`S3`/`S4`: Grid 3 cột (`*` / `20*` MaxWidth 760 / `*`) — cột nội dung căn giữa khi kéo giãn, mọi phần tử bên trong align trái. (4) Icon app (`Assets/ParentalGuard.ico`, khiên + dấu tick): `ApplicationIcon` (Explorer/shortcut/taskbar) + `AppWindow.SetIcon` (title bar). Không đổi Spec |

@@ -29,6 +29,8 @@ public sealed class ContentBlurOverlayForm : Form
     private int _remainingSeconds;
 
     private readonly Button _closeButton;
+    private readonly Button _settingsButton;
+    private readonly ToolTip _toolTip = new();
     private Label? _countdownLabel;
 
     /// <summary>`FE-016g` (ĐÃ CHỐT v0.9.1) mục 3.4.3 — hook cho đếm ngược trực quan bắt buộc; listener gắn ở <see cref="AddCountdownLabel"/>.</summary>
@@ -38,7 +40,8 @@ public sealed class ContentBlurOverlayForm : Form
         OverlayRect rect,
         Action<ulong, uint, CloseSource> onCloseButtonClicked,
         Action<uint, IReadOnlyList<ulong>, CloseSource> onMergedCloseTriggered,
-        string? blockedMessage = null)
+        string? blockedMessage = null,
+        Action? onOpenDashboard = null)
     {
         _windowHandle = rect.WindowHandle;
         _overlayId = rect.OverlayId;
@@ -83,9 +86,30 @@ public sealed class ContentBlurOverlayForm : Form
         _closeButton.FlatAppearance.BorderSize = 0;
         _closeButton.Click += (_, _) => HandleCloseButtonClicked();
 
+        // FE-016i (ĐÃ CHỐT 2026-10-01): nút bánh răng góc trên-trái mở Dashboard (để vào Tạm dừng có mật khẩu) —
+        // cùng cơ chế FE-023 (Service mở UI, Overlay Low IL không tự spawn). Góc trái: không đụng vùng loại trừ
+        // nút đóng gốc FE-016 (góc phải).
+        _settingsButton = new Button
+        {
+            Text = "\uE713", // Segoe MDL2 Assets: Settings (bánh răng)
+            Font = new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(48, 48, 54),
+            ForeColor = Color.White,
+            AutoSize = true,
+            Padding = new Padding(6),
+            Cursor = Cursors.Hand,
+            Visible = onOpenDashboard is not null,
+        };
+        _settingsButton.FlatAppearance.BorderSize = 0;
+        _settingsButton.Click += (_, _) => onOpenDashboard?.Invoke();
+        _toolTip.SetToolTip(_settingsButton, OverlayStrings.OpenDashboardTooltip);
+
         Controls.Add(label);
         Controls.Add(_closeButton);
+        Controls.Add(_settingsButton);
         _closeButton.BringToFront();
+        _settingsButton.BringToFront();
 
         // Bug đã sửa 2026-09-30: vị trí nút trước đây tính 1 lần trong constructor theo ClientSize MẶC ĐỊNH
         // của Form (trước khi ApplyRect gán Bounds thật) và không bao giờ tính lại khi overlay đổi kích
@@ -152,11 +176,15 @@ public sealed class ContentBlurOverlayForm : Form
         RecalculateExclusion();
     }
 
-    /// <summary>ADR-58: overlay gộp tự resolve bounds toàn màn hình (<c>rcMonitor</c>) — bỏ qua field <c>rect</c> nhận từ Service.</summary>
+    /// <summary>
+    /// ADR-58: overlay gộp tự resolve bounds màn hình — bỏ qua field <c>rect</c> nhận từ Service.
+    /// `BE-088b` (ĐÃ CHỐT 2026-10-01, supersedes "che toàn bộ màn hình" của `BE-088a`): dùng WORK AREA (<c>rcWork</c>)
+    /// — chừa thanh taskbar để người dùng còn lối thoát (thu nhỏ/ẩn mọi cửa sổ).
+    /// </summary>
     private void ApplyMergedBounds()
     {
         MonitorInfo? monitor = MonitorInterop.GetMonitorInfoForWindow(TrackedHwnd);
-        Bounds = monitor?.Bounds ?? Screen.PrimaryScreen?.Bounds ?? new Rectangle(0, 0, 1920, 1080);
+        Bounds = monitor?.WorkArea ?? Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1920, 1040);
     }
 
     /// <summary>Mục 2.1: lớp 3 (fallback) đồng bộ ngay, lớp 1+2 nâng cấp bất đồng bộ trong ngân sách 150ms.</summary>
@@ -225,7 +253,7 @@ public sealed class ContentBlurOverlayForm : Form
         _onCloseButtonClicked(_windowHandle, _overlayId, source);
     }
 
-    /// <summary>`BE-089a`: nút "Tắt nội dung" duy nhất đóng TOÀN BỘ cửa sổ vi phạm bị gộp — dùng chung với auto-timeout (`BE-089b`).</summary>
+    /// <summary>`BE-089c` (supersedes phạm vi "toàn hệ thống" của `BE-089a`): nút "Tắt nội dung" của overlay full-screen chỉ đóng các cửa sổ vi phạm trên ĐÚNG màn hình đó — dùng chung với auto-timeout (`BE-089b`).</summary>
     private void TriggerForceCloseAll(CloseSource source)
     {
         _autoTimeoutTimer?.Stop();
@@ -299,6 +327,9 @@ public sealed class ContentBlurOverlayForm : Form
         {
             _countdownLabel.Location = new Point((client.Width - _countdownLabel.Width) / 2, _closeButton.Bottom + 12);
         }
+
+        int margin = (int)Math.Round(12 * DeviceDpi / 96.0);
+        _settingsButton.Location = new Point(margin, margin);
     }
 
     protected override void Dispose(bool disposing)
@@ -307,6 +338,7 @@ public sealed class ContentBlurOverlayForm : Form
         {
             _autoTimeoutTimer?.Stop();
             _autoTimeoutTimer?.Dispose();
+            _toolTip.Dispose();
             Region?.Dispose();
         }
 

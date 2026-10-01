@@ -1,6 +1,6 @@
 # 07 — Overlay Architecture (vùng loại trừ, đa cửa sổ/z-index/gộp, multi-monitor)
 
-> Version: v0.3.1 | Trạng thái: Draft | Cập nhật: 2026-10-01
+> Version: v0.3.2 | Trạng thái: Draft | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu (vì sao có file này, vì sao đánh số `07`)
 
@@ -333,6 +333,7 @@ Phát hiện khi viết `10-ui-architecture.md` (Đợt 6, `S4` Cài đặt nân
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.2 | 2026-10-01 | PATCH — Spec v0.8.1 (`BE-088b`/`BE-089c`/`FE-016i`). (1) Overlay gộp tự nhóm lại theo màn hình THẬT (`MonitorFromWindow`, mở rộng ADR-58) thay vì `monitor_id` của Service — bug thật: `monitor_id` là chỉ số output DXGI theo từng adapter nên 2 màn hình khác adapter trùng id → 1 overlay dùng chung; mỗi màn hình 1 form full-screen với đúng danh sách cửa sổ của màn hình đó, nút/timeout chỉ đóng các cửa sổ đó (`ForceCloseRequest` từng handle như cũ), form gộp không tham gia `ZOrderSync`. (2) Bounds overlay gộp = work area (`rcWork`) — chừa taskbar. (3) Nút bánh răng (Segoe MDL2 `\uE713`) góc trên-trái mọi overlay → `OpenDashboardRequest` (field 67) |
 | v0.3.1 | 2026-10-01 | PATCH — chủ dự án yêu cầu: icon trạng thái giảm còn 70% — 28px ở 100% DPI (trước 40px), vẫn scale theo DPI từng màn hình |
 | v0.3.0 | 2026-10-01 | MINOR — theo Spec v0.7.9 (`FE-022a`/`FE-023`, chủ dự án yêu cầu trực tiếp). (1) **Supersedes ADR-64**: icon trạng thái KHÔNG còn là cửa sổ layered per-pixel alpha (`UpdateLayeredWindow`) — thử nghiệm thật cho thấy hit-test chuột chập chờn (MouseEnter/Leave nhấp nháy, mất MouseDown) khiến hover/double-click không dùng được; nay là cửa sổ thường cắt hình tròn bằng `Region` (+ `WS_EX_NOACTIVATE`/`WS_EX_TOOLWINDOW`: không cướp focus, không hiện Alt+Tab), xoá `LayeredIconRenderer`. (2) `FE-022a`: thay `ToolTip` bằng `StatusHoverLabelForm` (1 dòng chữ cạnh icon, phía còn trống của màn hình, click-through, không focus); ẩn bằng timer kiểm tra vị trí con trỏ thật thay vì `MouseLeave`. (3) `FE-023`: tự nhận double-click (2 lần nhả chuột trong `DoubleClickTime`, không kéo) → gửi `OpenDashboardRequest` (field 67, `03`) lên `Service`; Overlay chạy Low IL nên KHÔNG tự spawn UI. (4) Bug DPI 2 màn hình: tạo Handle sau khi đặt Location đúng màn hình, cỡ/vị trí mặc định theo DPI thật, tự xử lý `WM_DPICHANGED`, vị trí đã lưu được kéo vào trong work area |
 | v0.2.4 | 2026-10-01 | PATCH — **real-hardware bug fix (Đợt 9)**, thuần implement, không đổi thiết kế: (1) icon trạng thái `FE-020` không bao giờ xuất hiện — `_iconManager.Start()` chỉ được gọi trong sự kiện `Load` của `OverlayCoordinator`, nhưng form điều phối này không bao giờ `Show()` (Program chỉ ép tạo Handle) nên `Load` không bao giờ chạy; chuyển sang `OnHandleCreated` + `BeginInvoke`. (2) Hoàn tất mục 4.4 (ADR-110) đúng thiết kế: `OverlayStrings.DefaultBlockedMessage`/`CloseButtonLabel` (resource, `FE-060`), `ContentBlurOverlayForm` hiện `OverlayStrings.BlockedMessage(text)` thay chuỗi hardcode, `OverlayCoordinator` giữ `text` của `OverlayMessageUpdate` gần nhất cho overlay dựng sau. Font overlay đổi `GenericSansSerif` → `Segoe UI` (hiển thị dấu tiếng Việt chuẩn) |

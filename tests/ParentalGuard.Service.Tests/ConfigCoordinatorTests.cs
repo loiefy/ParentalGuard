@@ -60,7 +60,8 @@ public class ConfigCoordinatorTests : IDisposable
         IpcPayload response = await fx.Config.HandleAsync(new IpcPayload { MessageId = 1, ConfigQuery = new ConfigQuery() }, CancellationToken.None);
 
         Assert.Equal("Hi.", response.ConfigResp.OverlayMessage);
-        Assert.Equal(["a.exe"], response.ConfigResp.UserWhitelistedProcessNames);
+        // MISC-030b: whitelist hiển thị = danh sách cấp sẵn BE-073a + mục cũ người dùng thêm.
+        Assert.Equal([.. MonitoringStateData.InitialExcludeProcessNames, "a.exe"], response.ConfigResp.UserWhitelistedProcessNames);
         Assert.Equal(PerformanceMode.Balanced, response.ConfigResp.PerformanceMode);
     }
 
@@ -179,6 +180,25 @@ public class ConfigCoordinatorTests : IDisposable
 
         using ConfigDb db = ConfigDb.Open(_configDbPath);
         Assert.Equal(["b.exe"], db.ReadSnapshot().MonitoringState.UserWhitelistedProcessNames);
+    }
+
+    /// <summary>`MISC-030b`: xoá được mục thuộc danh sách cấp sẵn BE-073a — ứng dụng đó quay lại bị giám sát.</summary>
+    [Fact]
+    public async Task RemoveWhitelist_EntryFromBuiltInList_RemovedFromExcludeList_AndPushed()
+    {
+        Fixture fx = await CreateAsync();
+        byte[] token = await GetValidActionTokenAsync(fx.Auth);
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ActionToken = ByteString.CopyFrom(token), ProcessName = "TASKMGR.EXE" } },
+            CancellationToken.None);
+
+        Assert.Equal(RemoveWhitelistEntryResult.Success, response.RemoveWhitelistResp.Result);
+        Assert.DoesNotContain(fx.Holder.Current.ExcludeProcessNames, n => n.Equals("Taskmgr.exe", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(1, fx.PushCount());
+
+        using ConfigDb db = ConfigDb.Open(_configDbPath);
+        Assert.DoesNotContain("Taskmgr.exe", db.ReadSnapshot().MonitoringState.ExcludeProcessNames);
     }
 
     public void Dispose()

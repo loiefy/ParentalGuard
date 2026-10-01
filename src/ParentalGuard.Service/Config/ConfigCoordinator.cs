@@ -42,7 +42,9 @@ public sealed class ConfigCoordinator(
         MonitoringStateData state = monitoringStateHolder.Current;
         IpcPayload response = NewResponse(request);
         var resp = new ConfigResponse { OverlayMessage = state.OverlayMessage, PerformanceMode = state.PerformanceMode };
-        resp.UserWhitelistedProcessNames.AddRange(state.UserWhitelistedProcessNames);
+        // MISC-030b (ĐÃ CHỐT 2026-10-01): whitelist hiển thị ở S4 = danh sách chủ dự án cấp sẵn trong spec
+        // (BE-073a, exclude_process_names) + mục cũ do người dùng thêm trước khi MISC-030a bỏ đường thêm.
+        resp.UserWhitelistedProcessNames.AddRange(EffectiveWhitelist(state));
         response.ConfigResp = resp;
         return Task.FromResult(response);
     }
@@ -128,17 +130,22 @@ public sealed class ConfigCoordinator(
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            // MISC-030b: xoá được cả mục thuộc danh sách cấp sẵn (BE-073a) lẫn mục cũ người dùng thêm — xoá xong
+            // ứng dụng đó quay lại bị giám sát. Không có đường THÊM nào (MISC-030a).
             MonitoringStateData current = monitoringStateHolder.Current;
-            List<string> remaining = current.UserWhitelistedProcessNames
+            List<string> remainingUser = current.UserWhitelistedProcessNames
                 .Where(name => !string.Equals(name, req.ProcessName, StringComparison.OrdinalIgnoreCase))
                 .ToList();
-            if (remaining.Count == current.UserWhitelistedProcessNames.Count)
+            List<string> remainingExclude = current.ExcludeProcessNames
+                .Where(name => !string.Equals(name, req.ProcessName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (remainingUser.Count == current.UserWhitelistedProcessNames.Count && remainingExclude.Count == current.ExcludeProcessNames.Count)
             {
                 response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.NotFound };
                 return response;
             }
 
-            MonitoringStateData updated = current with { UserWhitelistedProcessNames = remaining };
+            MonitoringStateData updated = current with { UserWhitelistedProcessNames = remainingUser, ExcludeProcessNames = remainingExclude };
             if (!TryPersist(updated))
             {
                 response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.Unspecified };
@@ -150,7 +157,7 @@ public sealed class ConfigCoordinator(
 
             await auditLog.AppendAsync(
                 "ConfigChanged",
-                new { field = "user_whitelisted_process_names", action = "remove", process_name = req.ProcessName },
+                new { field = "whitelist", action = "remove", process_name = req.ProcessName },
                 CancellationToken.None).ConfigureAwait(false);
 
             response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.Success };
@@ -161,6 +168,10 @@ public sealed class ConfigCoordinator(
             _gate.Release();
         }
     }
+
+    /// <summary>Hợp (không trùng, không phân biệt hoa thường) của danh sách cấp sẵn BE-073a và mục cũ người dùng thêm.</summary>
+    internal static IReadOnlyList<string> EffectiveWhitelist(MonitoringStateData state) =>
+        [.. state.ExcludeProcessNames.Concat(state.UserWhitelistedProcessNames).Distinct(StringComparer.OrdinalIgnoreCase)];
 
     private async Task<bool> ConsumeManageWhitelistTokenAsync(ByteString token, CancellationToken cancellationToken)
     {

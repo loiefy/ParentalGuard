@@ -371,6 +371,9 @@
   <data name="SettingsWhitelistHeader" xml:space="preserve">
     <value>Danh sách ứng dụng được loại trừ khỏi giám sát</value>
   </data>
+  <data name="SettingsWhitelistHint" xml:space="preserve">
+    <value>Danh sách do ParentalGuard cấp sẵn. Bạn chỉ có thể xoá bớt (ứng dụng bị xoá sẽ được giám sát trở lại), không thể thêm ứng dụng mới.</value>
+  </data>
   <data name="SettingsWhitelistRemoveButton" xml:space="preserve">
     <value>Xoá</value>
   </data>

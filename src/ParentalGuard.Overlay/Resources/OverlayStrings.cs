@@ -25,5 +25,8 @@ internal static class OverlayStrings
 
     internal static string CloseButtonLabel => Get("CloseButtonLabel");
 
+    /// <summary>`FE-016i`: tooltip nút bánh răng trên overlay.</summary>
+    internal static string OpenDashboardTooltip => Get("OpenDashboardTooltip");
+
     private static string Get(string name) => _resourceManager.GetString(name) ?? name;
 }
