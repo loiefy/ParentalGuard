@@ -25,9 +25,9 @@
     <Grid>
         <!-- Lớp nền vùng nội dung: lệch trái đúng bằng bề rộng thanh menu (cập nhật ở code-behind). -->
         <Grid x:Name="ContentBackdrop" Background="{ThemeResource PgContentBackgroundBrush}">
-            <!-- FE-005 (cập nhật 2026-10-01): họa tiết chùm hoa tối giản, kích thước CỐ ĐỊNH (không co giãn theo
+            <!-- FE-005 (cập nhật 2026-10-01): cảnh hồ nước + cây hoa đào + núi rừng (FE-005d), kích thước CỐ ĐỊNH (không co giãn theo
                  cửa sổ) — vẽ ở code-behind theo lưới neo góc trên-trái, kéo giãn chỉ hiện thêm/bớt ở mép. -->
-            <Canvas x:Name="FlowerCanvas" IsHitTestVisible="False" />
+            <Canvas x:Name="SceneCanvas" IsHitTestVisible="False" />
         </Grid>
 
         <!-- Lớp nền thanh menu trái: sáng hơn 1 chút + hình tròn mờ ngẫu nhiên (seed cố định, ổn định giữa các lần mở). -->

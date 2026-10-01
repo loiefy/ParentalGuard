@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.17.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.16.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
@@ -8,8 +8,6 @@
 - `FE-002`: UI dành cho **phụ huynh** phải rõ ràng, không gây hoang mang — vì đây là công cụ bảo vệ, không phải công cụ giám sát bí mật.
 - `FE-005` **(ĐÃ CHỐT v0.13.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Dashboard (các tab Tổng quan, Lịch sử, Cài đặt) có **nền trang trí**: vùng nội dung có hình **1 bông sen** lớn (~80% diện tích vùng nội dung), màu chỉ **tối hơn màu nền một chút**, màu nền vùng nội dung sáng hơn mặc định một chút; thanh menu trái (Tổng quan/Lịch sử/Cài đặt) có nền sáng hơn một chút, phía sau là các **hình tròn mờ sắp xếp ngẫu nhiên**. Trang trí thuần thị giác — không được làm giảm độ tương phản/khả năng đọc nội dung (`FE-050`).
 - `FE-005b` **(ĐÃ CHỐT v0.15.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, supersedes riêng phần "bông sen ~80%" của `FE-005`; phần màu nền và thanh menu của `FE-005` giữ nguyên)**: Họa tiết nền vùng nội dung là **các chùm hoa nhỏ tối giản** rải trên nền (màu tối hơn nền 1 chút), **kích thước cố định** — thay đổi kích thước cửa sổ không làm hoa phóng to/thu nhỏ (chỉ hiện thêm/bớt ở mép). Ô nhập mật khẩu ở `S4` có độ rộng giới hạn (không kéo dài hết cột).
-- `FE-005d` **(ĐÃ CHỐT v0.17.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, supersedes họa tiết chùm hoa của `FE-005b`/`FE-005c`)**: Nền vùng nội dung là **1 cảnh**: **hồ nước** ở giữa/trái, **cây hoa đào** xum xuê, cành trĩu nhẹ ở cạnh phải, **xa xa là núi và rừng**. Màu cảnh sát màu nền (không làm giảm khả năng đọc nội dung — `FE-050`); kích thước cảnh cố định, không co giãn theo cửa sổ (giữ nguyên tắc `FE-005b`).
-- `FE-006a` **(ĐÃ CHỐT v0.17.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, chỉnh `FE-006`)**: Thanh tiêu đề có **màu riêng**, không trùng màu thanh menu trái, nhưng vẫn cùng tông màu của app.
 - `FE-005c` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, chỉnh `FE-005b`)**: Họa tiết chùm hoa **to hơn, nhiều hơn, phân bố ngẫu nhiên** (lệch khỏi lưới), màu **gần màu nền hơn** nữa — vẫn giữ kích thước cố định khi đổi cỡ cửa sổ (`FE-005b`).
 - `FE-006` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Thanh tiêu đề (title bar) cửa sổ Dashboard **cùng tông màu với nền app** (theo theme Dark/Light), không dùng thanh xám sáng mặc định.
 - `FE-005a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Màn hình Cài đặt (`S4`): mỗi hạng mục cài đặt (Thông điệp chặn nội dung, Danh sách whitelist, Chế độ hiệu năng, Đổi mật khẩu…) trình bày dạng **heading + đoạn nội dung thụt vào** — tên hạng mục là heading, toàn bộ ô nhập/chữ/nút liên quan nằm thụt vào bên dưới; giữa các hạng mục có **1 đường kẻ mờ** phân cách.
@@ -131,7 +129,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.17.0 | 2026-10-01 | **MINOR — `FE-005d`, `FE-006a` (mới)**: nền cảnh hồ nước + cây hoa đào + núi rừng thay chùm hoa; title bar màu riêng (khác thanh menu), cùng tông app |
 | v0.16.0 | 2026-10-01 | **MINOR — `FE-005c`, `FE-006`, `FE-041a`, màn hình `S10` (`FE-090`/`FE-091`) (mới, chủ dự án yêu cầu trực tiếp)**: chùm hoa to/dày/ngẫu nhiên, màu gần nền hơn; title bar cùng tông app; bỏ "Chi tiết kỹ thuật" (cảnh báo lỗi pipeline hiện trên dòng Vision); tab Giới thiệu với tên đơn vị/email/Donate PayPal (để trống chờ điền) |
 | v0.15.0 | 2026-10-01 | **MINOR — `FE-005b` (mới, supersedes phần bông sen của `FE-005`)**: họa tiết chùm hoa tối giản cỡ cố định; giới hạn độ rộng ô nhập mật khẩu |
 | v0.14.0 | 2026-10-01 | **MINOR — `FE-005a`, `FE-021a` (mới)**: bố cục Cài đặt heading + nội dung thụt vào + đường kẻ mờ giữa các hạng mục; icon trạng thái có ký hiệu tick/pause/chấm than |

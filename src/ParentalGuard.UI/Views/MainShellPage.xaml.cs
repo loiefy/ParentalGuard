@@ -33,9 +33,9 @@ public sealed partial class MainShellPage : Page
         ActualThemeChanged += (_, _) =>
         {
             DrawPaneCircles();
-            DrawFlowerPattern();
+            DrawScene();
         };
-        ContentBackdrop.SizeChanged += (_, _) => DrawFlowerPattern();
+        ContentBackdrop.SizeChanged += (_, _) => DrawScene();
 
         // S3 huỷ gate S5 tự điều hướng lại S2 (mục 6.3) bằng Frame.Navigate trực tiếp (không qua
         // OnSelectionChanged) — đồng bộ lại NavigationViewItem đang chọn cho khớp trang thật sự hiển thị.
@@ -98,84 +98,176 @@ public sealed partial class MainShellPage : Page
         PaneBackdrop.Clip = new RectangleGeometry { Rect = new Windows.Foundation.Rect(0, 0, width, height) };
     }
 
-    private const double _flowerCell = 190; // DIP — cỡ ô lưới cố định, độc lập kích thước cửa sổ (2026-10-01: dày hơn)
-
     /// <summary>
-    /// FE-005: họa tiết chùm hoa tối giản, kích thước cố định. Mỗi ô lưới (neo góc trên-trái vùng nội dung) có hoặc
-    /// không 1 chùm hoa, vị trí/xoay/cỡ suy từ chỉ số ô (tất định) — kéo giãn cửa sổ không làm hoa đổi cỡ/nhảy chỗ.
+    /// FE-005d (2026-10-01): cảnh nền vẽ vector, tông màu sát nền — hồ nước ở giữa/trái, cây hoa đào xum xuê cành
+    /// trĩu nhẹ bên phải, xa xa là núi và rừng. Mọi kích thước tính bằng DIP CỐ ĐỊNH, neo theo đáy/mép phải vùng nội
+    /// dung — đổi cỡ cửa sổ chỉ làm lộ thêm/bớt cảnh, không co giãn hình (FE-005b). Vị trí ngẫu nhiên tất định.
     /// </summary>
-    private void DrawFlowerPattern()
+    private void DrawScene()
     {
-        FlowerCanvas.Children.Clear();
-        double width = ContentBackdrop.ActualWidth;
-        double height = ContentBackdrop.ActualHeight;
-        if (width <= 0 || height <= 0)
+        SceneCanvas.Children.Clear();
+        double w = ContentBackdrop.ActualWidth;
+        double h = ContentBackdrop.ActualHeight;
+        if (w <= 0 || h <= 0)
         {
             return;
         }
 
         bool light = ActualTheme == ElementTheme.Light;
-        // 2026-10-01: màu hoa gần màu nền hơn (nền #26262B / #FAFAFC).
-        var petal = new SolidColorBrush(light ? ColorHelper.FromArgb(255, 0xF2, 0xF2, 0xF5) : ColorHelper.FromArgb(255, 0x22, 0x22, 0x27));
-        var center = new SolidColorBrush(light ? ColorHelper.FromArgb(255, 0xFA, 0xFA, 0xFC) : ColorHelper.FromArgb(255, 0x29, 0x29, 0x2F));
+        Brush B(byte r, byte g, byte b, byte lr, byte lg, byte lb) =>
+            new SolidColorBrush(light ? ColorHelper.FromArgb(255, lr, lg, lb) : ColorHelper.FromArgb(255, r, g, b));
 
-        int cols = (int)Math.Ceiling(width / _flowerCell);
-        int rows = (int)Math.Ceiling(height / _flowerCell);
-        for (int row = 0; row < rows; row++)
+        Brush farMountain = B(0x2A, 0x2A, 0x30, 0xF2, 0xF2, 0xF6);
+        Brush nearMountain = B(0x23, 0x23, 0x29, 0xEA, 0xEB, 0xF0);
+        Brush forest = B(0x20, 0x20, 0x25, 0xE3, 0xE5, 0xEB);
+        Brush lake = B(0x2B, 0x2C, 0x33, 0xF3, 0xF5, 0xF9);
+        Brush ripple = B(0x31, 0x32, 0x3A, 0xEC, 0xF0, 0xF6);
+        Brush trunk = B(0x1C, 0x1C, 0x21, 0xDB, 0xDB, 0xE1);
+        Brush blossom = B(0x30, 0x2A, 0x2E, 0xF7, 0xEC, 0xF0);
+        Brush blossomDeep = B(0x35, 0x2D, 0x32, 0xF3, 0xE3, 0xE9);
+
+        double horizon = h - 300; // mép trên mặt hồ: cách đáy cố định 300 DIP
+
+        // 1. Núi xa (2 lớp) — đường gợn tất định theo toạ độ x tuyệt đối (mở rộng cửa sổ = lộ thêm núi, không kéo giãn).
+        AddRidge(horizon, w, step: 90, baseRise: 110, amplitude: 150, seed: 100, farMountain);
+        AddRidge(horizon, w, step: 60, baseRise: 40, amplitude: 80, seed: 300, nearMountain);
+
+        // 2. Rừng thông dọc chân núi.
+        for (double x = 0, i = 0; x < w; x += 16, i++)
         {
-            for (int col = 0; col < cols; col++)
+            double treeH = 18 + (DecorativeNoise(500 + (int)i) * 30);
+            double treeW = 10 + (DecorativeNoise(700 + (int)i) * 8);
+            var pine = new Polygon { Fill = forest };
+            pine.Points.Add(new Windows.Foundation.Point(x - (treeW / 2), horizon + 1));
+            pine.Points.Add(new Windows.Foundation.Point(x, horizon - treeH));
+            pine.Points.Add(new Windows.Foundation.Point(x + (treeW / 2), horizon + 1));
+            SceneCanvas.Children.Add(pine);
+        }
+
+        // 3. Hồ nước: từ chân núi xuống đáy, bờ phải cong vào gốc cây đào.
+        var lakeFigure = new PathFigure { StartPoint = new Windows.Foundation.Point(0, horizon), IsClosed = true };
+        lakeFigure.Segments.Add(new LineSegment { Point = new Windows.Foundation.Point(Math.Max(0, w - 330), horizon) });
+        lakeFigure.Segments.Add(new BezierSegment
+        {
+            Point1 = new Windows.Foundation.Point(w - 200, horizon + 40),
+            Point2 = new Windows.Foundation.Point(w - 300, h - 60),
+            Point3 = new Windows.Foundation.Point(w - 190, h),
+        });
+        lakeFigure.Segments.Add(new LineSegment { Point = new Windows.Foundation.Point(0, h) });
+        SceneCanvas.Children.Add(new Microsoft.UI.Xaml.Shapes.Path { Fill = lake, Data = new PathGeometry { Figures = { lakeFigure } } });
+
+        for (int i = 0; i < 40; i++)
+        {
+            double y = horizon + 12 + (DecorativeNoise(900 + i) * (h - horizon - 24));
+            double len = 30 + (DecorativeNoise(1000 + i) * 150);
+            double x = DecorativeNoise(1100 + i) * Math.Max(1, w - 360 - len);
+            var line = new Rectangle { Width = len, Height = 2, RadiusX = 1, RadiusY = 1, Fill = ripple };
+            Canvas.SetLeft(line, x);
+            Canvas.SetTop(line, y);
+            SceneCanvas.Children.Add(line);
+        }
+
+        // 4. Cây hoa đào neo góc dưới-phải (cỡ cố định ~400×450 DIP — hệ số k).
+        const double treeScale = 0.72;
+        double bx = w;
+        double by = h;
+        (double x, double y) P(double dx, double dy) => (bx + (dx * treeScale), by + (dy * treeScale));
+
+        var trunkTop = P(-175, -235);
+        AddBranch(P(-110, 0), P(-85, -120), P(-205, -165), trunkTop, 30 * treeScale, trunk);
+
+        (double x, double y)[][] branches =
+        [
+            [trunkTop, P(-270, -335), P(-430, -340), P(-540, -255)],  // nhánh dài sang trái, rủ xuống
+            [P(-400, -330), P(-450, -300), P(-480, -250), P(-500, -185)], // cành con rủ trên mặt hồ
+            [trunkTop, P(-210, -340), P(-300, -440), P(-390, -480)],  // chếch lên trái
+            [trunkTop, P(-160, -340), P(-140, -450), P(-180, -560)],  // vươn lên
+            [P(-165, -430), P(-210, -470), P(-260, -500), P(-300, -490)], // cành con của nhánh vươn lên
+            [trunkTop, P(-120, -300), P(-60, -350), P(-15, -400)],    // sang phải
+        ];
+        double[] thickness = [14, 7, 12, 12, 6, 10];
+        for (int b = 0; b < branches.Length; b++)
+        {
+            (double x, double y)[] br = branches[b];
+            AddBranch(br[0], br[1], br[2], br[3], thickness[b] * treeScale, trunk);
+        }
+
+        // Tán hoa: các cụm tròn dọc nửa ngoài mỗi nhánh, cụm cuối nhánh dày hơn — xum xuê.
+        int seed = 2000;
+        for (int b = 0; b < branches.Length; b++)
+        {
+            (double x, double y)[] br = branches[b];
+            for (double t = 0.35; t <= 1.0001; t += 0.09)
             {
-                int cell = (row * 97) + col; // chỉ số ô ổn định theo (hàng, cột), không phụ thuộc số cột hiện có
-                if (DecorativeNoise(cell * 7) < 0.15)
+                (double cx, double cy) = BezierAt(br, t);
+                int puffs = t > 0.8 ? 7 : 4;
+                for (int k = 0; k < puffs; k++)
                 {
-                    continue; // để trống 1 số ô — tránh lặp lại đều đặn như giấy dán tường
+                    double ox = (DecorativeNoise(seed++) - 0.5) * 70 * treeScale;
+                    double oy = (DecorativeNoise(seed++) - 0.5) * 50 * treeScale;
+                    double r = (9 + (DecorativeNoise(seed++) * 14)) * treeScale;
+                    AddDisc(cx + ox, cy + oy + (6 * treeScale), r, DecorativeNoise(seed++) < 0.3 ? blossomDeep : blossom);
                 }
-
-                // Lệch ngẫu nhiên ra cả ngoài ô (chồng sang ô bên) — bớt cảm giác xếp theo lưới.
-                double cx = (col * _flowerCell) + (DecorativeNoise((cell * 7) + 1) * _flowerCell * 1.2) - (_flowerCell * 0.1);
-                double cy = (row * _flowerCell) + (DecorativeNoise((cell * 7) + 2) * _flowerCell * 1.2) - (_flowerCell * 0.1);
-                double rotation = DecorativeNoise((cell * 7) + 3) * 360;
-                double scale = 1.4 + (DecorativeNoise((cell * 7) + 4) * 1.1); // 1.4x–2.5x so với bản đầu
-                AddFlowerCluster(cx, cy, rotation, scale, cell, petal, center);
             }
+        }
+
+        // Vài cánh hoa rơi trên mặt hồ.
+        for (int i = 0; i < 14; i++)
+        {
+            double x = bx - (120 * treeScale) - (DecorativeNoise(3000 + i) * 520 * treeScale);
+            double y = horizon + 20 + (DecorativeNoise(3100 + i) * (h - horizon - 40));
+            AddDisc(x, y, 3 + (DecorativeNoise(3200 + i) * 3), blossom);
         }
     }
 
-    /// <summary>1 chùm = 3 bông 5 cánh khác cỡ + vài chấm nhỏ, xoay quanh tâm chùm.</summary>
-    private void AddFlowerCluster(double cx, double cy, double rotationDeg, double scale, int seed, Brush petal, Brush center)
+    /// <summary>Dải núi: đa giác từ chân trời lên, đỉnh gợn theo nhiễu tất định của toạ độ x tuyệt đối.</summary>
+    private void AddRidge(double horizon, double width, double step, double baseRise, double amplitude, int seed, Brush fill)
     {
-        (double dx, double dy, double r)[] flowers = [(0, 0, 16), (30, -18, 11), (-20, 26, 9)];
-        (double dx, double dy, double r)[] dots = [(34, 14, 3.5), (-30, -12, 3), (8, 36, 2.5)];
-        double rad = rotationDeg * Math.PI / 180;
-        (double x, double y) Rotate(double x, double y) => (cx + (((x * Math.Cos(rad)) - (y * Math.Sin(rad))) * scale), cy + (((x * Math.Sin(rad)) + (y * Math.Cos(rad))) * scale));
-
-        foreach ((double dx, double dy, double r) in flowers)
+        var ridge = new Polygon { Fill = fill };
+        ridge.Points.Add(new Windows.Foundation.Point(0, horizon + 1));
+        for (int i = 0; i * step <= width + step; i++)
         {
-            (double fx, double fy) = Rotate(dx, dy);
-            double rs = r * scale;
-            double petalR = rs * 0.55;
-            for (int k = 0; k < 5; k++)
-            {
-                double a = rad + (k * 2 * Math.PI / 5) + (DecorativeNoise(seed) * 0.6);
-                AddCircle(fx + (Math.Cos(a) * rs * 0.55), fy + (Math.Sin(a) * rs * 0.55), petalR, petal);
-            }
-
-            AddCircle(fx, fy, rs * 0.28, center);
+            double peak = baseRise + (DecorativeNoise(seed + i) * amplitude);
+            ridge.Points.Add(new Windows.Foundation.Point(i * step, horizon - peak));
         }
 
-        foreach ((double dx, double dy, double r) in dots)
-        {
-            (double px, double py) = Rotate(dx, dy);
-            AddCircle(px, py, r * scale, petal);
-        }
+        ridge.Points.Add(new Windows.Foundation.Point(width + step, horizon + 1));
+        SceneCanvas.Children.Add(ridge);
     }
 
-    private void AddCircle(double x, double y, double radius, Brush fill)
+    private void AddBranch((double x, double y) p0, (double x, double y) p1, (double x, double y) p2, (double x, double y) p3, double thickness, Brush stroke)
+    {
+        var figure = new PathFigure { StartPoint = new Windows.Foundation.Point(p0.x, p0.y) };
+        figure.Segments.Add(new BezierSegment
+        {
+            Point1 = new Windows.Foundation.Point(p1.x, p1.y),
+            Point2 = new Windows.Foundation.Point(p2.x, p2.y),
+            Point3 = new Windows.Foundation.Point(p3.x, p3.y),
+        });
+        SceneCanvas.Children.Add(new Microsoft.UI.Xaml.Shapes.Path
+        {
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Data = new PathGeometry { Figures = { figure } },
+        });
+    }
+
+    private static (double x, double y) BezierAt((double x, double y)[] p, double t)
+    {
+        double u = 1 - t;
+        double x = (u * u * u * p[0].x) + (3 * u * u * t * p[1].x) + (3 * u * t * t * p[2].x) + (t * t * t * p[3].x);
+        double y = (u * u * u * p[0].y) + (3 * u * u * t * p[1].y) + (3 * u * t * t * p[2].y) + (t * t * t * p[3].y);
+        return (x, y);
+    }
+
+    private void AddDisc(double x, double y, double radius, Brush fill)
     {
         var e = new Ellipse { Width = radius * 2, Height = radius * 2, Fill = fill };
         Canvas.SetLeft(e, x - radius);
         Canvas.SetTop(e, y - radius);
-        FlowerCanvas.Children.Add(e);
+        SceneCanvas.Children.Add(e);
     }
 
     /// <summary>Dãy giả ngẫu nhiên tất định chỉ dùng trang trí (không dùng <see cref="Random"/> — CA5394), giá trị [0, 1).</summary>

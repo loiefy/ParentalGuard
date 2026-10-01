@@ -2,7 +2,7 @@
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
 > **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.8.6` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.16.0, `03-frontend-ui-spec.md` → v0.17.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.3.1, `07-pause-resume-spec.md` → v0.2.2, `08-performance-cpu-spec.md` → v0.8.0, `09-image-processing-spec.md` → v0.6.0, `10-additional-mechanisms-spec.md` → v0.5.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.4.1). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Trạng thái spec**: `APPROVED v0.8.5` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.16.0, `03-frontend-ui-spec.md` → v0.16.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.3.1, `07-pause-resume-spec.md` → v0.2.2, `08-performance-cpu-spec.md` → v0.8.0, `09-image-processing-spec.md` → v0.6.0, `10-additional-mechanisms-spec.md` → v0.5.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.4.1). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-01
 
 ---
@@ -75,7 +75,6 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
-| v0.8.6 | 2026-10-01 | **`03` → v0.17.0 (`FE-005d`, `FE-006a`)**: nền cảnh hồ + hoa đào + núi rừng; title bar màu riêng. Archive: `Outdated/03-frontend-ui-spec__v0.16.0__2026-10-01.md`, `Outdated/00-INDEX__v0.8.5__2026-10-01.md` |
 | v0.8.5 | 2026-10-01 | **`03` → v0.16.0 (`FE-005c`, `FE-006`, `FE-041a`, `S10` `FE-090`/`FE-091`)** — chủ dự án yêu cầu: hoa nền to/dày hơn, title bar cùng tông, bỏ "Chi tiết kỹ thuật", tab Giới thiệu + Donate. Archive: `Outdated/03-frontend-ui-spec__v0.15.0__2026-10-01.md`, `Outdated/00-INDEX__v0.8.4__2026-10-01.md` |
 | v0.8.4 | 2026-10-01 | **`03` → v0.15.0 (`FE-005b`)**: nền chùm hoa tối giản cỡ cố định thay bông sen; ô mật khẩu hẹp lại. Archive: `Outdated/03-frontend-ui-spec__v0.14.0__2026-10-01.md`, `Outdated/00-INDEX__v0.8.3__2026-10-01.md` |
 | v0.8.3 | 2026-10-01 | **`03` → v0.14.0 (`FE-005a`, `FE-021a`)**, **`10` → v0.5.0 (`MISC-030c`)** — chủ dự án yêu cầu: bố cục Cài đặt heading/đoạn/đường kẻ; icon trạng thái tick/pause; nút khôi phục whitelist gốc. Archive bản cũ vào `Outdated/` |

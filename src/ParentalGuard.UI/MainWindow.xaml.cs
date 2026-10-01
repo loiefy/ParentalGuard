@@ -33,10 +33,11 @@ public sealed partial class MainWindow : Window
         }
 
         bool light = RootFrame.ActualTheme == ElementTheme.Light;
-        Color background = light ? ColorHelper.FromArgb(255, 0xF1, 0xF1, 0xF5) : ColorHelper.FromArgb(255, 0x30, 0x30, 0x37);
+        // FE-006a (2026-10-01): màu riêng — tối hơn cả thanh menu (#303037) lẫn vùng nội dung (#26262B), cùng tông xám lạnh.
+        Color background = light ? ColorHelper.FromArgb(255, 0xE4, 0xE4, 0xEB) : ColorHelper.FromArgb(255, 0x1B, 0x1B, 0x20);
         Color foreground = light ? Colors.Black : Colors.White;
         Color inactiveForeground = light ? ColorHelper.FromArgb(255, 0x80, 0x80, 0x88) : ColorHelper.FromArgb(255, 0x9A, 0x9A, 0xA2);
-        Color hover = light ? ColorHelper.FromArgb(255, 0xE2, 0xE2, 0xE9) : ColorHelper.FromArgb(255, 0x3C, 0x3C, 0x45);
+        Color hover = light ? ColorHelper.FromArgb(255, 0xD6, 0xD6, 0xDF) : ColorHelper.FromArgb(255, 0x2E, 0x2E, 0x36);
 
         AppWindowTitleBar titleBar = AppWindow.TitleBar;
         titleBar.BackgroundColor = background;
