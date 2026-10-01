@@ -74,7 +74,11 @@ internal struct FwpmFilter0
     public uint NumFilterConditions;
     public IntPtr FilterCondition; // FWPM_FILTER_CONDITION0*
     public FwpmAction0 Action;
-    public Guid ProviderContextKeyOrRawContext;
+
+    // union { UINT64 rawContext; GUID providerContextKey; } — căn lề 8 byte trong C (vì UINT64). Khai
+    // báo Guid (căn lề 4) làm lệch 4 byte so với header; 2 ulong giữ đúng offset 152 trên x64.
+    public ulong ProviderContextLow;
+    public ulong ProviderContextHigh;
     public IntPtr Reserved; // GUID*
     public ulong FilterId; // out
     public FwpValue0 EffectiveWeight; // out
@@ -86,8 +90,11 @@ internal struct FwpmFilter0
 /// </summary>
 internal static class WfpInterop
 {
-    // FWPM_FILTER_FLAG_PERSISTENT / FWPM_PROVIDER_FLAG_PERSISTENT / FWPM_SUBLAYER_FLAG_PERSISTENT
-    internal const uint FwpmPersistent = 0x00010000;
+    // FWPM_FILTER_FLAG_PERSISTENT / FWPM_PROVIDER_FLAG_PERSISTENT / FWPM_SUBLAYER_FLAG_PERSISTENT —
+    // cả 3 đều = 0x00000001 (fwpmtypes.h). Bug real-hardware 2026-10-01: giá trị cũ 0x00010000 không
+    // phải cờ hợp lệ → FwpmProviderAdd0 luôn trả FWP_E_INVALID_FLAGS (0x8032001E), Service chỉ log
+    // warning rồi chạy tiếp → Vision CHƯA BAO GIỜ thực sự bị chặn mạng (SEC-010/016-018).
+    internal const uint FwpmPersistent = 0x00000001;
 
     internal const uint FwpActionFlagTerminating = 0x00001000;
     internal const uint FwpActionBlock = FwpActionFlagTerminating | 0x1;
@@ -104,8 +111,10 @@ internal static class WfpInterop
     // Layer ALE (fwpmu.h) — chặn cả outbound connect lẫn inbound accept, IPv4 + IPv6.
     internal static readonly Guid LayerAleAuthConnectV4 = new("c38d57d1-05a7-4c33-904f-7fbceee60e82");
     internal static readonly Guid LayerAleAuthConnectV6 = new("4a72393b-319f-44bc-84c3-ba54dcb3b6b4");
-    internal static readonly Guid LayerAleAuthRecvAcceptV4 = new("c973b13a-1f0b-4bee-b022-4e3fcd5b3a7a");
-    internal static readonly Guid LayerAleAuthRecvAcceptV6 = new("6a35a520-cad2-4423-a3f2-0122a8ba6b7c");
+    // Bug real-hardware 2026-10-01: 2 GUID RECV_ACCEPT cũ không phải layer nào của WFP → FwpmFilterAdd0 trả
+    // FWP_E_LAYER_NOT_FOUND (0x80320004), chiều inbound của Vision không bao giờ bị chặn. Giá trị đúng theo fwpmu.h.
+    internal static readonly Guid LayerAleAuthRecvAcceptV4 = new("e1cd9fe7-f4b5-4273-96c0-592e487b8650");
+    internal static readonly Guid LayerAleAuthRecvAcceptV6 = new("a3b42c97-9f04-4672-b87e-cee9c483257f");
 
     // Provider/Sublayer riêng của dự án (ADR-32) — GUID hằng số cố định để idempotent check.
     internal static readonly Guid ProviderKey = new("5dddd3aa-f2c0-4f84-8362-1731ebc9e400");
