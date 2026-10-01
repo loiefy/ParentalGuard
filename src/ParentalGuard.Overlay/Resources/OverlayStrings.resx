@@ -42,6 +42,6 @@
   </data>
   <!-- FE-016g (v0.9.1)/BE-089b: đếm ngược trực quan bắt buộc trên overlay full-screen lock — resource-based, không hardcode (Architecture/07-overlay-architecture.md mục 3.4.3). -->
   <data name="AutoTimeoutCountdownFormat" xml:space="preserve">
-    <value>Tự động đóng sau: 00:{0:D2}</value>
+    <value>Tự động đóng sau: {0:D2}:{1:D2}</value>
   </data>
 </root>

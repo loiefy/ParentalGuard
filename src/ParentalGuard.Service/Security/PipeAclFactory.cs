@@ -16,8 +16,14 @@ public static class PipeAclFactory
     public static NamedPipeServerStream CreateServerInstance(string pipeName, SecurityIdentifier allowedUserSid)
     {
         var pipeSecurity = new PipeSecurity();
-        // Deny tường minh trước (mục 2.2) — Everyone/ANONYMOUS LOGON/Guests.
-        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        // BUG FIX (Đợt 9, real-hardware): KHÔNG deny WorldSid (Everyone) — SID này là superset chứa
+        // CHÍNH allowedUserSid (mọi token, kể cả user hợp lệ, đều ngầm định là thành viên Everyone).
+        // Windows đánh giá ACL theo thứ tự canonical Deny-trước-Allow, nên 1 Deny-Everyone sẽ chặn
+        // đứng ngay cả Allow-user bên dưới — mọi lần connect đều nhận UnauthorizedAccessException,
+        // 100% tái hiện được, không phải vấn đề Low IL/MIC (đã loại trừ bằng thực nghiệm). Deny tường
+        // minh Anonymous/Guests (2 group hẹp, không chứa user hợp lệ) vẫn giữ nguyên — DACL không có
+        // Allow nào cho SID khác ngoài SYSTEM/allowedUserSid đã ngầm định deny mọi SID còn lại rồi,
+        // không cần thêm Deny-Everyone.
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AnonymousSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinGuestsSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
@@ -47,7 +53,8 @@ public static class PipeAclFactory
     public static NamedPipeServerStream CreateUiServerInstance(string pipeName)
     {
         var pipeSecurity = new PipeSecurity();
-        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        // BUG FIX (Đợt 9) — không deny WorldSid, lý do đầy đủ ở CreateServerInstance phía trên
+        // (Everyone chứa cả InteractiveSid hợp lệ, Deny-Everyone sẽ chặn luôn cả Allow-Interactive).
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AnonymousSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinGuestsSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
@@ -72,7 +79,9 @@ public static class PipeAclFactory
     public static NamedPipeServerStream CreateWatchdogServerInstance(string pipeName)
     {
         var pipeSecurity = new PipeSecurity();
-        pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
+        // BUG FIX (Đợt 9) — không deny WorldSid: SYSTEM cũng ngầm định là thành viên Everyone, Deny-
+        // Everyone sẽ chặn luôn Allow-LocalSystem bên dưới (lý do đầy đủ ở CreateServerInstance).
+        // Vẫn deny tường minh Anonymous/Guests/Interactive — 3 group này không chứa SYSTEM.
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AnonymousSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinGuestsSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         pipeSecurity.SetAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.InteractiveSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));

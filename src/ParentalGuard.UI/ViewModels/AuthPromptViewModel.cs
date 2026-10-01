@@ -43,7 +43,7 @@ public sealed partial class AuthPromptViewModel(IAuthFacade authFacade, string a
         IsBusy = true;
         try
         {
-            AuthVerifyResult result = await authFacade.AuthVerifyAsync(passwordUtf8Pinned, actionContext, cancellationToken).ConfigureAwait(false);
+            AuthVerifyResult result = await authFacade.AuthVerifyAsync(passwordUtf8Pinned, actionContext, cancellationToken).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case AuthOutcome.Success:

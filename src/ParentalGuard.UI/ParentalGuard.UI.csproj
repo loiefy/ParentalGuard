@@ -13,6 +13,11 @@
     <EnableMsixTooling>false</EnableMsixTooling>
     <!-- Unpackaged Win32 .exe (ADR-114) — nhất quán 5 executable còn lại (Architecture/10 mục 2.1). -->
     <WindowsPackageType>None</WindowsPackageType>
+    <!-- Self-contained=true (thiết kế gốc, ADR-114) — không phụ thuộc runtime hệ thống trên máy
+         khách hàng. Undocked RegFree WinRT tự động bật theo mặc định của SDK khi self-contained=true
+         (Microsoft.WindowsAppSDK.UndockedRegFreeWinRTCommon.targets) — không phải nguyên nhân crash
+         (đã loại trừ bằng thực nghiệm, Đợt 9); root cause thật là thiếu file .pri lúc publish, xem
+         Target CopyAppPriToPublishDir bên dưới. -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <!-- CA5392 chỉ nổ ở UndockedRegFreeWinRT-AutoInitializer.cs — file auto-include từ chính gói
          Microsoft.WindowsAppSDK.Foundation (bắt buộc cho app unpackaged, ADR-114), không phải code
@@ -31,5 +36,33 @@
   <ItemGroup>
     <ProjectReference Include="..\ParentalGuard.Ipc\ParentalGuard.Ipc.csproj" />
   </ItemGroup>
+
+  <!-- BUG FIX (Đợt 9, real-hardware crash) — công cụ publish Windows App SDK cho app unpackaged
+       không tự copy file .pri CỦA CHÍNH APP (chứa resource dictionary XAML biên dịch, ví dụ style/
+       StaticResource dùng trong MainWindow.xaml) từ $(OutDir) sang $(PublishDir); chỉ copy đúng các
+       file .pri của SDK/Controls. Thiếu file này gây Microsoft.UI.Xaml.Markup.XamlParseException
+       ("XAML parsing failed") ngay khi InitializeComponent() nạp MainWindow.xaml — quan sát được
+       trên máy thật dưới dạng crash native (combase.dll/E_FAIL) vì WinRT làm mất InnerException khi
+       ném qua interop boundary, chỉ debug trực tiếp bằng Visual Studio (mixed-mode) mới thấy đúng
+       XamlParseException thật. Xác nhận: $(OutDir)$(AssemblyName).pri tồn tại đúng, chỉ thiếu ở
+       publish output. -->
+  <Target Name="CopyAppPriToPublishDir" AfterTargets="Publish">
+    <ItemGroup>
+      <_AppPriFile Include="$(OutDir)$(AssemblyName).pri" Condition="Exists('$(OutDir)$(AssemblyName).pri')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AppPriFile)" DestinationFolder="$(PublishDir)" Condition="'@(_AppPriFile)' != ''" />
+  </Target>
+
+  <!-- BUG FIX (Đợt 9, real-hardware crash) — gói Microsoft.WindowsAppSDK (tính năng AI/ML) mang theo
+       1 bản Microsoft.ML.OnnxRuntime.dll RIÊNG (version 0.0.0.0) mà UI KHÔNG hề dùng tới. Vì 6
+       executable cùng publish vào 1 thư mục dùng chung (publish/ParentalGuard), file 0.0.0.0 này có
+       thể ghi đè lên bản THẬT (1.24.4.0) mà ParentalGuard.Vision cần nếu UI publish SAU Vision — gây
+       System.IO.FileNotFoundException lúc Vision khởi động. Sửa triệt để ở phía
+       ParentalGuard.Vision.csproj (Target RestoreCorrectOnnxRuntimeDll, tự phục hồi bản đúng của
+       chính mình sau MỖI lần publish) — KHÔNG xử lý ở đây bằng cách xoá file, vì UI publish có thể
+       chạy TRƯỚC Vision trong 1 số thứ tự build, khi đó xoá mù quáng ở đây sẽ xoá mất bản ĐÚNG Vision
+       vừa mới cung cấp (đã tự gây đúng lỗi này 1 lần khi thử nghiệm — rút kinh nghiệm). QUY TẮC BUILD
+       BẮT BUỘC: publish ParentalGuard.Vision SAU CÙNG trong số 6 executable (xem
+       publish/E2E-TESTING.md) để Target bên đó luôn có tiếng nói cuối cùng. -->
 
 </Project>

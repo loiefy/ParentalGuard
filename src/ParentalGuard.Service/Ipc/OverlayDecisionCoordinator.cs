@@ -17,7 +17,19 @@ namespace ParentalGuard.Service.Ipc;
 /// active + ghi audit log — `Service` giữ đúng vai trò "nguồn sự thật duy nhất" cho *state*, không
 /// tự thực thi hành động OS đóng cửa sổ.
 /// </summary>
-public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySupervisor, AuditLogWriter auditLog, Func<float> currentRiskThreshold)
+/// <remarks>
+/// `BE-034` (ĐÃ CHỐT 2026-09-30): overlay KHOÁ CỨNG kể từ lúc hiển thị — kết quả nhận diện sau đó cho
+/// cùng cửa sổ bị bỏ qua hoàn toàn (không gỡ vì điểm thấp: Desktop Duplication chụp cả overlay của
+/// chính hệ thống, gỡ theo điểm thấp gây nhấp nháy vô hạn). Chỉ gỡ qua <see cref="HandleForceCloseAsync"/>
+/// (bấm nút / auto-timeout / cửa sổ biến mất) hoặc <see cref="ClearForPause"/>. Mỗi lần danh sách cửa
+/// sổ đang bị che đổi, gọi <paramref name="onCoveredWindowsChanged"/> để đẩy lại <c>ControlVisionCommand</c>
+/// (`BE-034b` — Vision bỏ qua các cửa sổ này).
+/// </remarks>
+public sealed class OverlayDecisionCoordinator(
+    ChildProcessSupervisor overlaySupervisor,
+    AuditLogWriter auditLog,
+    Func<float> currentRiskThreshold,
+    Action? onCoveredWindowsChanged = null)
 {
     private readonly object _sync = new();
     private readonly Dictionary<ulong, OverlayRect> _active = [];
@@ -29,57 +41,56 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
     /// <summary>Dùng làm <c>configureInitialPush</c> khi Overlay (re)connect — gửi lại state hiện hành (fail-secure).</summary>
     public void ConfigureInitialPush(IpcPayload payload) => payload.OverlayRects = BuildCommand();
 
+    /// <summary>`BE-034b`: snapshot cửa sổ đang bị overlay che — gửi xuống Vision trong <c>ControlVisionCommand.covered_window_handles</c>.</summary>
+    public IReadOnlyList<ulong> CoveredWindowHandles
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return [.. _active.Keys];
+            }
+        }
+    }
+
     public async Task HandleVisionResultAsync(IpcPayload message, CancellationToken cancellationToken)
     {
         VisionInferenceResult result = message.VisionResult;
         bool violates = OverlayThresholdDecision.Violates(result.RiskScore, currentRiskThreshold());
-        bool changed;
-        bool isNewViolation;
         lock (_sync)
         {
-            if (violates)
+            // BE-034: đã che → bỏ qua MỌI kết quả tới sau (kể cả kết quả đang bay trên IPC trước khi
+            // Vision nhận danh sách covered mới, BE-034b). Vị trí/kích thước do Overlay tự bám theo
+            // cửa sổ qua WinEventHook (BE-031), không cần Vision cập nhật rect nữa.
+            if (!violates || _active.ContainsKey(result.WindowHandle))
             {
-                bool wasActive = _active.TryGetValue(result.WindowHandle, out OverlayRect? existing);
-                uint overlayId = wasActive ? existing!.OverlayId : _nextOverlayId++;
-                var updated = new OverlayRect
-                {
-                    WindowHandle = result.WindowHandle,
-                    Rect = result.Bbox,
-                    MonitorId = result.MonitorId,
-                    OverlayId = overlayId,
-                    Reason = OverlayReason.ContentViolation,
-                };
-                changed = !wasActive || !RectEquals(existing!, updated);
-                isNewViolation = !wasActive; // ADR-137 (Architecture/04 mục 5.1): edge-triggered — CHUYỂN từ không-vi-phạm sang vi-phạm
-                _active[result.WindowHandle] = updated;
+                return;
             }
-            else
+
+            // ADR-137 (Architecture/04 mục 5.1): edge-triggered — mỗi lượt block đúng 1 record ContentBlocked.
+            _active[result.WindowHandle] = new OverlayRect
             {
-                changed = _active.Remove(result.WindowHandle);
-                isNewViolation = false;
-            }
+                WindowHandle = result.WindowHandle,
+                Rect = result.Bbox,
+                MonitorId = result.MonitorId,
+                OverlayId = _nextOverlayId++,
+                Reason = OverlayReason.ContentViolation,
+            };
         }
 
-        if (changed)
-        {
-            PushCurrentList();
-        }
+        PushCurrentList();
+        onCoveredWindowsChanged?.Invoke();
 
-        if (isNewViolation)
-        {
-            // ADR-137: đúng 1 record/lượt block — không ghi lặp lại mỗi lần bbox đổi trong lúc vẫn
-            // đang vi phạm (đó là nhánh `changed=true && isNewViolation=false` ở trên, cố tình bỏ qua).
-            await auditLog.AppendAsync(
-                "ContentBlocked",
-                new
-                {
-                    windowHandle = result.WindowHandle,
-                    processName = result.ProcessName,
-                    riskScore = result.RiskScore,
-                    bbox = new { x = result.Bbox?.X ?? 0, y = result.Bbox?.Y ?? 0, width = result.Bbox?.Width ?? 0, height = result.Bbox?.Height ?? 0 },
-                },
-                CancellationToken.None).ConfigureAwait(false);
-        }
+        await auditLog.AppendAsync(
+            "ContentBlocked",
+            new
+            {
+                windowHandle = result.WindowHandle,
+                processName = result.ProcessName,
+                riskScore = result.RiskScore,
+                bbox = new { x = result.Bbox?.X ?? 0, y = result.Bbox?.Y ?? 0, width = result.Bbox?.Width ?? 0, height = result.Bbox?.Height ?? 0 },
+            },
+            CancellationToken.None).ConfigureAwait(false);
     }
 
     public async Task HandleForceCloseAsync(IpcPayload message, CancellationToken cancellationToken)
@@ -97,6 +108,14 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
         }
 
         PushCurrentList();
+        onCoveredWindowsChanged?.Invoke();
+
+        if (request.Source == CloseSource.WindowGone)
+        {
+            // BE-034 điều kiện (3): cửa sổ đã tự biến mất (vd đóng bằng nút X gốc, FE-016) — chỉ giải
+            // phóng state, KHÔNG phải force-close nên không ghi ForceCloseRequested.
+            return;
+        }
 
         // BE-089b: Overlay LUÔN set Source tường minh (MANUAL/AUTO_TIMEOUT) — không tự suy luận
         // nguồn từ dữ liệu khác (Architecture/04 mục 5.1).
@@ -126,6 +145,7 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
         }
 
         PushCurrentList();
+        onCoveredWindowsChanged?.Invoke();
     }
 
     private void PushCurrentList() => overlaySupervisor.TryEnqueueBusinessMessage(payload => payload.OverlayRects = BuildCommand());
@@ -179,9 +199,4 @@ public sealed class OverlayDecisionCoordinator(ChildProcessSupervisor overlaySup
         _mergedOverlayIdByMonitor[monitorId] = id;
         return id;
     }
-
-    private static bool RectEquals(OverlayRect a, OverlayRect b) =>
-        a.MonitorId == b.MonitorId
-        && a.Rect.X == b.Rect.X && a.Rect.Y == b.Rect.Y
-        && a.Rect.Width == b.Rect.Width && a.Rect.Height == b.Rect.Height;
 }

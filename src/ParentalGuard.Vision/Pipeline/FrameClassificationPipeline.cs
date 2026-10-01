@@ -39,12 +39,18 @@ public sealed class FrameClassificationPipeline
     /// <c>AcquireNextFrame</c> timeout, hoặc cửa sổ đã đóng giữa chừng) — đây là hành vi bình
     /// thường (mục 4.1), không phải lỗi.
     /// </summary>
-    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, ulong frameId)
+    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, ulong frameId)
     {
         long capturedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         WindowRect? rect = WindowRectResolver.Resolve(hwnd);
         if (rect is null)
+        {
+            return null;
+        }
+
+        WindowRect? cropRect = WindowRectResolver.ToOutputLocalCrop(rect.Value, outputBounds);
+        if (cropRect is null)
         {
             return null;
         }
@@ -55,7 +61,7 @@ public sealed class FrameClassificationPipeline
             return null;
         }
 
-        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs);
+        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs, cropRect.Value);
     }
 
     /// <summary>
@@ -63,18 +69,21 @@ public sealed class FrameClassificationPipeline
     /// test được bất biến zero-out mà không cần DWM/DXGI thật — chỉ cần fake <see cref="IWindowCropper"/>/
     /// <see cref="INsfwClassifier"/> (regression guard cho bug 2026-09-18, TEST-001).
     /// </summary>
-    internal VisionInferenceResult ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs)
+    /// <param name="rect">Toạ độ virtual desktop của cửa sổ — trả nguyên về <c>Bbox</c> cho Overlay.</param>
+    /// <param name="cropRect">Vùng crop trong texture của output (đã trừ offset + cắt biên); mặc định = <paramref name="rect"/> (test 1 màn hình tại gốc).</param>
+    internal VisionInferenceResult ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs, WindowRect? cropRect = null)
     {
+        WindowRect crop = cropRect ?? rect;
         bool contentChanged = false;
         float riskScore;
         try
         {
             try
             {
-                EnsurePixelBuffer(rect.Width, rect.Height);
+                EnsurePixelBuffer(crop.Width, crop.Height);
                 try
                 {
-                    cropper.CropAndReadBack(fullScreenFrame, rect, _pixelBuffer);
+                    cropper.CropAndReadBack(fullScreenFrame, crop, _pixelBuffer);
                 }
                 finally
                 {
@@ -89,13 +98,13 @@ public sealed class FrameClassificationPipeline
 
             // Mục 3.8.1/ADR-129 (v0.3.0): hash-gate NGAY SAU readback, TRƯỚC resize — dùng chung 1 tín
             // hiệu cho cả PERF-010 (Service, qua ContentChanged) và PERF-011 (skip cục bộ dưới đây).
-            ulong newHash = PerceptualHash.ComputeDHash64(_pixelBuffer, rect.Width, rect.Height);
+            ulong newHash = PerceptualHash.ComputeDHash64(_pixelBuffer, crop.Width, crop.Height);
             contentChanged = _hashCache.ResolveContentChanged(hwnd, newHash, out float cachedRiskScore);
             riskScore = cachedRiskScore;
 
             if (contentChanged)
             {
-                FrameResizerNormalizer.Resize(_pixelBuffer, rect.Width, rect.Height, _inputTensor, _classifier.InputLayout);
+                FrameResizerNormalizer.Resize(_pixelBuffer, crop.Width, crop.Height, _inputTensor, _classifier.InputLayout);
             }
         }
         finally

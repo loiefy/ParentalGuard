@@ -40,8 +40,13 @@ public sealed class ChildProcessSupervisor(
     /// <summary>Architecture/05-image-pipeline-architecture.md mục 8.2: exit code 17 (CaptureInitAccessDenied).</summary>
     private const int _captureInitAccessDeniedExitCode = 17;
 
-    // Architecture/03 mục 4.1: ngân sách connect+handshake sau spawn.
-    private static readonly TimeSpan _connectBudget = TimeSpan.FromSeconds(2);
+    // Architecture/03 mục 4.1 (v0.8.6): ngân sách connect+handshake sau 1 lần SPAWN MỚI — tách biệt
+    // khỏi ngân sách ≤3s phục hồi crash theo heartbeat-miss của BE-023 (mục 2.4, không đổi). Giá trị
+    // 2s ban đầu chỉ là giả định lạc quan chưa test trên phần cứng thật; test thật đầu tiên (Đợt 9,
+    // máy thật) cho thấy Vision cần đọc model + verify checksum + khởi tạo DirectML session (build
+    // shader cache D3D12 lần đầu) trước khi kịp connect — vượt xa 2s trên máy thật (cold JIT +
+    // antivirus quét file .exe/.dll lớn mới copy vào %ProgramFiles%).
+    private static readonly TimeSpan _connectBudget = TimeSpan.FromSeconds(15);
 
     // Giá trị chưa được chốt số cụ thể trong spec — placeholder hợp lý (tương tự DEFAULT_RISK_THRESHOLD).
     private const uint _gracefulStopDeadlineMs = 2000;

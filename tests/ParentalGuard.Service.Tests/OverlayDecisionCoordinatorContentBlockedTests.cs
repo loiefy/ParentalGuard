@@ -41,7 +41,7 @@ public class OverlayDecisionCoordinatorContentBlockedTests : IDisposable
         (OverlayDecisionCoordinator coordinator, AuditLogWriter _) = await CreateAsync();
 
         await ReportAsync(coordinator, windowHandle: 42, riskScore: 0.9f, processName: "chrome.exe");
-        await ReportAsync(coordinator, windowHandle: 42, riskScore: 0.1f, processName: "chrome.exe"); // gỡ chặn
+        await ForceCloseAsync(coordinator, windowHandle: 42, CloseSource.Manual); // gỡ chặn (BE-034: chỉ qua ForceClose)
         await ReportAsync(coordinator, windowHandle: 42, riskScore: 0.9f, processName: "chrome.exe"); // vi phạm lại — lượt block MỚI
 
         string content = await File.ReadAllTextAsync(_logPath);
@@ -68,6 +68,11 @@ public class OverlayDecisionCoordinatorContentBlockedTests : IDisposable
             initialPushBuilders: null, hmacKey: new byte[32], auditLog, NullLogger.Instance);
         return (new OverlayDecisionCoordinator(supervisor, auditLog, () => 0.7f), auditLog);
     }
+
+    private static Task ForceCloseAsync(OverlayDecisionCoordinator coordinator, ulong windowHandle, CloseSource source) =>
+        coordinator.HandleForceCloseAsync(
+            new IpcPayload { ForceClose = new ForceCloseRequest { WindowHandle = windowHandle, OverlayId = 1, Source = source } },
+            CancellationToken.None);
 
     private static Task ReportAsync(OverlayDecisionCoordinator coordinator, ulong windowHandle, float riskScore, string processName, int bboxX = 0)
     {

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ParentalGuard.Ipc.Client;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Vision.Capture;
@@ -87,9 +88,25 @@ public sealed class CaptureLoopWorker
         _thread.Start();
     }
 
+    // Log chẩn đoán runtime (Đợt 9) — xem ghi chú đầy đủ ở ParentalGuard.Vision/Program.cs. TẮT theo
+    // mặc định qua [Conditional], bật bằng -p:ParentalGuardDiagnosticLog=true.
+    [Conditional("PARENTALGUARD_DIAGNOSTIC_LOG")]
+    private static void DebugLog(string message)
+    {
+        try
+        {
+            File.AppendAllText(@"C:\PGDebugLog\parentalguard-vision-debug.log", $"[{DateTime.Now:HH:mm:ss.fff}] [CaptureThread] {message}\n");
+        }
+        catch
+        {
+        }
+    }
+
     private void Run(CancellationToken cancellationToken)
     {
+        DebugLog("Run() bắt đầu — trước CreateDXGIFactory1.");
         using IDXGIFactory1 factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+        DebugLog("CreateDXGIFactory1 OK.");
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -106,8 +123,11 @@ public sealed class CaptureLoopWorker
             // (không để cờ tồn đọng) cho lúc enumerate được cache trong tương lai.
             _messagePump?.ConsumeDisplayChanged();
 
+            DebugLog("Trước EnumerateOutputs.");
             IReadOnlyList<MonitorSelector.OutputInfo> outputs = MonitorSelector.EnumerateOutputs(factory);
-            bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames);
+            DebugLog($"EnumerateOutputs OK, {outputs.Count} output(s). Trước ProcessCycle.");
+            bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames, config.CoveredWindowHandles);
+            DebugLog("ProcessCycle xong.");
             if (foregroundExcludedNoCandidates)
             {
                 // Đợt 7 (Architecture/05 mục 3.3 v0.3.0, PERF-010 dòng 1): foreground đang bị exclude-list
@@ -126,7 +146,7 @@ public sealed class CaptureLoopWorker
     }
 
     /// <returns><c>true</c> nếu foreground bị exclude-list và chu kỳ này không có candidate nào — caller nên park vô hạn (mục 3.3/3.6).</returns>
-    private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames)
+    private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames, IReadOnlySet<ulong> coveredWindowHandles)
     {
         IntPtr fgHwnd = ForegroundWindowTracker.GetForegroundWindowHandle();
         string? fgProcessName = ForegroundWindowTracker.ResolveProcessName(fgHwnd);
@@ -139,7 +159,7 @@ public sealed class CaptureLoopWorker
             ? WindowZOrderEnumerator.EnumerateTopLevelWindowsInZOrder()
             : [];
 
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
+        IReadOnlyList<IntPtr> selected = CandidateWindowSelector.SelectCandidates(
             fgHwnd,
             fgExcluded,
             outputs.Count,
@@ -147,6 +167,9 @@ public sealed class CaptureLoopWorker
             MonitorSelector.GetMonitorForWindow,
             w => CandidateWindowChecks.IsVisibleTopLevelWindow(w) && !ExcludeProcessMatcher.IsExcluded(ForegroundWindowTracker.ResolveProcessName(w), excludeProcessNames));
 
+        // BE-034b: bỏ cửa sổ đang bị overlay che — capture chỉ còn thấy chính overlay của hệ thống.
+        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.ExcludeCovered(selected, coveredWindowHandles);
+        DebugLog($"ProcessCycle: {candidates.Count} candidate(s).");
         var usedOutputIndexes = new HashSet<int>();
         var usedWindowHandles = new HashSet<IntPtr>();
         foreach (IntPtr hwnd in candidates)
@@ -157,6 +180,7 @@ public sealed class CaptureLoopWorker
                 continue;
             }
 
+            DebugLog($"Trước _contextPool.GetOrCreate(outputIndex={output.Value.OutputIndex}).");
             OutputCaptureContext? context = _contextPool.GetOrCreate(output.Value.OutputIndex);
             if (context is null)
             {
@@ -165,7 +189,9 @@ public sealed class CaptureLoopWorker
 
             usedOutputIndexes.Add(output.Value.OutputIndex);
             usedWindowHandles.Add(hwnd);
-            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex);
+            DebugLog($"Trước ProcessOneFrame(hwnd={hwnd}).");
+            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex, output.Value.DesktopBounds);
+            DebugLog("ProcessOneFrame xong.");
         }
 
         // Mục 3.8.2 (cùng ngưỡng ADR-65): evict hash của cửa sổ không còn candidate sau 5 chu kỳ liên tiếp.
@@ -185,20 +211,26 @@ public sealed class CaptureLoopWorker
     internal static bool ShouldParkInfinitely(bool foregroundInExcludeList, int candidateCount) =>
         foregroundInExcludeList && candidateCount == 0;
 
-    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex)
+    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds)
     {
         ulong frameId = ++_frameId;
         VisionInferenceResult? result;
+        DebugLog($"Trước _pipeline.Process(frameId={frameId}).");
         try
         {
-            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, frameId);
+            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId);
+            DebugLog($"_pipeline.Process OK (frameId={frameId}).");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Crash-guard: pipeline.Process không có try/catch trước đây — exception bay lên Run()
             // (Thread riêng, ADR-38) làm crash toàn bộ Vision.exe. Không log dữ liệu ảnh/exception
             // detail (Vision không ghi file, BE-022/SEC-017) — chỉ đếm liên tiếp + báo qua
             // HeartbeatAck.DiagnosticState giống PERF-030/031.
+            // CHẨN ĐOÁN TẠM THỜI (Đợt 9) — chỉ log Type+Message (không log ảnh/stack chứa buffer),
+            // để tìm nguyên nhân "Pipe has been ended" lặp lại trên máy thật. XOÁ dòng DebugLog này
+            // sau khi xác định xong nguyên nhân, khôi phục lại comment gốc "không log".
+            DebugLog($"pipeline.Process FAILED (count={_consecutiveFailures + 1}): {ex.GetType().FullName}: {ex.Message}");
             _consecutiveFailures++;
             _ipcClient.DiagnosticState = $"pipeline-error(count={_consecutiveFailures})";
             if (_consecutiveFailures >= _maxConsecutiveFailures)

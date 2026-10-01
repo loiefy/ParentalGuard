@@ -23,10 +23,10 @@ public class FrameResizerNormalizerTests
 
         FrameResizerNormalizer.Resize(source, sourceWidth: 2, sourceHeight: 2, destination, TensorLayout.Nhwc);
 
-        // (0,0) đỏ: R=1, G=-1, B=-1 theo công thức (pixel/127.5)-1.
+        // (0,0) đỏ: R=1, G=0, B=0 theo công thức pixel/255 (model tự đổi sang [-1,1] bên trong graph).
         Assert.Equal(1f, destination[0, 0, 0, 0], precision: 3);
-        Assert.Equal(-1f, destination[0, 0, 0, 1], precision: 3);
-        Assert.Equal(-1f, destination[0, 0, 0, 2], precision: 3);
+        Assert.Equal(0f, destination[0, 0, 0, 1], precision: 3);
+        Assert.Equal(0f, destination[0, 0, 0, 2], precision: 3);
 
         // (1,1) trắng: R=G=B=1.
         Assert.Equal(1f, destination[0, 1, 1, 0], precision: 3);
@@ -42,10 +42,10 @@ public class FrameResizerNormalizerTests
 
         FrameResizerNormalizer.Resize(source, sourceWidth: 2, sourceHeight: 2, destination, TensorLayout.Nchw);
 
-        // (0,0) đỏ: channel 0 (R) = 1, channel 1 (G) = -1, channel 2 (B) = -1.
+        // (0,0) đỏ: channel 0 (R) = 1, channel 1 (G) = 0, channel 2 (B) = 0.
         Assert.Equal(1f, destination[0, 0, 0, 0], precision: 3);
-        Assert.Equal(-1f, destination[0, 1, 0, 0], precision: 3);
-        Assert.Equal(-1f, destination[0, 2, 0, 0], precision: 3);
+        Assert.Equal(0f, destination[0, 1, 0, 0], precision: 3);
+        Assert.Equal(0f, destination[0, 2, 0, 0], precision: 3);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class FrameResizerNormalizerTests
 
         foreach (float value in destination.Buffer.Span)
         {
-            Assert.InRange(value, -1f, 1f);
+            Assert.InRange(value, 0f, 1f);
         }
     }
 

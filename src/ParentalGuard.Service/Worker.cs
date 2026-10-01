@@ -119,7 +119,13 @@ public sealed class Worker(
         // chụp giá trị 1 lần) — Đợt 1 chưa có đường nào đổi RiskThreshold lúc runtime (Pause/UI
         // là Đợt 3/5), nhưng giữ đúng nguyên tắc "Service so ngưỡng độc lập mỗi lần" (Architecture/05
         // mục 3.3) thay vì đóng băng closure theo giá trị lúc khởi động.
-        _overlayDecisionCoordinator = new OverlayDecisionCoordinator(_overlaySupervisor, _auditLog, () => monitoringStateHolder.Current.RiskThreshold);
+        _overlayDecisionCoordinator = new OverlayDecisionCoordinator(
+            _overlaySupervisor,
+            _auditLog,
+            () => monitoringStateHolder.Current.RiskThreshold,
+            // BE-034b: danh sách cửa sổ đang bị che đổi → đẩy lại ControlVisionCommand để Vision bỏ qua chúng.
+            onCoveredWindowsChanged: () => _visionSupervisor?.TryEnqueueBusinessMessage(
+                payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, _pauseCoordinator?.IsPaused != true, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)));
         _iconStatusCoordinator = new IconStatusCoordinator(_overlaySupervisor);
         _iconPositionCoordinator = new IconPositionCoordinator(loggerFactory.CreateLogger("ParentalGuard.Service.Ipc.IconPositionCoordinator"));
         _attackPatternCoordinator = new AttackPatternCoordinator(_auditLog, _iconStatusCoordinator);
@@ -574,7 +580,7 @@ public sealed class Worker(
     /// (`MISC-030`, Đợt 7 gap fix) — `Vision` chỉ giữ đúng 1 danh sách loại trừ (`05-image-pipeline-architecture.md`
     /// mục 3.5 sửa nhỏ v0.3.0), phép hợp phải thực hiện ở đây trước khi gửi qua IPC.
     /// </summary>
-    private static ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state, bool monitoringEnabled, uint captureIntervalMs)
+    private ControlVisionCommand BuildControlVisionCommand(MonitoringStateData state, bool monitoringEnabled, uint captureIntervalMs)
     {
         var command = new ControlVisionCommand
         {
@@ -584,6 +590,11 @@ public sealed class Worker(
         };
         command.ExcludeProcessNames.AddRange(state.ExcludeProcessNames);
         command.ExcludeProcessNames.AddRange(state.UserWhitelistedProcessNames);
+        if (_overlayDecisionCoordinator is not null)
+        {
+            command.CoveredWindowHandles.AddRange(_overlayDecisionCoordinator.CoveredWindowHandles); // BE-034b
+        }
+
         return command;
     }
 

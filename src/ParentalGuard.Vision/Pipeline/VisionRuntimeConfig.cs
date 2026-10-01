@@ -11,6 +11,12 @@ public sealed record VisionRuntimeConfig(
     float RiskThreshold,
     IReadOnlyList<string> ExcludeProcessNames)
 {
+    /// <summary>
+    /// `BE-034b`: cửa sổ đang bị overlay che (<c>ControlVisionCommand.covered_window_handles</c>) —
+    /// không capture/phân loại (chỉ còn thấy chính overlay; Service cũng bỏ qua kết quả của chúng).
+    /// </summary>
+    public IReadOnlySet<ulong> CoveredWindowHandles { get; init; } = new HashSet<ulong>();
+
     public static VisionRuntimeConfig CreateDefault() => new(
         MonitoringEnabled: false,
         CaptureIntervalMs: 1000,

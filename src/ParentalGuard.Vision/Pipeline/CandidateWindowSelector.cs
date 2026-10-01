@@ -55,4 +55,15 @@ public static class CandidateWindowSelector
 
         return candidates;
     }
+
+    /// <summary>`BE-034b`: loại cửa sổ đang bị overlay che (Service gửi qua <c>ControlVisionCommand.covered_window_handles</c>).</summary>
+    public static IReadOnlyList<IntPtr> ExcludeCovered(IReadOnlyList<IntPtr> candidates, IReadOnlySet<ulong> coveredWindowHandles)
+    {
+        if (coveredWindowHandles.Count == 0)
+        {
+            return candidates;
+        }
+
+        return [.. candidates.Where(hwnd => !coveredWindowHandles.Contains(unchecked((ulong)hwnd.ToInt64())))];
+    }
 }

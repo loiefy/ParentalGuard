@@ -18,4 +18,21 @@
     <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>
 
+  <!-- BUG FIX (Đợt 9, real-hardware crash) — 6 executable cùng publish vào 1 thư mục dùng chung
+       (publish/ParentalGuard); gói Microsoft.WindowsAppSDK (tính năng AI/ML) của ParentalGuard.UI
+       mang theo 1 bản Microsoft.ML.OnnxRuntime.dll RIÊNG (version 0.0.0.0, không phải bản Vision
+       cần — 1.24.4.0 từ Microsoft.ML.OnnxRuntime.Managed) có thể ghi đè lên bản đúng nếu UI publish
+       SAU Vision, gây System.IO.FileNotFoundException lúc Vision khởi động. Target này tự phục hồi
+       lại đúng bản của MÌNH ngay sau khi Vision publish — nhưng chỉ có tác dụng nếu Vision là
+       executable publish SAU CÙNG trong số 6 (QUY TẮC BUILD BẮT BUỘC, xem publish/E2E-TESTING.md và
+       ghi chú ở ParentalGuard.UI.csproj — đã thử "xoá file ở phía UI" nhưng gây lỗi ngược lại khi UI
+       publish trước Vision, nên bỏ hướng đó). An toàn tuyệt đối vì luôn copy đúng file $(OutDir) của
+       chính Vision — không đoán/tải từ đâu khác. -->
+  <Target Name="RestoreCorrectOnnxRuntimeDll" AfterTargets="Publish">
+    <ItemGroup>
+      <_CorrectOnnxRuntimeDll Include="$(OutDir)Microsoft.ML.OnnxRuntime.dll" Condition="Exists('$(OutDir)Microsoft.ML.OnnxRuntime.dll')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_CorrectOnnxRuntimeDll)" DestinationFolder="$(PublishDir)" Condition="'@(_CorrectOnnxRuntimeDll)' != ''" />
+  </Target>
+
 </Project>

@@ -141,6 +141,8 @@ message ControlVisionCommand {
   uint32 capture_interval_ms = 2;
   float risk_threshold = 3;
   repeated string exclude_process_names = 4;
+  // BE-034b (2026-09-30): cửa sổ đang bị overlay che — Vision KHÔNG capture/phân loại (tránh phân loại chính overlay).
+  repeated fixed64 covered_window_handles = 5;
 
   reserved 20 to 29; // Đợt 5 (PAUSE-*)
   reserved 30 to 39; // Đợt 7 (PERF-*)
@@ -210,6 +212,9 @@ enum CloseSource {
   CLOSE_SOURCE_UNSPECIFIED = 0;
   MANUAL = 1;
   AUTO_TIMEOUT = 2;
+  // BE-034 (2026-09-30): cửa sổ vi phạm không còn tồn tại (vd đóng bằng nút X gốc) — Overlay tự gỡ,
+  // báo Service giải phóng state. KHÔNG phải force-close, không ghi audit ForceCloseRequested.
+  WINDOW_GONE = 3;
 }
 
 // --- Đợt 2, FE-020/021/022: icon trạng thái multi-monitor (07-overlay-architecture.md mục 4.1) ---

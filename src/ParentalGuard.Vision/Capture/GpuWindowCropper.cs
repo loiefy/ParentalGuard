@@ -94,7 +94,12 @@ public sealed class GpuWindowCropper(ID3D11Device device) : IWindowCropper
 
     private void ZeroOutBeforeDispose(ID3D11Texture2D texture, int width, int height)
     {
-        MappedSubresource mapped = _context.Map(texture, 0, MapMode.Write, Vortice.Direct3D11.MapFlags.None);
+        // BUG FIX (Đợt 9, real-hardware crash): texture staging chỉ tạo với CpuAccessFlags.Read
+        // (EnsureStagingTexture) — Map(MapMode.Write) đòi CpuAccessFlags.Write nên driver từ chối
+        // thẳng với E_INVALIDARG (SharpGenException 0x80070057), crash cứng CaptureLoopWorker thread
+        // (không catch được vì corrupted-state/native fault). Map(MapMode.Read) rồi ghi đè 0 qua con
+        // trỏ trực tiếp — đúng pattern đã dùng thành công ở CropAndReadBack (dòng 47-59 file này).
+        MappedSubresource mapped = _context.Map(texture, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
         try
         {
             unsafe

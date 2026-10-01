@@ -126,4 +126,21 @@ public class CandidateWindowSelectorTests
 
         Assert.Equal([w2], candidates);
     }
+
+    /// <summary>BE-034b (2026-09-30): cửa sổ đang bị overlay che không được capture/phân loại (chỉ còn thấy chính overlay).</summary>
+    [Fact]
+    public void ExcludeCovered_RemovesOnlyCoveredHandles_PreservingOrder()
+    {
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.ExcludeCovered([new IntPtr(1), new IntPtr(2), new IntPtr(3)], new HashSet<ulong> { 2 });
+
+        Assert.Equal([new IntPtr(1), new IntPtr(3)], result);
+    }
+
+    [Fact]
+    public void ExcludeCovered_EmptyCoveredSet_ReturnsCandidatesUnchanged()
+    {
+        IReadOnlyList<IntPtr> candidates = [new IntPtr(1)];
+
+        Assert.Same(candidates, CandidateWindowSelector.ExcludeCovered(candidates, new HashSet<ulong>()));
+    }
 }

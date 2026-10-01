@@ -16,7 +16,13 @@ public static class MonitorSelector
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
 
-    public readonly record struct OutputInfo(int AdapterIndex, int OutputIndex, IntPtr Monitor);
+    /// <param name="DesktopBounds">
+    /// <c>DXGI_OUTPUT_DESC.DesktopCoordinates</c> — vị trí output trên virtual desktop (pixel vật lý,
+    /// có thể âm với màn hình phụ đặt bên trái/trên màn hình chính). Texture Desktop Duplication của
+    /// output bắt đầu tại (0,0) = góc trên-trái của vùng này, nên toạ độ cửa sổ phải trừ offset này
+    /// trước khi crop (<see cref="WindowRectResolver.ToOutputLocalCrop"/>).
+    /// </param>
+    public readonly record struct OutputInfo(int AdapterIndex, int OutputIndex, IntPtr Monitor, WindowRect DesktopBounds = default);
 
     /// <summary>
     /// Enumerate toàn bộ <c>IDXGIOutput</c> qua mọi adapter (`BE-081`) — gọi lại **mỗi chu kỳ capture**,
@@ -36,7 +42,13 @@ public static class MonitorSelector
                 {
                     using (output)
                     {
-                        results.Add(new OutputInfo((int)adapterIndex, (int)outputIndex, output!.Description.Monitor));
+                        OutputDescription description = output!.Description;
+                        var bounds = new WindowRect(
+                            description.DesktopCoordinates.Left,
+                            description.DesktopCoordinates.Top,
+                            description.DesktopCoordinates.Right - description.DesktopCoordinates.Left,
+                            description.DesktopCoordinates.Bottom - description.DesktopCoordinates.Top);
+                        results.Add(new OutputInfo((int)adapterIndex, (int)outputIndex, description.Monitor, bounds));
                     }
                 }
             }

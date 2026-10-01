@@ -11,9 +11,11 @@ namespace ParentalGuard.Vision.Capture;
 public static class FrameResizerNormalizer
 {
     /// <summary>
-    /// Normalize theo đúng <c>preprocess_input</c> của MobileNetV2 gốc (Keras): rescale [-1, 1]
-    /// qua công thức <c>(pixel / 127.5) - 1</c> (ADR-51 — cần xác nhận cùng benchmark ngưỡng
-    /// risk score, câu hỏi mở `09-image-processing-spec.md` mục 8).
+    /// Normalize về [0, 1] qua <c>pixel / 255</c> (ADR-51, đã xác nhận 2026-09-30 trên chính file
+    /// <c>models/nsfw_model.onnx</c>): graph ONNX (TF Hub MobileNetV2, tf2onnx) TỰ chứa bước
+    /// <c>hub_input/Mul(2.0)</c> → <c>Sub(1.0)</c> ngay sau input, tức model mong đợi [0, 1] và tự đổi
+    /// sang [-1, 1] bên trong. Bug đã sửa: bản cũ tự đưa về [-1, 1] trước → model thấy [-3, 1]
+    /// (chuẩn hoá 2 lần), phân phối đầu vào lệch hẳn, không phát hiện được nội dung vi phạm.
     /// </summary>
     public static void Resize(ReadOnlySpan<byte> sourceBgra8, int sourceWidth, int sourceHeight, DenseTensor<float> destination, TensorLayout layout)
     {
@@ -60,7 +62,7 @@ public static class FrameResizerNormalizer
                     float top = p00 + ((p10 - p00) * fx);
                     float bottom = p01 + ((p11 - p01) * fx);
                     float pixel = top + ((bottom - top) * fy);
-                    float normalized = (pixel / 127.5f) - 1f;
+                    float normalized = pixel / 255f;
 
                     destSpan[GetDestinationIndex(layout, destWidth, destHeight, x, y, channel)] = normalized;
                 }

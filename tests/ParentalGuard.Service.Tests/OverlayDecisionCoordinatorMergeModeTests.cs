@@ -107,13 +107,14 @@ public class OverlayDecisionCoordinatorMergeModeTests : IDisposable
         return coordinator.HandleVisionResultAsync(message, CancellationToken.None);
     }
 
+    /// <summary>BE-034: overlay khoá cứng — chỉ gỡ qua ForceCloseRequest (điểm thấp không còn gỡ).</summary>
     private static Task ClearViolationAsync(OverlayDecisionCoordinator coordinator, ulong windowHandle)
     {
         var message = new IpcPayload
         {
-            VisionResult = new VisionInferenceResult { WindowHandle = windowHandle, MonitorId = 1, RiskScore = 0.1f },
+            ForceClose = new ForceCloseRequest { WindowHandle = windowHandle, Source = CloseSource.Manual },
         };
-        return coordinator.HandleVisionResultAsync(message, CancellationToken.None);
+        return coordinator.HandleForceCloseAsync(message, CancellationToken.None);
     }
 
     private static OverlayRectListCommand Push(OverlayDecisionCoordinator coordinator)

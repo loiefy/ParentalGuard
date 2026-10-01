@@ -16,6 +16,13 @@ internal static class OverlayWindowInterop
     [DllImport("user32.dll")]
     private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("user32.dll")]
+    private static extern bool IsWindow(IntPtr hWnd);
+
+    /// <summary>`BE-034` điều kiện (3): cửa sổ vi phạm còn tồn tại không (vd đã đóng bằng nút X gốc, FE-016).</summary>
+    internal static bool WindowExists(ulong windowHandle) => IsWindow(new IntPtr(unchecked((long)windowHandle)));
+
     /// <summary>Best-effort — không throw nếu cửa sổ đã đóng hoặc handle không hợp lệ.</summary>
     internal static void RequestClose(ulong windowHandle)
     {

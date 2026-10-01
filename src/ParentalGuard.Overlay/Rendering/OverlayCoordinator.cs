@@ -16,6 +16,7 @@ public sealed class OverlayCoordinator : Form
 {
     private const int _wmDisplayChange = 0x007E;
     private const int _debounceMs = 50;
+    private const int _windowGoneCheckMs = 1000;
 
     private readonly Dictionary<ulong, ContentBlurOverlayForm> _overlays = [];
     private readonly Action<ForceCloseRequest> _sendForceClose;
@@ -25,6 +26,8 @@ public sealed class OverlayCoordinator : Form
 
     private IDisposable? _winEventRegistration;
     private System.Windows.Forms.Timer? _debounceTimer;
+    private readonly System.Windows.Forms.Timer _windowGoneTimer;
+    private readonly HashSet<ulong> _reportedGoneHandles = [];
     private bool _pendingZOrderResync;
 
     public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition)
@@ -47,6 +50,13 @@ public sealed class OverlayCoordinator : Form
         _winEventRegistration = WinEventHookInterop.Register(
             [WinEventHookInterop.EventObjectLocationChange, WinEventHookInterop.EventSystemForeground, WinEventHookInterop.EventObjectReorder],
             OnWinEvent);
+
+        // BE-034 điều kiện (3): overlay khoá cứng, Service không còn gỡ theo điểm thấp — Overlay phải tự
+        // phát hiện cửa sổ vi phạm đã biến mất (vd đóng bằng nút X gốc chừa ra theo FE-016), nếu không
+        // overlay sẽ treo che 1 vùng trống tới hết timeout.
+        _windowGoneTimer = new System.Windows.Forms.Timer { Interval = _windowGoneCheckMs };
+        _windowGoneTimer.Tick += (_, _) => CheckForGoneWindows();
+        _windowGoneTimer.Start();
     }
 
     /// <summary>`Architecture/02` mục 5 điểm 1: Overlay chỉ vẽ đúng danh sách này, không tự quyết định gì thêm.</summary>
@@ -139,16 +149,51 @@ public sealed class OverlayCoordinator : Form
         form.Show();
     }
 
-    private void HandleCloseButtonClicked(ulong windowHandle, uint overlayId)
+    private void HandleCloseButtonClicked(ulong windowHandle, uint overlayId, CloseSource source)
     {
         _sendForceClose(new ForceCloseRequest
         {
             WindowHandle = windowHandle,
             OverlayId = overlayId,
             ClickedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Source = CloseSource.Manual,
+            Source = source,
         });
         RemoveOverlay(windowHandle);
+    }
+
+    /// <summary>
+    /// Báo <c>WINDOW_GONE</c> đúng 1 lần cho mỗi handle đã biến mất. Overlay thường: gỡ ngay tại chỗ.
+    /// Overlay gộp: chờ Service gửi danh sách mới (các handle còn lại vẫn đang vi phạm).
+    /// </summary>
+    private void CheckForGoneWindows()
+    {
+        foreach ((ulong key, ContentBlurOverlayForm form) in _overlays.ToList())
+        {
+            foreach (ulong handle in form.CoveredWindowHandles)
+            {
+                if (OverlayWindowInterop.WindowExists(handle) || !_reportedGoneHandles.Add(handle))
+                {
+                    continue;
+                }
+
+                _sendForceClose(new ForceCloseRequest
+                {
+                    WindowHandle = handle,
+                    OverlayId = form.OverlayId,
+                    ClickedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    Source = CloseSource.WindowGone,
+                });
+            }
+
+            if (!form.IsMerged && _reportedGoneHandles.Contains(key))
+            {
+                RemoveOverlay(key);
+            }
+        }
+
+        // HWND có thể được OS tái sử dụng — chỉ giữ dấu "đã báo" cho handle còn đang có overlay.
+        var live = _overlays.Values.SelectMany(f => f.CoveredWindowHandles).ToHashSet();
+        _reportedGoneHandles.RemoveWhere(h => !live.Contains(h));
     }
 
     /// <summary>`BE-089`/`BE-089b`: 1 <c>ForceCloseRequest</c> riêng cho mỗi handle trong batch, cùng <paramref name="overlayId"/> và <paramref name="source"/> (mục 3.3).</summary>
@@ -266,6 +311,7 @@ public sealed class OverlayCoordinator : Form
         {
             _winEventRegistration?.Dispose();
             _debounceTimer?.Dispose();
+            _windowGoneTimer.Dispose();
             _iconManager.Dispose();
         }
 

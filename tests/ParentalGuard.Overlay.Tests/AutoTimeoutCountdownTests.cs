@@ -22,6 +22,13 @@ public class AutoTimeoutCountdownTests
     }
 
     [Fact]
+    public void AutoTimeoutCountdown_At60Seconds_FormatsAsOneMinute()
+    {
+        // FE-016h (2026-09-30): overlay thường đếm ngược 60s — bản cũ hard-code "00:{s}" sẽ hiện "00:60".
+        Assert.Equal("Tự động đóng sau: 01:00", OverlayStrings.AutoTimeoutCountdown(60));
+    }
+
+    [Fact]
     public void AutoTimeoutCountdown_At0Seconds_ShowsZero()
     {
         string text = OverlayStrings.AutoTimeoutCountdown(0);

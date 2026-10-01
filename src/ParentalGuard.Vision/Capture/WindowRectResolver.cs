@@ -40,4 +40,26 @@ public static class WindowRectResolver
 
         return new WindowRect(rect.Left, rect.Top, width, height);
     }
+
+    /// <summary>
+    /// Đổi <paramref name="windowRect"/> (toạ độ virtual desktop) sang vùng crop trong texture Desktop
+    /// Duplication của 1 output: trừ offset <paramref name="outputBounds"/> rồi cắt về trong biên
+    /// output. <c>null</c> nếu cửa sổ không có phần nào nằm trên output này.
+    /// Bug đã sửa 2026-09-30: trước đây dùng thẳng toạ độ desktop làm box crop — màn hình phụ (toạ độ
+    /// âm/khác 0) hoặc cửa sổ lấn mép tạo box không hợp lệ, <c>CopySubresourceRegion</c> im lặng không
+    /// copy gì → Vision phân loại ảnh đen, không bao giờ phát hiện vi phạm.
+    /// </summary>
+    public static WindowRect? ToOutputLocalCrop(WindowRect windowRect, WindowRect outputBounds)
+    {
+        int left = Math.Max(windowRect.X, outputBounds.X);
+        int top = Math.Max(windowRect.Y, outputBounds.Y);
+        int right = Math.Min(windowRect.X + windowRect.Width, outputBounds.X + outputBounds.Width);
+        int bottom = Math.Min(windowRect.Y + windowRect.Height, outputBounds.Y + outputBounds.Height);
+        if (right <= left || bottom <= top)
+        {
+            return null;
+        }
+
+        return new WindowRect(left - outputBounds.X, top - outputBounds.Y, right - left, bottom - top);
+    }
 }

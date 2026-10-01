@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Threading.Channels;
 using ParentalGuard.Ipc.Framing;
@@ -31,6 +32,23 @@ public sealed class IpcChildClient(ProcessType processType, ChildIpcBootstrap bo
     /// </summary>
     public volatile string DiagnosticState = "alive";
 
+    private NamedPipeClientStream? _preConnectedPipe;
+
+    /// <summary>
+    /// (Real-hardware fix, Đợt 9) Connect + handshake NGAY, tách khỏi <see cref="RunForeverAsync"/> —
+    /// cho phép caller (<c>Vision</c>) kết nối pipe TRƯỚC khi làm các bước khởi tạo tốn thời gian
+    /// (đọc model, khởi tạo DirectML session, probe Desktop Duplication), thay vì để toàn bộ chi phí
+    /// cold-start đó tính vào ngân sách connect sau spawn của <c>Service</c>
+    /// (Architecture/03-ipc-communication.md mục 4.1) — trên phần cứng thật, chi phí này có thể ăn
+    /// gần hết ngân sách, khiến process luôn bị kill trước khi kịp connect dù retry đúng thiết kế.
+    /// </summary>
+    public async Task ConnectAsync(CancellationToken cancellationToken)
+    {
+        NamedPipeClientStream pipe = await ConnectWithRetryAsync(cancellationToken).ConfigureAwait(false);
+        await HandshakeAsync(pipe, cancellationToken).ConfigureAwait(false);
+        _preConnectedPipe = pipe;
+    }
+
     /// <summary>
     /// Đẩy 1 message nghiệp vụ vào hàng chờ ghi pipe, thread-safe — gọi được từ bất kỳ thread
     /// nào (kể cả Thread Capture-Inference chuyên dụng của Vision, ADR-38/39). Không tự tạo
@@ -60,8 +78,17 @@ public sealed class IpcChildClient(ProcessType processType, ChildIpcBootstrap bo
             NamedPipeClientStream? pipe = null;
             try
             {
-                pipe = await ConnectWithRetryAsync(cancellationToken).ConfigureAwait(false);
-                await HandshakeAsync(pipe, cancellationToken).ConfigureAwait(false);
+                if (_preConnectedPipe is not null)
+                {
+                    pipe = _preConnectedPipe;
+                    _preConnectedPipe = null;
+                }
+                else
+                {
+                    pipe = await ConnectWithRetryAsync(cancellationToken).ConfigureAwait(false);
+                    await HandshakeAsync(pipe, cancellationToken).ConfigureAwait(false);
+                }
+
                 await RunConnectionAsync(pipe, onBusinessMessage, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -97,15 +124,34 @@ public sealed class IpcChildClient(ProcessType processType, ChildIpcBootstrap bo
             try
             {
                 await pipe.ConnectAsync(_connectTimeoutMs, cancellationToken).ConfigureAwait(false);
+                DiagnosticLog($"Connect OK sau {attempt} lần retry, pipeName={bootstrap.PipeName}.");
                 return pipe;
             }
-            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
+                // CHẨN ĐOÁN TẠM THỜI (Đợt 9) — trước đây nuốt mất exception ở đây, không có cách nào
+                // biết vì sao connect fail. Ghi lại loại + message thật để tìm nguyên nhân crash-loop
+                // trên máy thật. XOÁ dòng DiagnosticLog này sau khi xác định xong nguyên nhân.
+                DiagnosticLog($"Connect FAILED (attempt {attempt}), pipeName={bootstrap.PipeName}: {ex.GetType().FullName}: {ex.Message}");
                 await pipe.DisposeAsync().ConfigureAwait(false);
                 int delayIndex = Math.Min(attempt, _retryDelaysMs.Length - 1);
                 await Task.Delay(_retryDelaysMs[delayIndex], cancellationToken).ConfigureAwait(false);
                 attempt++;
             }
+        }
+    }
+
+    // Log chẩn đoán runtime (Đợt 9) — xem ghi chú đầy đủ ở ParentalGuard.Vision/Program.cs. TẮT theo
+    // mặc định qua [Conditional], bật bằng -p:ParentalGuardDiagnosticLog=true.
+    [Conditional("PARENTALGUARD_DIAGNOSTIC_LOG")]
+    private static void DiagnosticLog(string message)
+    {
+        try
+        {
+            File.AppendAllText(@"C:\PGDebugLog\parentalguard-ipcclient-debug.log", $"[{DateTime.Now:HH:mm:ss.fff}] {message}\n");
+        }
+        catch
+        {
         }
     }
 

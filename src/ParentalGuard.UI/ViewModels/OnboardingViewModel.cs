@@ -83,7 +83,10 @@ public sealed partial class OnboardingViewModel(IAuthFacade authFacade) : Observ
         IsBusy = true;
         try
         {
-            SetInitialPasswordResult result = await authFacade.SetInitialPasswordAsync(passwordUtf8Pinned, cancellationToken).ConfigureAwait(false);
+            // ConfigureAwait(true) BẮT BUỘC (bug đã sửa 2026-09-30) — mọi dòng sau await đều set
+            // property x:Bind + raise event điều hướng Frame; chạy trên thread pool thì WinUI ném
+            // RPC_E_WRONG_THREAD, IsBusy=false không bao giờ tới UI → nút "Tiếp tục" xám vĩnh viễn.
+            SetInitialPasswordResult result = await authFacade.SetInitialPasswordAsync(passwordUtf8Pinned, cancellationToken).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case SetupOutcome.Success:
@@ -124,7 +127,7 @@ public sealed partial class OnboardingViewModel(IAuthFacade authFacade) : Observ
         IsBusy = true;
         try
         {
-            ConfirmRecoveryKeySavedResult result = await authFacade.ConfirmRecoveryKeySavedAsync(_setupToken, confirmed: true, cancellationToken).ConfigureAwait(false);
+            ConfirmRecoveryKeySavedResult result = await authFacade.ConfirmRecoveryKeySavedAsync(_setupToken, confirmed: true, cancellationToken).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case ConfirmOutcome.Persisted:

@@ -18,7 +18,7 @@ public sealed class ContentBlurOverlayForm : Form
     private readonly uint _overlayId;
     private readonly bool _isMerged;
     private readonly IReadOnlyList<ulong> _mergedWindowHandles;
-    private readonly Action<ulong, uint> _onCloseButtonClicked;
+    private readonly Action<ulong, uint, CloseSource> _onCloseButtonClicked;
     private readonly Action<uint, IReadOnlyList<ulong>, CloseSource> _onMergedCloseTriggered;
 
     // Mục 2.6: huỷ kết quả lớp 1 (UI Automation) tới muộn sau khi đã có 1 chu trình tính lại mới hơn
@@ -28,12 +28,15 @@ public sealed class ContentBlurOverlayForm : Form
     private System.Windows.Forms.Timer? _autoTimeoutTimer;
     private int _remainingSeconds;
 
+    private readonly Button _closeButton;
+    private Label? _countdownLabel;
+
     /// <summary>`FE-016g` (ĐÃ CHỐT v0.9.1) mục 3.4.3 — hook cho đếm ngược trực quan bắt buộc; listener gắn ở <see cref="AddCountdownLabel"/>.</summary>
     public event Action<int>? CountdownTick;
 
     public ContentBlurOverlayForm(
         OverlayRect rect,
-        Action<ulong, uint> onCloseButtonClicked,
+        Action<ulong, uint, CloseSource> onCloseButtonClicked,
         Action<uint, IReadOnlyList<ulong>, CloseSource> onMergedCloseTriggered)
     {
         _windowHandle = rect.WindowHandle;
@@ -47,8 +50,11 @@ public sealed class ContentBlurOverlayForm : Form
         ShowInTaskbar = false;
         TopMost = true;
         StartPosition = FormStartPosition.Manual;
-        BackColor = Color.Black;
-        Opacity = 0.92;
+        // FE-011 (bug real-hardware 2026-09-30): bản cũ nền đen Opacity=0.92 — vẫn nhìn xuyên ~8%,
+        // nội dung sáng/tương phản cao lộ rõ. Che ĐỤC hoàn toàn (fail-secure, mức "blur" tối đa):
+        // không pixel nào của cửa sổ vi phạm đi qua được overlay, trừ vùng loại trừ nút đóng FE-016a.
+        BackColor = Color.FromArgb(24, 24, 28);
+        Opacity = 1.0;
 
         var label = new Label
         {
@@ -59,36 +65,54 @@ public sealed class ContentBlurOverlayForm : Form
             Font = new Font(FontFamily.GenericSansSerif, 14f, FontStyle.Bold),
         };
 
-        var closeButton = new Button
+        // FE-012: primary button, màu nhấn rõ ràng (bản cũ là nút xám mặc định WinForms, lẫn vào nền).
+        _closeButton = new Button
         {
             Text = "Tắt nội dung",
             AutoSize = true,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = Color.FromArgb(0, 120, 212),
+            ForeColor = Color.White,
+            Font = new Font(FontFamily.GenericSansSerif, 13f, FontStyle.Bold),
+            Padding = new Padding(16, 6, 16, 6),
+            Cursor = Cursors.Hand,
         };
-        closeButton.Click += (_, _) => HandleCloseButtonClicked();
+        _closeButton.FlatAppearance.BorderSize = 0;
+        _closeButton.Click += (_, _) => HandleCloseButtonClicked();
 
         Controls.Add(label);
-        Controls.Add(closeButton);
-        closeButton.Location = new Point((ClientSize.Width - closeButton.Width) / 2, ClientSize.Height - closeButton.Height - 16);
-        closeButton.BringToFront();
+        Controls.Add(_closeButton);
+        _closeButton.BringToFront();
+
+        // Bug đã sửa 2026-09-30: vị trí nút trước đây tính 1 lần trong constructor theo ClientSize MẶC ĐỊNH
+        // của Form (trước khi ApplyRect gán Bounds thật) và không bao giờ tính lại khi overlay đổi kích
+        // thước theo cửa sổ vi phạm → nút nằm lạc góc/khuất. Giờ đặt lại mỗi lần Resize.
+        Resize += (_, _) => LayoutControls();
 
         if (_isMerged)
         {
             ApplyMergedBounds();
-
-            // Bounds vừa đổi từ ClientSize mặc định của Form sang kích thước toàn màn hình thật (`ApplyMergedBounds`)
-            // — tính lại vị trí nút theo Bounds thật, nếu không nút sẽ lệch khỏi màn hình.
-            closeButton.Location = new Point((ClientSize.Width - closeButton.Width) / 2, ClientSize.Height - closeButton.Height - 16);
-
-            StartAutoTimeout();
-            AddCountdownLabel(closeButton);
+            StartAutoTimeout(MergedAutoTimeoutSeconds);
         }
         else
         {
             ApplyRect(rect);
+            StartAutoTimeout(SingleAutoTimeoutSeconds);
         }
+
+        AddCountdownLabel();
     }
 
+    /// <summary>`BE-089b`/`FE-016g`: overlay full-screen lock (chế độ gộp).</summary>
+    internal const int MergedAutoTimeoutSeconds = 30;
+
+    /// <summary>`BE-034a`/`FE-016h` (ĐÃ CHỐT 2026-09-30): overlay thường (1 cửa sổ).</summary>
+    internal const int SingleAutoTimeoutSeconds = 60;
+
     public bool IsMerged => _isMerged;
+
+    /// <summary>Chế độ gộp: toàn bộ handle bị gộp; chế độ thường: đúng 1 handle đang che.</summary>
+    public IReadOnlyList<ulong> CoveredWindowHandles => _isMerged ? _mergedWindowHandles : [_windowHandle];
 
     public ulong WindowHandle => _windowHandle;
 
@@ -182,16 +206,20 @@ public sealed class ContentBlurOverlayForm : Form
         base.WndProc(ref m);
     }
 
-    private void HandleCloseButtonClicked()
+    private void HandleCloseButtonClicked() => TriggerForceClose(CloseSource.Manual);
+
+    /// <summary>Nút "Tắt nội dung" (`BE-032`/`BE-089a`) và auto-timeout (`BE-034a`/`BE-089b`) dùng chung 1 luồng force-close.</summary>
+    private void TriggerForceClose(CloseSource source)
     {
         if (_isMerged)
         {
-            TriggerForceCloseAll(CloseSource.Manual);
+            TriggerForceCloseAll(source);
             return;
         }
 
+        _autoTimeoutTimer?.Stop();
         OverlayWindowInterop.RequestClose(_windowHandle);
-        _onCloseButtonClicked(_windowHandle, _overlayId);
+        _onCloseButtonClicked(_windowHandle, _overlayId, source);
     }
 
     /// <summary>`BE-089a`: nút "Tắt nội dung" duy nhất đóng TOÀN BỘ cửa sổ vi phạm bị gộp — dùng chung với auto-timeout (`BE-089b`).</summary>
@@ -207,12 +235,13 @@ public sealed class ContentBlurOverlayForm : Form
     }
 
     /// <summary>
-    /// `BE-089b`/`GEN-007b`: lối thoát dự phòng thứ 2, đếm hoàn toàn cục bộ — KHÔNG round-trip IPC
-    /// tới Service (ADR-63: <see cref="System.Windows.Forms.Timer"/> chạy trên UI thread, tick 1s).
+    /// `BE-089b`/`GEN-007b` (gộp, 30s) và `BE-034a` (thường, 60s): lối thoát dự phòng, đếm hoàn toàn
+    /// cục bộ — KHÔNG round-trip IPC tới Service (ADR-63: <see cref="System.Windows.Forms.Timer"/>
+    /// chạy trên UI thread, tick 1s). Hết giờ → đúng luồng force-close như bấm tay, nguồn AUTO_TIMEOUT.
     /// </summary>
-    private void StartAutoTimeout()
+    private void StartAutoTimeout(int seconds)
     {
-        _remainingSeconds = 30;
+        _remainingSeconds = seconds;
         _autoTimeoutTimer = new System.Windows.Forms.Timer { Interval = 1000 };
         _autoTimeoutTimer.Tick += (_, _) =>
         {
@@ -220,18 +249,17 @@ public sealed class ContentBlurOverlayForm : Form
             CountdownTick?.Invoke(_remainingSeconds);
             if (_remainingSeconds <= 0)
             {
-                TriggerForceCloseAll(CloseSource.AutoTimeout);
+                TriggerForceClose(CloseSource.AutoTimeout);
             }
         };
         _autoTimeoutTimer.Start();
     }
 
     /// <summary>
-    /// `FE-016g` (v0.9.1)/`BE-089b`: đếm ngược trực quan bắt buộc, đặt cạnh nút "Tắt nội dung" duy nhất
-    /// — CHỈ ở overlay full-screen lock (<see cref="_isMerged"/>), không hiện ở overlay chế độ thường.
-    /// Subscribe <see cref="CountdownTick"/> (mục 3.4.3 — hook đã tồn tại sẵn cho đúng mục đích này).
+    /// `FE-016g` (gộp)/`FE-016h` (thường, 2026-09-30): đếm ngược trực quan bắt buộc ngay dưới nút
+    /// "Tắt nội dung" — không đếm ngầm rồi tự đóng bất ngờ. Subscribe <see cref="CountdownTick"/> (mục 3.4.3 — hook đã tồn tại sẵn cho đúng mục đích này).
     /// </summary>
-    private void AddCountdownLabel(Button closeButton)
+    private void AddCountdownLabel()
     {
         var countdownLabel = new Label
         {
@@ -243,10 +271,31 @@ public sealed class ContentBlurOverlayForm : Form
         };
 
         Controls.Add(countdownLabel);
-        countdownLabel.Location = new Point(closeButton.Left + ((closeButton.Width - countdownLabel.Width) / 2), closeButton.Bottom + 8);
         countdownLabel.BringToFront();
+        _countdownLabel = countdownLabel;
+        LayoutControls();
 
-        CountdownTick += remainingSeconds => countdownLabel.Text = OverlayStrings.AutoTimeoutCountdown(remainingSeconds);
+        CountdownTick += remainingSeconds =>
+        {
+            countdownLabel.Text = OverlayStrings.AutoTimeoutCountdown(remainingSeconds);
+            LayoutControls(); // AutoSize đổi bề rộng khi số giây đổi số chữ số — căn giữa lại.
+        };
+    }
+
+    /// <summary>
+    /// Nút "Tắt nội dung" ngay dưới thông điệp (giữa overlay, luôn trong vùng nhìn thấy), đếm ngược
+    /// (chỉ chế độ gộp) ngay dưới nút. Bản cũ đặt nút sát đáy và đếm ngược BÊN DƯỚI nút → đếm ngược
+    /// rơi ra ngoài màn hình ở chế độ gộp, vi phạm FE-016g (đếm ngược trực quan bắt buộc).
+    /// </summary>
+    private void LayoutControls()
+    {
+        Size client = ClientSize;
+        int buttonTop = Math.Min((client.Height / 2) + 40, client.Height - _closeButton.Height - 16);
+        _closeButton.Location = new Point((client.Width - _closeButton.Width) / 2, Math.Max(0, buttonTop));
+        if (_countdownLabel is not null)
+        {
+            _countdownLabel.Location = new Point((client.Width - _countdownLabel.Width) / 2, _closeButton.Bottom + 12);
+        }
     }
 
     protected override void Dispose(bool disposing)

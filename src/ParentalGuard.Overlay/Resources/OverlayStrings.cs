@@ -17,8 +17,8 @@ internal static class OverlayStrings
 
     internal static string IconTooltipPaused(string countdown) => string.Format(Get("IconTooltipPausedCountdownFormat"), countdown);
 
-    /// <summary>`FE-016g`/`BE-089b`: đếm ngược trực quan bắt buộc trên overlay full-screen lock (chế độ gộp).</summary>
-    internal static string AutoTimeoutCountdown(int remainingSeconds) => string.Format(Get("AutoTimeoutCountdownFormat"), remainingSeconds);
+    /// <summary>`FE-016g`/`FE-016h`: đếm ngược trực quan bắt buộc (mm:ss — overlay thường 60s, gộp 30s).</summary>
+    internal static string AutoTimeoutCountdown(int remainingSeconds) => string.Format(Get("AutoTimeoutCountdownFormat"), remainingSeconds / 60, remainingSeconds % 60);
 
     private static string Get(string name) => _resourceManager.GetString(name) ?? name;
 }

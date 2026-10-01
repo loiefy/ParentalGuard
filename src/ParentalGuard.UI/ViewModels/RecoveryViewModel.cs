@@ -93,7 +93,7 @@ public sealed partial class RecoveryViewModel(IAuthFacade authFacade) : Observab
         IsBusy = true;
         try
         {
-            RecoveryResult result = await authFacade.RecoveryResetAsync(recoveryKeyUtf8Pinned, newPasswordUtf8Pinned, cancellationToken).ConfigureAwait(false);
+            RecoveryResult result = await authFacade.RecoveryResetAsync(recoveryKeyUtf8Pinned, newPasswordUtf8Pinned, cancellationToken).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case RecoveryOutcome.Success:
