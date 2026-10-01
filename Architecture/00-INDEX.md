@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-01 | `10` v0.2.7→**v0.2.8** — nền trang trí Dashboard (`FE-005`, Spec v0.8.2) |
 | 2026-10-01 | **Spec v0.8.1 (`BE-088b`/`BE-089c`/`FE-016i`/`MISC-030b`).** `07` v0.3.1→**v0.3.2** (overlay full-screen mỗi màn hình riêng — sửa gộp nhầm 2 màn hình do `monitor_id` theo adapter; chừa taskbar; nút bánh răng), `03` v0.9.1→**v0.9.2** (whitelist hiệu dụng), `10` v0.2.6→**v0.2.7** |
 | 2026-10-01 | **Spec v0.8.0 `MISC-030a` — bỏ "Đánh dấu sai".** `10` v0.2.5→**v0.2.6**, `03` v0.9.0→**v0.9.1** (field 146/147 DEPRECATED, Service từ chối, xoá đường thêm whitelist); `07` v0.3.0→**v0.3.1** (icon trạng thái 70%: 28px @100% DPI) |
 | 2026-10-01 | **Icon trạng thái + Dashboard (Spec v0.7.9 `FE-022a`/`FE-023`).** `07` v0.2.4→**v0.3.0** (supersedes ADR-64: icon không còn layered window — hit-test chập chờn; dòng chữ cạnh icon khi hover; double-click mở Dashboard qua Service; sửa DPI 2 màn hình), `03` v0.8.8→**v0.9.0** (field 67 `OpenDashboardRequest`), `04` v0.5.1→**v0.5.2** (`AuditLogDailyEventCounter` — đếm tăng dần, sửa Tạm dừng chậm ~8s), `10` v0.2.4→**v0.2.5** (nút Tạm dừng đổi tức thì, số trên cột biểu đồ + hover) |

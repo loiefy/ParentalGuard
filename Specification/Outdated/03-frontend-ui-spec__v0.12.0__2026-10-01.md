@@ -1,12 +1,11 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.13.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.12.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
 - `FE-001`: UI hiện đại theo Fluent Design của Windows 11 — dùng Mica/Acrylic material, dark mode tự động theo hệ thống, rounded corner, animation mượt (dùng khả năng sẵn có của WinUI 3, không tự vẽ lại).
 - `FE-002`: UI dành cho **phụ huynh** phải rõ ràng, không gây hoang mang — vì đây là công cụ bảo vệ, không phải công cụ giám sát bí mật.
-- `FE-005` **(ĐÃ CHỐT v0.13.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Dashboard (các tab Tổng quan, Lịch sử, Cài đặt) có **nền trang trí**: vùng nội dung có hình **1 bông sen** lớn (~80% diện tích vùng nội dung), màu chỉ **tối hơn màu nền một chút**, màu nền vùng nội dung sáng hơn mặc định một chút; thanh menu trái (Tổng quan/Lịch sử/Cài đặt) có nền sáng hơn một chút, phía sau là các **hình tròn mờ sắp xếp ngẫu nhiên**. Trang trí thuần thị giác — không được làm giảm độ tương phản/khả năng đọc nội dung (`FE-050`).
 - `FE-003`: UI phía **trẻ em** (overlay, icon trạng thái) phải tối giản, không phán xét gay gắt, đủ rõ để hiểu hành động cần làm.
 
 ## 2. Danh sách màn hình (Screens)
@@ -117,7 +116,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.13.0 | 2026-10-01 | **MINOR — `FE-005` (mới)**: nền trang trí Dashboard — bông sen ~80% vùng nội dung (tối hơn nền 1 chút), thanh menu trái sáng hơn với hình tròn mờ ngẫu nhiên |
 | v0.12.0 | 2026-10-01 | **MINOR — `FE-016i` (mới)**: nút bánh răng góc trên-trái trên mọi overlay, mở Dashboard. Đồng bộ `02` v0.16.0 (`BE-088b`: overlay full-screen chừa taskbar — thay phần "toàn bộ màn hình" của `FE-016f`) |
 | v0.11.0 | 2026-10-01 | **MINOR — `FE-022a`/`FE-023` (mới, chủ dự án yêu cầu trực tiếp)**: hover icon trạng thái hiện 1 dòng chữ bên cạnh ("ParentalGuard đang hoạt động" / tạm dừng / khôi phục); double-click icon mở Dashboard (single-instance, không gate mật khẩu ở bước mở) |
 | v0.10.0 | 2026-09-30 | **MINOR — `FE-016h` (mới)**: đếm ngược trực quan 60 giây bắt buộc trên overlay thường trước khi tự đóng cửa sổ vi phạm, đi kèm `BE-034`/`034a` (`02-backend-spec.md` v0.14.0 — overlay khoá cứng, auto-timeout 60s, chủ dự án chốt trực tiếp 2026-09-30) |

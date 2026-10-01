@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.2.7 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.2.8 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -285,6 +285,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.8 | 2026-10-01 | PATCH — `FE-005`: `MainShellPage` thêm 2 lớp nền phía sau `NavigationView` (nền nội dung + bông sen vector trong `Viewbox` lưới 1/8/1 ≈ 80%; nền thanh menu + hình tròn mờ vẽ ở code-behind theo dãy giả ngẫu nhiên tất định), override các brush nền của `NavigationView` thành trong suốt; `PaneDisplayMode=Left` (pane luôn nằm cạnh, không chồng lên nội dung — tránh pane trong suốt đè chữ), `OpenPaneLength=240`. Màu theo theme Dark/Light |
 | v0.2.7 | 2026-10-01 | PATCH — `MISC-030b`: mục Whitelist ở `S4` hiển thị danh sách cấp sẵn (`BE-073a`) + mục cũ, thêm dòng ghi chú "chỉ có thể xoá, không thể thêm"; luồng xoá (gate `manage_whitelist`) giữ nguyên |
 | v0.2.6 | 2026-10-01 | PATCH — `MISC-030a` (Spec `10` v0.3.0, chủ dự án chốt): bỏ nút "Đánh dấu sai" khỏi `S3` (mục 6.3) cùng toàn bộ luồng `S5` `manage_whitelist` từ `S3`, `IAuditFacade.MarkFalsePositiveAsync`, chuỗi resource liên quan. `S4` whitelist chỉ còn hiển thị + xoá mục cũ (không đổi) |
 | v0.2.5 | 2026-10-01 | PATCH — yêu cầu chủ dự án sau real-hardware test: (1) `S2` Tạm dừng/Tiếp tục: đổi nút NGAY khi Service trả Success (`ApplyPausedLocally`/`ApplyResumedLocally`), poll sau đó chỉ để đồng bộ; nguyên nhân chậm ~8s ở phía Service (`04` v0.5.2). (2) Biểu đồ: số lần chặn trên đầu mỗi cột > 0, hiệu ứng hover (sáng màu) + tooltip "dd/MM: N lần chặn". (3) Dashboard hiện "Đang kiểm tra…" trước response trạng thái đầu tiên, gửi status trước chart (pipe UI tuần tự). (4) Dashboard có thể được Service mở qua double-click icon (`FE-023`, `03` field 67) — single-instance giữ nguyên |
