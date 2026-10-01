@@ -137,75 +137,16 @@ public sealed class AuditLogViewModelTests
         Assert.Single(auditFacade.TokensReceived);
     }
 
-    [Fact]
-    public async Task MarkFalsePositiveAsync_Success_SetsStatusMessage()
-    {
-        var authPromptService = new FakeAuthPromptService([[9]]);
-        var auditFacade = new FakeAuditFacade { MarkOutcomes = [MarkFalsePositiveOutcome.Success] };
-        var viewModel = CreateViewModel(auditFacade, authPromptService);
-
-        await viewModel.MarkFalsePositiveAsync("chrome.exe", null!);
-
-        Assert.False(string.IsNullOrEmpty(viewModel.StatusMessage));
-        Assert.Null(viewModel.ErrorMessage);
-        Assert.Equal("chrome.exe", Assert.Single(auditFacade.MarkProcessNamesReceived));
-    }
-
-    [Fact]
-    public async Task MarkFalsePositiveAsync_UserCancelsGate_NoRequestSent()
-    {
-        var authPromptService = new FakeAuthPromptService([null]);
-        var auditFacade = new FakeAuditFacade();
-        var viewModel = CreateViewModel(auditFacade, authPromptService);
-
-        await viewModel.MarkFalsePositiveAsync("chrome.exe", null!);
-
-        Assert.Empty(auditFacade.MarkProcessNamesReceived);
-    }
-
-    /// <summary>Mục 6.5 — cùng luồng retry đúng 1 lần như <c>DashboardViewModel.PauseAsync</c>, gate riêng <c>manage_whitelist</c>.</summary>
-    [Fact]
-    public async Task MarkFalsePositiveAsync_InvalidToken_ReopensS5Once_SucceedsWithNewToken()
-    {
-        var authPromptService = new FakeAuthPromptService([[1], [2]]);
-        var auditFacade = new FakeAuditFacade { MarkOutcomes = [MarkFalsePositiveOutcome.InvalidToken, MarkFalsePositiveOutcome.Success] };
-        var viewModel = CreateViewModel(auditFacade, authPromptService);
-
-        await viewModel.MarkFalsePositiveAsync("chrome.exe", null!);
-
-        Assert.Equal(2, authPromptService.CallCount);
-        Assert.Equal(2, auditFacade.MarkProcessNamesReceived.Count);
-        Assert.Null(viewModel.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task MarkFalsePositiveAsync_InvalidToken_RetryAlsoInvalidToken_StopsAfterOneRetry()
-    {
-        var authPromptService = new FakeAuthPromptService([[1], [2]]);
-        var auditFacade = new FakeAuditFacade { MarkOutcomes = [MarkFalsePositiveOutcome.InvalidToken, MarkFalsePositiveOutcome.InvalidToken] };
-        var viewModel = CreateViewModel(auditFacade, authPromptService);
-
-        await viewModel.MarkFalsePositiveAsync("chrome.exe", null!);
-
-        Assert.Equal(2, authPromptService.CallCount);
-        Assert.False(string.IsNullOrEmpty(viewModel.ErrorMessage));
-    }
-
     /// <summary>Ghi lại bản SAO CHÉP token nhận được (không giữ nguyên tham chiếu) — `AuditLogViewModel` zero buffer gốc trong <c>finally</c> ngay sau khi facade dùng xong (memory hygiene), nên giữ tham chiếu gốc sẽ đọc ra toàn số 0 lúc assert.</summary>
     private sealed class FakeAuditFacade : IAuditFacade
     {
         private int _pageIndex;
-        private int _markIndex;
 
         public List<AuditLogFetchResult> Pages { get; set; } = [];
-
-        public List<MarkFalsePositiveOutcome> MarkOutcomes { get; set; } = [];
 
         public List<byte[]> TokensReceived { get; } = [];
 
         public List<uint> PagesRequested { get; } = [];
-
-        public List<string> MarkProcessNamesReceived { get; } = [];
 
         public Task<AuditLogFetchResult> GetAuditLogAsync(byte[] actionToken, uint page, uint pageSize, CancellationToken cancellationToken)
         {
@@ -214,14 +155,6 @@ public sealed class AuditLogViewModelTests
             AuditLogFetchResult result = _pageIndex < Pages.Count ? Pages[_pageIndex] : throw new InvalidOperationException("No more fake pages configured.");
             _pageIndex++;
             return Task.FromResult(result);
-        }
-
-        public Task<MarkFalsePositiveOutcome> MarkFalsePositiveAsync(byte[] actionToken, string processName, CancellationToken cancellationToken)
-        {
-            MarkProcessNamesReceived.Add(processName);
-            MarkFalsePositiveOutcome outcome = _markIndex < MarkOutcomes.Count ? MarkOutcomes[_markIndex] : throw new InvalidOperationException("No more fake outcomes configured.");
-            _markIndex++;
-            return Task.FromResult(outcome);
         }
     }
 

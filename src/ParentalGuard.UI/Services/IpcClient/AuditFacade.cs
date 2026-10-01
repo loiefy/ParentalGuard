@@ -35,30 +35,4 @@ public sealed class AuditFacade(UiIpcClient client) : IAuditFacade
             .ToList();
         return new AuditLogFetchResult(outcome, entries, resp.HasMore);
     }
-
-    public async Task<MarkFalsePositiveOutcome> MarkFalsePositiveAsync(byte[] actionToken, string processName, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(actionToken);
-        ArgumentException.ThrowIfNullOrEmpty(processName);
-
-        IpcPayload request = client.NewEnvelope();
-        request.MarkFalsePositiveReq = new MarkFalsePositiveRequest
-        {
-            ActionToken = ByteString.CopyFrom(actionToken),
-            ProcessName = processName,
-        };
-        return await client.SendRequestAsync(request, MapMarkFalsePositiveResponse, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static MarkFalsePositiveOutcome MapMarkFalsePositiveResponse(IpcPayload response)
-    {
-        MarkFalsePositiveResponse resp = response.MarkFalsePositiveResp;
-        return resp.Result switch
-        {
-            MarkFalsePositiveResult.Success => MarkFalsePositiveOutcome.Success,
-            MarkFalsePositiveResult.InvalidToken => MarkFalsePositiveOutcome.InvalidToken,
-            MarkFalsePositiveResult.AlreadyListed => MarkFalsePositiveOutcome.AlreadyListed,
-            _ => throw new UiIpcConnectionException($"Unexpected MarkFalsePositiveResult: {resp.Result}."),
-        };
-    }
 }

@@ -250,7 +250,7 @@ public sealed class SettingsViewModelTests
         Assert.Single(viewModel.WhitelistedProcessNames);
     }
 
-    /// <summary>Mục 6.5 — cùng luồng retry đúng 1 lần như `AuditLogViewModel.MarkFalsePositiveAsync`.</summary>
+    /// <summary>Mục 6.5 — cùng luồng retry đúng 1 lần như `DashboardViewModel.PauseAsync`.</summary>
     [Fact]
     public async Task RemoveWhitelistEntryAsync_InvalidToken_ReopensS5Once_SucceedsWithNewToken()
     {

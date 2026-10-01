@@ -181,29 +181,6 @@ public class ConfigCoordinatorTests : IDisposable
         Assert.Equal(["b.exe"], db.ReadSnapshot().MonitoringState.UserWhitelistedProcessNames);
     }
 
-    [Fact]
-    public async Task TryAddUserWhitelistEntry_NewEntry_AddsAndPushes()
-    {
-        Fixture fx = await CreateAsync();
-
-        WhitelistAddResult result = await fx.Config.TryAddUserWhitelistEntryAsync("chrome.exe", CancellationToken.None);
-
-        Assert.Equal(WhitelistAddResult.Added, result);
-        Assert.Equal(["chrome.exe"], fx.Holder.Current.UserWhitelistedProcessNames);
-        Assert.Equal(1, fx.PushCount());
-    }
-
-    [Fact]
-    public async Task TryAddUserWhitelistEntry_AlreadyListed_ReturnsAlreadyListed_CaseInsensitive()
-    {
-        Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { UserWhitelistedProcessNames = ["chrome.exe"] });
-
-        WhitelistAddResult result = await fx.Config.TryAddUserWhitelistEntryAsync("CHROME.EXE", CancellationToken.None);
-
-        Assert.Equal(WhitelistAddResult.AlreadyListed, result);
-        Assert.Equal(0, fx.PushCount());
-    }
-
     public void Dispose()
     {
         foreach (string path in new[] { _authDatPath, _auditLogPath, _configDbPath, _configDbPath + "-wal", _configDbPath + "-shm" })

@@ -12,7 +12,8 @@ namespace ParentalGuard.Overlay.Icons;
 /// </summary>
 public sealed class StatusIconForm : Form
 {
-    private const int _sizeAt100Dpi = 40;
+    // Yêu cầu chủ dự án 2026-10-01: giảm còn 70% (40px → 28px ở 100% DPI).
+    private const int _sizeAt100Dpi = 28;
 
     private readonly string _deviceName;
     private readonly Action<string, Point> _onPositionCommitted;

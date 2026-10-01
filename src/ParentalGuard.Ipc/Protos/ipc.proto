@@ -84,8 +84,8 @@ message IpcPayload {
     AuditLogResponse audit_log_resp = 143;
     AuditChartQuery audit_chart_query = 144;
     AuditChartResponse audit_chart_resp = 145;
-    MarkFalsePositiveRequest mark_false_positive_req = 146;
-    MarkFalsePositiveResponse mark_false_positive_resp = 147;
+    MarkFalsePositiveRequest mark_false_positive_req = 146; // DEPRECATED 2026-10-01 (MISC-030a) — Service luôn từ chối
+    MarkFalsePositiveResponse mark_false_positive_resp = 147; // DEPRECATED 2026-10-01 (MISC-030a)
     // S4 Cài đặt nâng cao (148-153) — Architecture/03 mục 3.7, 10-ui-architecture.md mục 6.4
     ConfigQuery config_query = 148;
     ConfigResponse config_resp = 149;

@@ -34,7 +34,7 @@
         <TextBlock x:Name="EmptyText" Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" />
 
-        <!-- Mục 6.3 — mỗi dòng: thời gian, event_type dịch tiếng Việt; dòng ContentBlocked kèm process_name/risk_score + "Đánh dấu sai". -->
+        <!-- Mục 6.3 — mỗi dòng: thời gian, event_type dịch tiếng Việt; dòng ContentBlocked kèm process_name/risk_score (MISC-030a: không còn nút "Đánh dấu sai"). -->
         <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Entries, Mode=OneWay}"
                   Visibility="{x:Bind ViewModel.ShowEntries, Mode=OneWay}" SelectionMode="None">
             <ListView.ItemTemplate>
@@ -48,7 +48,6 @@
                         <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind IsContentBlocked}">
                             <TextBlock Text="{x:Bind ProcessDisplayText}" />
                             <TextBlock Text="{x:Bind RiskScoreDisplayText}" />
-                            <Button Tag="{x:Bind ProcessName}" Click="OnMarkFalsePositiveClick" Loaded="OnMarkFalsePositiveButtonLoaded" />
                         </StackPanel>
                     </StackPanel>
                 </DataTemplate>

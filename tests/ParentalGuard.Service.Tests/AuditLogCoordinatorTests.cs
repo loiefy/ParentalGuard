@@ -26,8 +26,7 @@ public class AuditLogCoordinatorTests : IDisposable
         var clock = new FakeMonotonicClock();
         var authCoordinator = new AuthCoordinator(_authDatPath, auditLog, clock, NullLogger.Instance);
         var holder = new MonitoringStateHolder(state);
-        var configCoordinator = new ConfigCoordinator(holder, _configDbPath, authCoordinator, auditLog, () => { });
-        var auditLogCoordinator = new AuditLogCoordinator(authCoordinator, auditLog, configCoordinator, clock, _configDbPath);
+        var auditLogCoordinator = new AuditLogCoordinator(authCoordinator, auditLog, clock, _configDbPath);
 
         return new Fixture(auditLogCoordinator, authCoordinator, auditLog, clock, holder);
     }
@@ -145,20 +144,9 @@ public class AuditLogCoordinatorTests : IDisposable
         Assert.Equal(AuditLogQueryResult.InvalidToken, response.AuditLogResp.Result);
     }
 
+    /// <summary>`MISC-030a` (ĐÃ CHỐT 2026-10-01): "Đánh dấu sai" bị bỏ — Service từ chối kể cả khi token hợp lệ, whitelist không đổi, token không bị tiêu thụ.</summary>
     [Fact]
-    public async Task MarkFalsePositive_InvalidToken_ReturnsInvalidToken()
-    {
-        Fixture fx = await CreateAsync();
-
-        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
-            new IpcPayload { MessageId = 1, MarkFalsePositiveReq = new MarkFalsePositiveRequest { ActionToken = ByteString.CopyFrom([1]), ProcessName = "chrome.exe" } },
-            new AuditLogViewSession(), CancellationToken.None);
-
-        Assert.Equal(MarkFalsePositiveResult.InvalidToken, response.MarkFalsePositiveResp.Result);
-    }
-
-    [Fact]
-    public async Task MarkFalsePositive_ValidTokenNewEntry_AddsToWhitelistAndLogsConfigChanged()
+    public async Task MarkFalsePositive_AlwaysRefused_EvenWithValidToken_WhitelistUnchanged()
     {
         Fixture fx = await CreateAsync();
         byte[] token = await GetValidActionTokenAsync(fx.Auth, "manage_whitelist");
@@ -167,29 +155,9 @@ public class AuditLogCoordinatorTests : IDisposable
             new IpcPayload { MessageId = 1, MarkFalsePositiveReq = new MarkFalsePositiveRequest { ActionToken = ByteString.CopyFrom(token), ProcessName = "chrome.exe" } },
             new AuditLogViewSession(), CancellationToken.None);
 
-        Assert.Equal(MarkFalsePositiveResult.Success, response.MarkFalsePositiveResp.Result);
-        Assert.Equal(["chrome.exe"], fx.Holder.Current.UserWhitelistedProcessNames);
-
-        string auditContent = await File.ReadAllTextAsync(_auditLogPath);
-        Assert.Contains("\"event_type\":\"ConfigChanged\"", auditContent);
-        Assert.Contains("chrome.exe", auditContent);
-    }
-
-    [Fact]
-    public async Task MarkFalsePositive_AlreadyListed_ReturnsAlreadyListed()
-    {
-        Fixture fx = await CreateAsync();
-        byte[] token1 = await GetValidActionTokenAsync(fx.Auth, "manage_whitelist");
-        await fx.AuditCoordinator.HandleAsync(
-            new IpcPayload { MessageId = 1, MarkFalsePositiveReq = new MarkFalsePositiveRequest { ActionToken = ByteString.CopyFrom(token1), ProcessName = "chrome.exe" } },
-            new AuditLogViewSession(), CancellationToken.None);
-
-        byte[] token2 = await GetValidActionTokenAsync(fx.Auth, "manage_whitelist");
-        IpcPayload response = await fx.AuditCoordinator.HandleAsync(
-            new IpcPayload { MessageId = 2, MarkFalsePositiveReq = new MarkFalsePositiveRequest { ActionToken = ByteString.CopyFrom(token2), ProcessName = "chrome.exe" } },
-            new AuditLogViewSession(), CancellationToken.None);
-
-        Assert.Equal(MarkFalsePositiveResult.AlreadyListed, response.MarkFalsePositiveResp.Result);
+        Assert.Equal(MarkFalsePositiveResult.Unspecified, response.MarkFalsePositiveResp.Result);
+        Assert.Empty(fx.Holder.Current.UserWhitelistedProcessNames);
+        Assert.DoesNotContain("\"event_type\":\"ConfigChanged\"", await File.ReadAllTextAsync(_auditLogPath));
     }
 
     [Fact]

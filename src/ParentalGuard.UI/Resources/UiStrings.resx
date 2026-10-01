@@ -280,15 +280,6 @@
   <data name="AuditRiskScoreFormat" xml:space="preserve">
     <value>Điểm rủi ro: {0:0.00}</value>
   </data>
-  <data name="AuditMarkFalsePositiveButton" xml:space="preserve">
-    <value>Đánh dấu sai</value>
-  </data>
-  <data name="AuditMarkFalsePositiveSuccessFormat" xml:space="preserve">
-    <value>Đã thêm {0} vào danh sách loại trừ.</value>
-  </data>
-  <data name="AuditMarkFalsePositiveAlreadyListedFormat" xml:space="preserve">
-    <value>{0} đã có trong danh sách loại trừ.</value>
-  </data>
 
   <!-- S3 — mapping event_type → text hiển thị (Architecture/04-data-architecture.md mục 5.1). -->
   <data name="AuditEventTypeServiceStarted" xml:space="preserve">

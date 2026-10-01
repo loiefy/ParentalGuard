@@ -219,7 +219,7 @@ public sealed class Worker(
                 payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)),
             overlayMessage => _overlaySupervisor!.TryEnqueueBusinessMessage(
                 payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = overlayMessage }));
-        _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock, InstallPaths.ConfigDbPath);
+        _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, clock, InstallPaths.ConfigDbPath);
 
         // Đợt 8/9 (gap fix — 10-ui-architecture.md mục 6.2, Architecture/03 mục 3.7a ADR-145): tạo SAU
         // _pauseCoordinator/_watchdogSessionServer (cả 2 đã sẵn sàng ở đây — watchdog khởi động ở

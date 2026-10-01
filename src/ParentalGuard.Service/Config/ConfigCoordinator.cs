@@ -8,19 +8,11 @@ using ParentalGuard.Service.Data;
 
 namespace ParentalGuard.Service.Config;
 
-public enum WhitelistAddResult
-{
-    Added,
-    AlreadyListed,
-    PersistFailed,
-}
-
 /// <summary>
 /// Orchestrator domain Cài đặt (`10-ui-architecture.md` mục 6.4, `FE-012`/`FE-012a`/`MISC-030`/
 /// `PERF-050b`) — nhận <c>ConfigQuery</c>/<c>ConfigUpdateRequest</c>/<c>RemoveWhitelistEntryRequest</c>
-/// từ pipe <c>UI</c>. <see cref="TryAddUserWhitelistEntryAsync"/> cũng được <c>AuditLogCoordinator</c>
-/// gọi cho <c>MarkFalsePositiveRequest</c> (mục 6.3) — 1 nguồn ghi duy nhất cho
-/// <c>user_whitelisted_process_names</c>, tránh 2 coordinator cùng ghi độc lập cùng 1 field.
+/// từ pipe <c>UI</c> — nguồn ghi duy nhất cho <c>user_whitelisted_process_names</c>. `MISC-030a` (2026-10-01):
+/// không còn đường THÊM whitelist ("Đánh dấu sai" đã bỏ) — chỉ còn xoá qua <c>RemoveWhitelistEntryRequest</c>.
 /// </summary>
 public sealed class ConfigCoordinator(
     MonitoringStateHolder monitoringStateHolder,
@@ -163,39 +155,6 @@ public sealed class ConfigCoordinator(
 
             response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.Success };
             return response;
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    /// <summary>
-    /// Dùng chung cho `RemoveWhitelistEntryRequest` (trên) và `MarkFalsePositiveRequest`
-    /// (<c>AuditLogCoordinator</c>, mục 6.3) — 1 nguồn ghi duy nhất cho whitelist. Caller đã tự gate
-    /// `action_token` (mỗi message có `action_context`/response result enum riêng, không dùng chung
-    /// gate ở đây).
-    /// </summary>
-    public async Task<WhitelistAddResult> TryAddUserWhitelistEntryAsync(string processName, CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            MonitoringStateData current = monitoringStateHolder.Current;
-            if (current.UserWhitelistedProcessNames.Any(name => string.Equals(name, processName, StringComparison.OrdinalIgnoreCase)))
-            {
-                return WhitelistAddResult.AlreadyListed;
-            }
-
-            MonitoringStateData updated = current with { UserWhitelistedProcessNames = [.. current.UserWhitelistedProcessNames, processName] };
-            if (!TryPersist(updated))
-            {
-                return WhitelistAddResult.PersistFailed;
-            }
-
-            monitoringStateHolder.Update(updated);
-            pushControlVisionCommand();
-            return WhitelistAddResult.Added;
         }
         finally
         {

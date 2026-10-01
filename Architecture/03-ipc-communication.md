@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.9.1 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Mục đích
 
@@ -943,6 +943,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.9.1 | 2026-10-01 | PATCH — `MISC-030a`: field 146/147 `MarkFalsePositiveRequest/Response` DEPRECATED (giữ số field, không xoá — đúng quy tắc mục 2); `Service` luôn trả `MARK_FALSE_POSITIVE_RESULT_UNSPECIFIED`, không tiêu thụ `action_token`, không ghi whitelist; xoá `ConfigCoordinator.TryAddUserWhitelistEntryAsync` (không còn đường thêm whitelist nào) |
 | v0.9.0 | 2026-10-01 | MINOR — field 67 `OpenDashboardRequest {}` (Overlay → Service, `FE-023`): double-click icon trạng thái. Service mở `ParentalGuard.UI.exe` (đường dẫn cố định, không tham số, không kế thừa handle) bằng token của user session hiện hành qua `WTSQueryUserToken` + `CreateEnvironmentBlock` + `CreateProcessAsUser` (Medium IL — khác token hạn chế Low IL dùng cho Vision/Overlay), chống spam tối đa 1 lần/2 giây (`DashboardLauncher`); UI đang mở thì single-instance (ADR-117a) tự đưa cửa sổ lên. Không gate mật khẩu ở bước mở (giống mở từ Start Menu) |
 | v0.8.8 | 2026-10-01 | PATCH — implement thật field 66 `OverlayMessageUpdate { string text }` (thiết kế từ Đợt 6, ADR-110, nhưng chưa từng có trong `ipc.proto` — overlay luôn hiện câu hardcode bất kể phụ huynh cấu hình gì). Service push trong `initialPushBuilders` của kênh Overlay (sau `IconLayoutSync`) + push lại mỗi khi `ConfigUpdateRequest` đổi `overlay_message` (`ConfigCoordinator`). Không đổi message nào đã có |
 | v0.8.7 | 2026-09-30 | PATCH — **real-hardware bug fix (Đợt 9, nguyên nhân CHÍNH của crash-loop `Vision`/`Overlay`, thay thế giả thuyết "connect budget quá ngắn" ở v0.8.6 — budget vẫn giữ 15s vì hợp lý, nhưng KHÔNG phải nguyên nhân chính)**: mục 2.2 — `PipeSecurity` DACL của `Vision`/`Overlay`/`Watchdog` có Deny tường minh `Everyone`/`WorldSid`, nhưng SID này là superset chứa CHÍNH user/SYSTEM hợp lệ đang connect. Windows đánh giá DACL theo canonical order (Deny trước Allow cho cùng SID/bit) — Deny-Everyone chặn đứng luôn Allow-user/Allow-SYSTEM bên dưới, mọi lần connect đều `UnauthorizedAccessException`, 100% tái hiện. Xác nhận qua thực nghiệm loại trừ (ép Medium IL vẫn lỗi y hệt → không phải MIC/Low-IL) rồi phát hiện đúng dòng code qua log connect-attempt tường minh (trước đó bị nuốt exception). Xoá Deny-Everyone khỏi cả 3 pipe (`CreateServerInstance`/`CreateUiServerInstance`/`CreateWatchdogServerInstance` ở `PipeAclFactory.cs`), giữ nguyên Deny Anonymous/Guests/Interactive (không chứa user/SYSTEM hợp lệ nên an toàn). Không đổi ý đồ bảo mật gốc (DACL không Allow SID nào khác ngoài SYSTEM/user hợp lệ đã ngầm định deny phần còn lại). 1 ADR mới (148) |

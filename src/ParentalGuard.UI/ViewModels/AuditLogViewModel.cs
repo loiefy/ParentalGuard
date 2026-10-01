@@ -17,7 +17,6 @@ namespace ParentalGuard.UI.ViewModels;
 public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPromptService authPromptService) : ObservableObject
 {
     private const string ViewAuditLogActionContext = "view_audit_log";
-    private const string ManageWhitelistActionContext = "manage_whitelist";
     private const uint PageSize = 50;
     private static readonly byte[] _noToken = [];
 
@@ -164,64 +163,6 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
             {
                 CryptographicOperations.ZeroMemory(actionToken);
             }
-        }
-    }
-
-    /// <summary>Nút "Đánh dấu sai" trên dòng `ContentBlocked` (mục 6.3, `MISC-030`) → `S5` (`manage_whitelist`) riêng.</summary>
-    public async Task MarkFalsePositiveAsync(string processName, XamlRoot xamlRoot)
-    {
-        ErrorMessage = null;
-        StatusMessage = null;
-        try
-        {
-            byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(ManageWhitelistActionContext, xamlRoot).ConfigureAwait(true);
-            if (actionToken is null)
-            {
-                return;
-            }
-
-            await MarkFalsePositiveWithTokenAsync(actionToken, processName, xamlRoot, allowRetry: true).ConfigureAwait(true);
-        }
-        catch (UiIpcConnectionException ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-    }
-
-    private async Task MarkFalsePositiveWithTokenAsync(byte[] actionToken, string processName, XamlRoot xamlRoot, bool allowRetry)
-    {
-        try
-        {
-            MarkFalsePositiveOutcome outcome = await auditFacade.MarkFalsePositiveAsync(actionToken, processName, CancellationToken.None).ConfigureAwait(true);
-            switch (outcome)
-            {
-                case MarkFalsePositiveOutcome.Success:
-                    StatusMessage = LocalizationService.GetFormatted("AuditMarkFalsePositiveSuccessFormat", processName);
-                    break;
-                case MarkFalsePositiveOutcome.AlreadyListed:
-                    StatusMessage = LocalizationService.GetFormatted("AuditMarkFalsePositiveAlreadyListedFormat", processName);
-                    break;
-                case MarkFalsePositiveOutcome.InvalidToken:
-                    ErrorMessage = LocalizationService.Get("DashboardActionTokenExpired");
-                    if (!allowRetry)
-                    {
-                        break;
-                    }
-
-                    byte[]? retryToken = await authPromptService.ShowAuthPromptAsync(ManageWhitelistActionContext, xamlRoot).ConfigureAwait(true);
-                    if (retryToken is null)
-                    {
-                        break;
-                    }
-
-                    ErrorMessage = null;
-                    await MarkFalsePositiveWithTokenAsync(retryToken, processName, xamlRoot, allowRetry: false).ConfigureAwait(true);
-                    break;
-            }
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(actionToken);
         }
     }
 

@@ -13,8 +13,6 @@ public interface IAuditFacade
     /// </summary>
     Task<AuditLogFetchResult> GetAuditLogAsync(byte[] actionToken, uint page, uint pageSize, CancellationToken cancellationToken);
 
-    /// <summary><c>MarkFalsePositiveRequest{action_token, process_name}</c> (mục 6.3, `MISC-030`).</summary>
-    Task<MarkFalsePositiveOutcome> MarkFalsePositiveAsync(byte[] actionToken, string processName, CancellationToken cancellationToken);
 }
 
 public enum AuditLogQueryOutcome
@@ -28,9 +26,3 @@ public sealed record AuditLogEntry(ulong Seq, long TsUnixMs, string EventType, s
 
 public sealed record AuditLogFetchResult(AuditLogQueryOutcome Outcome, IReadOnlyList<AuditLogEntry> Entries, bool HasMore);
 
-public enum MarkFalsePositiveOutcome
-{
-    Success,
-    InvalidToken,
-    AlreadyListed,
-}

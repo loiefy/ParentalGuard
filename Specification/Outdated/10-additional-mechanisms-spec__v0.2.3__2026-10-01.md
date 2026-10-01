@@ -1,6 +1,6 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.3.0 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
+> Version: v0.2.3 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`
 > Cập nhật: 2026-09-29
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
@@ -20,8 +20,7 @@
 
 ## 3. Whitelist / báo cáo False Positive từ UI (MISC-030)
 
-- `MISC-030a` **(ĐÃ CHỐT v0.3.0, 2026-10-01 — chủ dự án chốt trực tiếp, supersedes `MISC-030`)**: **Bỏ thao tác "Đánh dấu sai"** khỏi màn hình Lịch sử (`S3`) và không có cách nào khác để thêm ứng dụng vào whitelist từ UI. Lý do: thao tác này thực chất loại **cả ứng dụng** (vd trình duyệt) khỏi giám sát chỉ vì 1 lần chặn nhầm — rủi ro bảo vệ lớn hơn lợi ích; app cũng không lưu ảnh (`IMG-0xx`) nên không có cơ chế "học lại" từ lần chặn sai. `Service` từ chối yêu cầu `MarkFalsePositiveRequest` nếu có client gửi tới. Danh sách whitelist đã có từ trước (nếu có) vẫn hiển thị ở `S4` để phụ huynh **xoá** (không thêm mới).
-- ~~`MISC-030`~~ **DEPRECATED v0.3.0 — superseded bởi `MISC-030a`**. Nội dung cũ: Khi phụ huynh xem lại audit log, cho phép đánh dấu 1 sự kiện chặn là "sai" (false positive) → thêm **tên process/ứng dụng** đó vào whitelist cục bộ để không bị chặn lại (**không phải whitelist theo domain/URL** — pipeline phát hiện của dự án thuần pixel/window theo `BE-021`, không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`).
+- Khi phụ huynh xem lại audit log, cho phép đánh dấu 1 sự kiện chặn là "sai" (false positive) → thêm **tên process/ứng dụng** đó vào whitelist cục bộ để không bị chặn lại (**không phải whitelist theo domain/URL** — pipeline phát hiện của dự án thuần pixel/window theo `BE-021`, không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`).
 - Không gửi feedback này ra ngoài (không có cơ chế "gửi để cải thiện model chung" trừ khi có quyết định riêng sau này về việc xây dựng cơ chế đóng góp dữ liệu ẩn danh, hoàn toàn tự nguyện — hiện tại ngoài scope).
 
 ## 4. Hỗ trợ đa hồ sơ / đa người dùng máy (MISC-040)
@@ -58,7 +57,7 @@
 |---|---|---|
 | MISC-010 Audit log tamper-evident | **Phase 1** | Nền tảng cho toàn bộ tính minh bạch/security khác |
 | MISC-020 Update mechanism | **REJECTED** — không auto-update, zero internet tuyệt đối | Chủ dự án ưu tiên tuyệt đối "zero network" hơn tiện lợi tự động cập nhật; cập nhật chỉ thủ công qua cài lại installer |
-| ~~MISC-030 Whitelist từ UI~~ (DEPRECATED v0.3.0, xem `MISC-030a`) | **Bỏ** | Giảm friction false positive ngay từ đầu, chi phí implement thấp |
+| MISC-030 Whitelist từ UI | **Phase 1** | Giảm friction false positive ngay từ đầu, chi phí implement thấp |
 | MISC-040 Đa hồ sơ | Phase 2 | Tăng độ phức tạp đáng kể, không phải nhu cầu lõi ban đầu |
 | MISC-050 Self-diagnostic | **Phase 1** (bản đơn giản) | Hỗ trợ vận hành cho dự án cộng đồng không có support team lớn |
 | MISC-060 Nhận biết VM | Ghi nhận giới hạn, không cần implement chủ động | Chi phí/lợi ích không tương xứng ở Phase 1 |
@@ -74,7 +73,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.3.0 | 2026-10-01 | **MINOR — `MISC-030a` (mới, chủ dự án chốt trực tiếp, supersedes `MISC-030` → DEPRECATED)**: bỏ nút "Đánh dấu sai" ở Lịch sử — thao tác đó loại cả ứng dụng khỏi giám sát chỉ vì 1 lần chặn nhầm, và app không lưu ảnh nên không có học lại; Service từ chối `MarkFalsePositiveRequest`; whitelist cũ ở `S4` chỉ còn xoá |
 | v0.2.3 | 2026-09-29 | **PATCH — làm rõ phạm vi bảo vệ, không đổi ý nghĩa/yêu cầu đã `APPROVED`**: thêm `MISC-010a` làm rõ hash-chain audit log (`MISC-010`) là SHA-256 thuần, không HMAC/chữ ký, nên chỉ chống được sửa/xoá entry ngẫu nhiên hoặc kẻ tấn công không có đồng thời (quyền ghi trực tiếp file audit log + khả năng khiến Service restart) — không tự nó chống lại kẻ tấn công SYSTEM-level chủ động có cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không anchor ngoài, không phải bug). Lớp phòng thủ thực sự cho nhóm đó nằm ở ACL file (`04-security-spec.md` mục 2) + anti-tamper (`05-anti-uninstall-tamper-spec.md`). Phát hiện bởi `security-privacy-auditor` khi audit fix Đợt 8 cho `MISC-010`/`SEC-041`. Đồng bộ với `04-security-spec.md` → v0.6.2 (`SEC-041a`). Archive: `Specification/Outdated/10-additional-mechanisms-spec__v0.2.2__2026-09-29.md` |
 | v0.2.2 | 2026-09-20 | **PATCH — sửa câu chữ, không đổi ý nghĩa/phạm vi tính năng**: phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI) — `MISC-030` dùng chữ "thêm domain/app đó vào whitelist" mâu thuẫn với thực tế kỹ thuật: pipeline phát hiện của dự án thuần pixel/window (`BE-021`), không có OCR/trích xuất URL/domain nào, nhất quán với triết lý "độc lập với domain/URL" đã chốt ở `01-tong-quan-va-pham-vi.md`. Sửa thành whitelist theo **tên process/ứng dụng** (không phải domain/URL). Đồng bộ với `03-frontend-ui-spec.md` → v0.9.2 (sửa cùng lỗi câu chữ ở mô tả màn hình `S4`). Không đổi ý nghĩa/phạm vi `MISC-030` đã `APPROVED`. |
 | v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ mục trong file này (không chỉ bảng ưu tiên mục 10, mà cả từng mục con) — chuyển trạng thái file từ `Draft` sang `Approved` |

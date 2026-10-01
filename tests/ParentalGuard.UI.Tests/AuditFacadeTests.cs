@@ -72,33 +72,6 @@ public sealed class AuditFacadeTests
         await client.DisconnectAsync();
     }
 
-    [Theory]
-    [InlineData(MarkFalsePositiveResult.Success, MarkFalsePositiveOutcome.Success)]
-    [InlineData(MarkFalsePositiveResult.InvalidToken, MarkFalsePositiveOutcome.InvalidToken)]
-    [InlineData(MarkFalsePositiveResult.AlreadyListed, MarkFalsePositiveOutcome.AlreadyListed)]
-    public async Task MarkFalsePositiveAsync_MapsResultCorrectly(MarkFalsePositiveResult protoResult, MarkFalsePositiveOutcome expectedOutcome)
-    {
-        string pipeName = "test-audit-facade-" + Guid.NewGuid().ToString("N");
-        using var serverPipe = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-        Task serverTask = RunServerAsync(serverPipe, async (sessionKey, next) =>
-        {
-            IpcPayload req = await next();
-            Assert.Equal(IpcPayload.BodyOneofCase.MarkFalsePositiveReq, req.BodyCase);
-            Assert.Equal("chrome.exe", req.MarkFalsePositiveReq.ProcessName);
-            await RespondAsync(serverPipe, sessionKey, req.MessageId, r => r.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = protoResult });
-        });
-
-        var client = new UiIpcClient(pipeName);
-        await client.ConnectAsync(CancellationToken.None);
-        var facade = new AuditFacade(client);
-
-        MarkFalsePositiveOutcome outcome = await facade.MarkFalsePositiveAsync([7, 8, 9], "chrome.exe", CancellationToken.None);
-
-        Assert.Equal(expectedOutcome, outcome);
-        await serverTask;
-        await client.DisconnectAsync();
-    }
-
     private static async Task RunServerAsync(NamedPipeServerStream serverPipe, Func<byte[], Func<Task<IpcPayload>>, Task> handle)
     {
         await serverPipe.WaitForConnectionAsync();

@@ -11,7 +11,7 @@ namespace ParentalGuard.Service.Audit;
 /// <summary>
 /// Orchestrator domain Lịch sử (`10-ui-architecture.md` mục 6.3, `PWD-020`/`MISC-030`) — nhận
 /// <c>AuditLogQuery</c>/<c>MarkFalsePositiveRequest</c> từ pipe <c>UI</c>. Việc ghi
-/// <c>user_whitelisted_process_names</c> uỷ quyền cho <see cref="ConfigCoordinator.TryAddUserWhitelistEntryAsync"/>
+/// <c>user_whitelisted_process_names</c> (`MISC-030a`: không còn thêm whitelist từ đây)
 /// (1 nguồn ghi duy nhất, tránh trùng lặp logic persist/push `ControlVisionCommand`).
 /// </summary>
 /// <remarks>
@@ -29,10 +29,9 @@ namespace ParentalGuard.Service.Audit;
 /// 1 instance MỚI tạo mỗi lần <c>UiSessionServer.RunConnectionAsync</c> bắt đầu (1 kết nối pipe), tự
 /// giải phóng khi kết nối đóng — không còn field service-wide nào để rò rỉ qua kết nối khác.
 /// </remarks>
-public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLogWriter auditLog, ConfigCoordinator configCoordinator, MonotonicClock clock, string configDbPath)
+public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLogWriter auditLog, MonotonicClock clock, string configDbPath)
 {
     private const string ViewAuditLogActionContext = "view_audit_log";
-    private const string ManageWhitelistActionContext = "manage_whitelist";
 
     /// <summary>
     /// `10-ui-architecture.md` mục 6.3: <c>action_token</c> chỉ bắt buộc hợp lệ ở request ĐẦU TIÊN của
@@ -51,7 +50,7 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
     public Task<IpcPayload> HandleAsync(IpcPayload request, AuditLogViewSession session, CancellationToken cancellationToken) => request.BodyCase switch
     {
         IpcPayload.BodyOneofCase.AuditLogQuery => HandleAuditLogQueryAsync(request, session, cancellationToken),
-        IpcPayload.BodyOneofCase.MarkFalsePositiveReq => HandleMarkFalsePositiveAsync(request, cancellationToken),
+        IpcPayload.BodyOneofCase.MarkFalsePositiveReq => HandleMarkFalsePositiveRefused(request),
         IpcPayload.BodyOneofCase.VerifyAuditChainReq => HandleVerifyAuditChainAsync(request, session, cancellationToken),
         _ => throw new InvalidOperationException($"AuditLogCoordinator received unexpected message: {request.BodyCase}."),
     };
@@ -95,36 +94,16 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
         return response;
     }
 
-    /// <summary>Mục 6.3 — gate `manage_whitelist` (cùng ADR-122 đã áp dụng cho `RemoveWhitelistEntryRequest`).</summary>
-    private async Task<IpcPayload> HandleMarkFalsePositiveAsync(IpcPayload request, CancellationToken cancellationToken)
+    /// <summary>
+    /// `MISC-030a` (Specification/10 v0.3.0, ĐÃ CHỐT 2026-10-01, supersedes `MISC-030`): bỏ "Đánh dấu sai" —
+    /// thao tác này loại CẢ ứng dụng khỏi giám sát chỉ vì 1 lần chặn nhầm. Luôn từ chối, không tiêu thụ
+    /// action_token, không đụng tới whitelist (UI chính thức không còn gửi; chặn cả client tự chế).
+    /// </summary>
+    private Task<IpcPayload> HandleMarkFalsePositiveRefused(IpcPayload request)
     {
-        MarkFalsePositiveRequest req = request.MarkFalsePositiveReq;
         IpcPayload response = NewResponse(request);
-
-        if (!await ConsumeTokenAsync(req.ActionToken, ManageWhitelistActionContext, cancellationToken).ConfigureAwait(false))
-        {
-            response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.InvalidToken };
-            return response;
-        }
-
-        WhitelistAddResult result = await configCoordinator.TryAddUserWhitelistEntryAsync(req.ProcessName, cancellationToken).ConfigureAwait(false);
-        switch (result)
-        {
-            case WhitelistAddResult.AlreadyListed:
-                response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.AlreadyListed };
-                return response;
-            case WhitelistAddResult.PersistFailed:
-                response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.Unspecified };
-                return response;
-        }
-
-        await auditLog.AppendAsync(
-            "ConfigChanged",
-            new { field = "user_whitelisted_process_names", action = "add", process_name = req.ProcessName },
-            CancellationToken.None).ConfigureAwait(false);
-
-        response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.Success };
-        return response;
+        response.MarkFalsePositiveResp = new MarkFalsePositiveResponse { Result = MarkFalsePositiveResult.Unspecified };
+        return Task.FromResult(response);
     }
 
     /// <summary>

@@ -78,14 +78,4 @@ public sealed partial class AuditLogPage : Page
 
     private async void OnLoadMoreClick(object sender, RoutedEventArgs e) => await ViewModel.LoadMoreAsync();
 
-    private async void OnMarkFalsePositiveClick(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button { Tag: string processName })
-        {
-            await ViewModel.MarkFalsePositiveAsync(processName, XamlRoot);
-        }
-    }
-
-    /// <summary>Mục 7/ADR-124 — nút "Đánh dấu sai" nằm trong <c>DataTemplate</c> (lặp lại theo dòng), set text qua resource lúc mỗi instance tải xong (không có nơi "static label" chung như các control đơn lẻ khác).</summary>
-    private void OnMarkFalsePositiveButtonLoaded(object sender, RoutedEventArgs e) => ((Button)sender).Content = LocalizationService.Get("AuditMarkFalsePositiveButton");
 }
