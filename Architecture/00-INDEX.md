@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-01 | `10` v0.2.9→**v0.2.10** — nền chùm hoa cỡ cố định (`FE-005b`, Spec v0.8.4), ô mật khẩu hẹp |
 | 2026-10-01 | Spec v0.8.3: `03` v0.9.3 (field 156/157 reset whitelist), `10` v0.2.9 (bố cục Cài đặt, nút khôi phục), `07` v0.3.3 (ký hiệu icon trạng thái) |
 | 2026-10-01 | `10` v0.2.7→**v0.2.8** — nền trang trí Dashboard (`FE-005`, Spec v0.8.2) |
 | 2026-10-01 | **Spec v0.8.1 (`BE-088b`/`BE-089c`/`FE-016i`/`MISC-030b`).** `07` v0.3.1→**v0.3.2** (overlay full-screen mỗi màn hình riêng — sửa gộp nhầm 2 màn hình do `monitor_id` theo adapter; chừa taskbar; nút bánh răng), `03` v0.9.1→**v0.9.2** (whitelist hiệu dụng), `10` v0.2.6→**v0.2.7** |

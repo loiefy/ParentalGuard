@@ -103,11 +103,11 @@
                     <!-- FE-005a: nội dung phần cài đặt thụt vào dưới heading (dạng đoạn). -->
                     <StackPanel Spacing="8" Margin="24,0,0,0">
                         <TextBlock x:Name="OldPasswordLabel" />
-                        <PasswordBox x:Name="OldPasswordInput" MaxLength="50" />
+                        <PasswordBox x:Name="OldPasswordInput" MaxLength="50" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
                         <TextBlock x:Name="NewPasswordLabel" />
-                        <PasswordBox x:Name="NewPasswordInput" MaxLength="50" />
+                        <PasswordBox x:Name="NewPasswordInput" MaxLength="50" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
                         <TextBlock x:Name="ConfirmNewPasswordLabel" />
-                        <PasswordBox x:Name="ConfirmNewPasswordInput" MaxLength="50" />
+                        <PasswordBox x:Name="ConfirmNewPasswordInput" MaxLength="50" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
                         <CheckBox x:Name="RegenerateRecoveryKeyCheckBox" IsChecked="{x:Bind ViewModel.RegenerateRecoveryKey, Mode=TwoWay}" />
                         <InfoBar Severity="Error" IsClosable="False"
                                  IsOpen="{x:Bind ViewModel.HasChangePasswordError, Mode=OneWay}"

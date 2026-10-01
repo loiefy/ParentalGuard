@@ -1,13 +1,12 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.15.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.14.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
 - `FE-001`: UI hiện đại theo Fluent Design của Windows 11 — dùng Mica/Acrylic material, dark mode tự động theo hệ thống, rounded corner, animation mượt (dùng khả năng sẵn có của WinUI 3, không tự vẽ lại).
 - `FE-002`: UI dành cho **phụ huynh** phải rõ ràng, không gây hoang mang — vì đây là công cụ bảo vệ, không phải công cụ giám sát bí mật.
 - `FE-005` **(ĐÃ CHỐT v0.13.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Dashboard (các tab Tổng quan, Lịch sử, Cài đặt) có **nền trang trí**: vùng nội dung có hình **1 bông sen** lớn (~80% diện tích vùng nội dung), màu chỉ **tối hơn màu nền một chút**, màu nền vùng nội dung sáng hơn mặc định một chút; thanh menu trái (Tổng quan/Lịch sử/Cài đặt) có nền sáng hơn một chút, phía sau là các **hình tròn mờ sắp xếp ngẫu nhiên**. Trang trí thuần thị giác — không được làm giảm độ tương phản/khả năng đọc nội dung (`FE-050`).
-- `FE-005b` **(ĐÃ CHỐT v0.15.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, supersedes riêng phần "bông sen ~80%" của `FE-005`; phần màu nền và thanh menu của `FE-005` giữ nguyên)**: Họa tiết nền vùng nội dung là **các chùm hoa nhỏ tối giản** rải trên nền (màu tối hơn nền 1 chút), **kích thước cố định** — thay đổi kích thước cửa sổ không làm hoa phóng to/thu nhỏ (chỉ hiện thêm/bớt ở mép). Ô nhập mật khẩu ở `S4` có độ rộng giới hạn (không kéo dài hết cột).
 - `FE-005a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Màn hình Cài đặt (`S4`): mỗi hạng mục cài đặt (Thông điệp chặn nội dung, Danh sách whitelist, Chế độ hiệu năng, Đổi mật khẩu…) trình bày dạng **heading + đoạn nội dung thụt vào** — tên hạng mục là heading, toàn bộ ô nhập/chữ/nút liên quan nằm thụt vào bên dưới; giữa các hạng mục có **1 đường kẻ mờ** phân cách.
 - `FE-003`: UI phía **trẻ em** (overlay, icon trạng thái) phải tối giản, không phán xét gay gắt, đủ rõ để hiểu hành động cần làm.
 
@@ -120,7 +119,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.15.0 | 2026-10-01 | **MINOR — `FE-005b` (mới, supersedes phần bông sen của `FE-005`)**: họa tiết chùm hoa tối giản cỡ cố định; giới hạn độ rộng ô nhập mật khẩu |
 | v0.14.0 | 2026-10-01 | **MINOR — `FE-005a`, `FE-021a` (mới)**: bố cục Cài đặt heading + nội dung thụt vào + đường kẻ mờ giữa các hạng mục; icon trạng thái có ký hiệu tick/pause/chấm than |
 | v0.13.0 | 2026-10-01 | **MINOR — `FE-005` (mới)**: nền trang trí Dashboard — bông sen ~80% vùng nội dung (tối hơn nền 1 chút), thanh menu trái sáng hơn với hình tròn mờ ngẫu nhiên |
 | v0.12.0 | 2026-10-01 | **MINOR — `FE-016i` (mới)**: nút bánh răng góc trên-trái trên mọi overlay, mở Dashboard. Đồng bộ `02` v0.16.0 (`BE-088b`: overlay full-screen chừa taskbar — thay phần "toàn bộ màn hình" của `FE-016f`) |
