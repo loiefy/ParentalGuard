@@ -29,5 +29,21 @@ public sealed class OverlayMessageValidationTests
     public void IsValid_AtMaxLength_ReturnsTrue() => Assert.True(OverlayMessageValidation.IsValid(new string('a', 255)));
 
     [Fact]
+    public void IsValid_CombiningDiacritics_ReturnsTrue() => Assert.True(OverlayMessageValidation.IsValid("Tiếng Việt"));
+
+    [Theory]
+    [InlineData("Xin chào @mọi người 😀", "Xin chào mọi người ")]
+    [InlineData("a/b_c", "abc")]
+    [InlineData("Tiếng Việt", "Tiếng Việt")]
+    public void RemoveForbiddenChars_KeepsOnlyAllowed(string input, string expected) => Assert.Equal(expected, OverlayMessageValidation.RemoveForbiddenChars(input));
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    [InlineData("  Cau rieng.  ", "Cau rieng.")]
+    [InlineData("Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.", "")]
+    public void ToWire_TrimsAndMapsDefaultToEmpty(string display, string expected) => Assert.Equal(expected, OverlayMessageValidation.ToWire(display));
+
+    [Fact]
     public void IsValid_VietnameseDiacritics_ReturnsTrue() => Assert.True(OverlayMessageValidation.IsValid("Tiếng Việt có dấu: ệ ố ạ ư ơ đ"));
 }

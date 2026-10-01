@@ -55,6 +55,12 @@ public sealed class Worker(
 
     private volatile uint _currentSessionId = SessionInterop.InvalidSessionId;
 
+    // Bug real-hardware (2026-10-01): WM_WTSSESSION_CHANGE không phải lúc nào cũng tới được (message-only
+    // window của service Session 0) — logoff→logon tạo session mới nhưng supervisor bám session cũ đã
+    // chết. Poll định kỳ làm lưới an toàn; semaphore tuần tự hoá poll + notification.
+    private static readonly TimeSpan _sessionPollInterval = TimeSpan.FromSeconds(3);
+    private readonly SemaphoreSlim _sessionChangeLock = new(1, 1);
+
     // Architecture/05-image-pipeline-architecture.md mục 8.1 bước 5 (ADR-49): chỉ nhớ trong bộ
     // nhớ cho hết phiên chạy hiện tại của Service — không ghi config.db. Reset về false (thử lại
     // Low IL) mỗi khi Service khởi động lại.
@@ -105,6 +111,8 @@ public sealed class Worker(
                 payload => _overlayDecisionCoordinator!.ConfigureInitialPush(payload),
                 payload => _iconStatusCoordinator!.ConfigureInitialPush(payload),
                 payload => _iconPositionCoordinator!.ConfigureInitialPush(payload),
+                // FE-012/ADR-110 (07 mục 4.4): thông điệp overlay tuỳ biến — rỗng = Overlay dùng câu mặc định cục bộ.
+                payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = monitoringStateHolder.Current.OverlayMessage },
             ],
             config.IpcHmacKey,
             _auditLog,
@@ -207,7 +215,9 @@ public sealed class Worker(
             _authCoordinator,
             _auditLog,
             () => _visionSupervisor!.TryEnqueueBusinessMessage(
-                payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)));
+                payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)),
+            overlayMessage => _overlaySupervisor!.TryEnqueueBusinessMessage(
+                payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = overlayMessage }));
         _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, _configCoordinator, clock, InstallPaths.ConfigDbPath);
 
         // Đợt 8/9 (gap fix — 10-ui-architecture.md mục 6.2, Architecture/03 mục 3.7a ADR-145): tạo SAU
@@ -233,7 +243,11 @@ public sealed class Worker(
 
         try
         {
-            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken).ConfigureAwait(false);
+            while (true)
+            {
+                await Task.Delay(_sessionPollInterval, stoppingToken).ConfigureAwait(false);
+                await HandleSessionChangeAsync(stoppingToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -487,6 +501,7 @@ public sealed class Worker(
 
     private async Task HandleSessionChangeAsync(CancellationToken stoppingToken)
     {
+        await _sessionChangeLock.WaitAsync(stoppingToken).ConfigureAwait(false);
         try
         {
             uint activeSession = SessionInterop.WTSGetActiveConsoleSessionId();
@@ -498,9 +513,13 @@ public sealed class Worker(
             logger.LogInformation("Active console session changed to {SessionId} — respawning Vision/Overlay.", activeSession);
             await StartChildrenForSessionAsync(activeSession, stoppingToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogError(ex, "Failed to handle session change.");
+        }
+        finally
+        {
+            _sessionChangeLock.Release();
         }
     }
 

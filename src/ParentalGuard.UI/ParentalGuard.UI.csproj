@@ -24,7 +24,13 @@
          của dự án — không thể sửa DefaultDllImportSearchPaths trong file không sở hữu. Không nới
          WarningsAsErrors chung (Directory.Build.props, DEV-023) cho 5 executable còn lại. -->
     <NoWarn>$(NoWarn);CA5392</NoWarn>
+    <!-- Icon app (2026-10-01): nhúng vào .exe (Explorer/shortcut Start Menu/taskbar) + copy ra output cho AppWindow.SetIcon (title bar). -->
+    <ApplicationIcon>Assets\ParentalGuard.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\ParentalGuard.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.5.1" />

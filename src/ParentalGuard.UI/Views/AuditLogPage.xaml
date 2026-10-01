@@ -4,7 +4,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:ParentalGuard.UI.ViewModels">
 
-    <Grid Padding="24" RowSpacing="12">
+    <!-- Bố cục (bug real-hardware 2026-10-01): cột nội dung căn giữa, rộng tối đa 760, phần tử bên trong align trái. -->
+    <Grid Padding="24">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="20*" MaxWidth="760" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+    <Grid Grid.Column="1" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -51,5 +58,6 @@
         <Button x:Name="LoadMoreButton" Grid.Row="3" Click="OnLoadMoreClick" HorizontalAlignment="Center"
                 Visibility="{x:Bind ViewModel.HasMore, Mode=OneWay}"
                 IsEnabled="{x:Bind ViewModel.IsNotLoadingMore, Mode=OneWay}" />
+    </Grid>
     </Grid>
 </Page>

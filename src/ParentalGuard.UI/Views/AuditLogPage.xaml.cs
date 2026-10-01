@@ -32,10 +32,40 @@ public sealed partial class AuditLogPage : Page
 
     public AuditLogViewModel ViewModel { get; }
 
+    /// <summary>
+    /// Bug real-hardware (2026-10-01, tab Lịch sử trống): lúc <c>OnNavigatedTo</c> Page CHƯA vào visual tree
+    /// nên <see cref="UIElement.XamlRoot"/> còn null → <c>ContentDialog</c> `S5` ném exception, bị
+    /// <c>_ =</c> nuốt mất → trang trắng, không dialog, không lỗi. Chờ <c>Loaded</c> (đã có XamlRoot).
+    /// </summary>
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        _ = ViewModel.InitializeAsync(XamlRoot);
+        if (XamlRoot is not null)
+        {
+            StartGate();
+            return;
+        }
+
+        Loaded += OnFirstLoaded;
+    }
+
+    private void OnFirstLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnFirstLoaded;
+        StartGate();
+    }
+
+    private async void StartGate()
+    {
+        try
+        {
+            await ViewModel.InitializeAsync(XamlRoot);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.Runtime.InteropServices.COMException)
+        {
+            // Không để lỗi dựng dialog biến thành trang trắng câm lặng — hiện rõ cho phụ huynh.
+            ViewModel.ErrorMessage = ex.Message;
+        }
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)

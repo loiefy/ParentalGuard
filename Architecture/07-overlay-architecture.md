@@ -1,6 +1,6 @@
 # 07 — Overlay Architecture (vùng loại trừ, đa cửa sổ/z-index/gộp, multi-monitor)
 
-> Version: v0.2.3 | Trạng thái: Draft | Cập nhật: 2026-09-20
+> Version: v0.2.4 | Trạng thái: Draft | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu (vì sao có file này, vì sao đánh số `07`)
 
@@ -333,6 +333,7 @@ Phát hiện khi viết `10-ui-architecture.md` (Đợt 6, `S4` Cài đặt nân
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.4 | 2026-10-01 | PATCH — **real-hardware bug fix (Đợt 9)**, thuần implement, không đổi thiết kế: (1) icon trạng thái `FE-020` không bao giờ xuất hiện — `_iconManager.Start()` chỉ được gọi trong sự kiện `Load` của `OverlayCoordinator`, nhưng form điều phối này không bao giờ `Show()` (Program chỉ ép tạo Handle) nên `Load` không bao giờ chạy; chuyển sang `OnHandleCreated` + `BeginInvoke`. (2) Hoàn tất mục 4.4 (ADR-110) đúng thiết kế: `OverlayStrings.DefaultBlockedMessage`/`CloseButtonLabel` (resource, `FE-060`), `ContentBlurOverlayForm` hiện `OverlayStrings.BlockedMessage(text)` thay chuỗi hardcode, `OverlayCoordinator` giữ `text` của `OverlayMessageUpdate` gần nhất cho overlay dựng sau. Font overlay đổi `GenericSansSerif` → `Segoe UI` (hiển thị dấu tiếng Việt chuẩn) |
 | v0.2.3 | 2026-09-20 | PATCH — Đợt 6 (`ROADMAP.md`, Dashboard UI), amendment cùng lượt viết `10-ui-architecture.md`. Thêm mục 4.4: phát hiện gap `FE-012` (thông điệp overlay tuỳ biến) chưa có kênh IPC nào mang xuống `Overlay`, và code Đợt 1 hardcode sai câu mặc định (bug, không qua resource) — thiết kế message mới `OverlayMessageUpdate` (field 66, kênh Overlay, ADR-110), chuỗi rỗng = dùng default cục bộ từ `OverlayStrings.resx` (key mới `DefaultBlockedMessage`/`CloseButtonLabel`), validate 2 lớp (`FE-012a`, UI + Service). Ghi rõ hướng sửa bug Đợt 1 cho `feature-dev`. Amendment cùng lượt: `03-ipc-communication.md` (field 66 mới), `04-data-architecture.md` (field `overlay_message` mới trong `monitoring_state`). Giữ nguyên trạng thái `Draft`. Theo chỉ đạo — không dừng chờ review |
 | v0.2.2 | 2026-09-20 | PATCH — Đợt 5 (`ROADMAP.md`, Pause/Resume), amendment cùng lượt viết `02-process-architecture.md` mục 3a. Thêm mục 4.1.5: thiết kế banner nhắc tạm dừng (`S9`, `PAUSE-011`) — tái dùng nguyên `ShowToastCommand` đã có, không message/state UI mới (ADR-108), trigger/chu kỳ/nội dung do `Service` quyết định (thiết kế đầy đủ ở `02` mục 3a.3). Đóng câu hỏi mở "Banner pause vẫn chưa thiết kế UX" (mục 6). Giữ nguyên trạng thái `Draft` (chưa đổi thành Approved), vẫn chờ review tuần tự theo đúng thứ tự `00-INDEX.md` |
 | v0.2.1 | 2026-09-19 | PATCH — amendment cùng lượt viết `09-anti-tamper-architecture.md` (Đợt 4). Mở rộng bảng ánh xạ `IconState` (mục 4.1.2) thêm 1 dòng: cửa sổ nghi vấn tấn công theo `ANTI-060` cũng map sang `ERROR`, nhưng **giữ liên tục** (không chỉ thoáng qua) cho tới hết cửa sổ T phút không có sự kiện mới — tái dùng nguyên kênh hiển thị đã có, không tạo state/message mới (ADR-100 ở `09`). `Overlay` không cần phân biệt nguyên nhân, vẫn đúng nguyên tắc "hàm render thuần". Giữ nguyên trạng thái `Draft` (chưa đổi thành Approved), vẫn chờ review tuần tự theo đúng thứ tự `00-INDEX.md` |

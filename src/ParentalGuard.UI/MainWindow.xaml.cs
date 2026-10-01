@@ -10,6 +10,12 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         Title = "ParentalGuard";
+        // Icon title bar/taskbar — app unpackaged không tự lấy icon nhúng trong .exe cho cửa sổ WinUI.
+        string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "ParentalGuard.ico");
+        if (File.Exists(iconPath))
+        {
+            AppWindow.SetIcon(iconPath);
+        }
     }
 
     public Frame RootFrameControl => RootFrame;

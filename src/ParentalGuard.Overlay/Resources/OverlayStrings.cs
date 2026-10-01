@@ -20,5 +20,10 @@ internal static class OverlayStrings
     /// <summary>`FE-016g`/`FE-016h`: đếm ngược trực quan bắt buộc (mm:ss — overlay thường 60s, gộp 30s).</summary>
     internal static string AutoTimeoutCountdown(int remainingSeconds) => string.Format(Get("AutoTimeoutCountdownFormat"), remainingSeconds / 60, remainingSeconds % 60);
 
+    /// <summary>`FE-012`/ADR-110: thông điệp phụ huynh tuỳ biến, rỗng → câu mặc định cục bộ (`FE-062`).</summary>
+    internal static string BlockedMessage(string? overrideText) => string.IsNullOrWhiteSpace(overrideText) ? Get("DefaultBlockedMessage") : overrideText;
+
+    internal static string CloseButtonLabel => Get("CloseButtonLabel");
+
     private static string Get(string name) => _resourceManager.GetString(name) ?? name;
 }

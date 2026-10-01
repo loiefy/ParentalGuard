@@ -37,7 +37,8 @@ public sealed class ContentBlurOverlayForm : Form
     public ContentBlurOverlayForm(
         OverlayRect rect,
         Action<ulong, uint, CloseSource> onCloseButtonClicked,
-        Action<uint, IReadOnlyList<ulong>, CloseSource> onMergedCloseTriggered)
+        Action<uint, IReadOnlyList<ulong>, CloseSource> onMergedCloseTriggered,
+        string? blockedMessage = null)
     {
         _windowHandle = rect.WindowHandle;
         _overlayId = rect.OverlayId;
@@ -58,22 +59,24 @@ public sealed class ContentBlurOverlayForm : Form
 
         var label = new Label
         {
-            Text = "Nội dung không phù hợp đã được che",
+            // FE-012/ADR-110 (07 mục 4.4): thông điệp tuỳ biến từ OverlayMessageUpdate, rỗng → mặc định resource.
+            Text = OverlayStrings.BlockedMessage(blockedMessage),
+            Padding = new Padding(24, 0, 24, 0),
             ForeColor = Color.White,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font(FontFamily.GenericSansSerif, 14f, FontStyle.Bold),
+            Font = new Font("Segoe UI", 14f, FontStyle.Bold),
         };
 
         // FE-012: primary button, màu nhấn rõ ràng (bản cũ là nút xám mặc định WinForms, lẫn vào nền).
         _closeButton = new Button
         {
-            Text = "Tắt nội dung",
+            Text = OverlayStrings.CloseButtonLabel,
             AutoSize = true,
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.FromArgb(0, 120, 212),
             ForeColor = Color.White,
-            Font = new Font(FontFamily.GenericSansSerif, 13f, FontStyle.Bold),
+            Font = new Font("Segoe UI", 13f, FontStyle.Bold),
             Padding = new Padding(16, 6, 16, 6),
             Cursor = Cursors.Hand,
         };
@@ -267,7 +270,7 @@ public sealed class ContentBlurOverlayForm : Form
             ForeColor = Color.White,
             BackColor = Color.Transparent,
             AutoSize = true,
-            Font = new Font(FontFamily.GenericSansSerif, 11f, FontStyle.Bold),
+            Font = new Font("Segoe UI", 11f, FontStyle.Bold),
         };
 
         Controls.Add(countdownLabel);

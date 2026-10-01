@@ -26,6 +26,7 @@ public sealed partial class SettingsPage : Page
             services.GetRequiredService<IConfigFacade>(),
             services.GetRequiredService<IAuthFacade>(),
             _navigationService);
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         OverlayMessageLabel.Text = LocalizationService.Get("SettingsOverlayMessageLabel");
         SaveOverlayMessageButton.Content = LocalizationService.Get("SettingsSaveButton");
@@ -80,9 +81,33 @@ public sealed partial class SettingsPage : Page
         await ViewModel.SetPerformanceModeAsync(mode, CancellationToken.None);
     }
 
-    /// <summary>`FE-012a` — chặn ký tự cấm NGAY khi gõ/dán (toàn bộ `NewText`, không chỉ ký tự vừa gõ).</summary>
-    private void OnOverlayMessageBeforeTextChanging(TextBox sender, TextBoxBeforeTextChangingEventArgs args) =>
-        args.Cancel = !OverlayMessageValidation.IsValid(args.NewText);
+    /// <summary>ViewModel đổi giá trị chủ động (load/lưu/khôi phục/hoàn tác) → đẩy xuống ô nhập; lúc đang gõ 2 giá trị bằng nhau nên không ghi đè caret.</summary>
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsViewModel.OverlayMessage) && OverlayMessageInput.Text != ViewModel.OverlayMessage)
+        {
+            OverlayMessageInput.Text = ViewModel.OverlayMessage;
+        }
+    }
+
+    /// <summary>
+    /// `FE-012a` — lọc ký tự cấm ngay khi gõ/dán, nhưng SAU khi text đổi: không can thiệp chuỗi
+    /// Backspace+ký tự thay thế của bộ gõ tiếng Việt (bản cũ huỷ <c>BeforeTextChanging</c> làm hỏng bộ gõ).
+    /// </summary>
+    private void OnOverlayMessageTextChanged(object sender, TextChangedEventArgs e)
+    {
+        string text = OverlayMessageInput.Text;
+        string filtered = OverlayMessageValidation.RemoveForbiddenChars(text);
+        if (!string.Equals(filtered, text, StringComparison.Ordinal))
+        {
+            int caret = Math.Clamp(OverlayMessageInput.SelectionStart - (text.Length - filtered.Length), 0, filtered.Length);
+            OverlayMessageInput.Text = filtered; // tự kích hoạt lại TextChanged với chuỗi đã sạch
+            OverlayMessageInput.SelectionStart = caret;
+            return;
+        }
+
+        ViewModel.OverlayMessage = text;
+    }
 
     private async void OnSaveOverlayMessageClick(object sender, RoutedEventArgs e) => await ViewModel.SaveOverlayMessageAsync(CancellationToken.None);
 

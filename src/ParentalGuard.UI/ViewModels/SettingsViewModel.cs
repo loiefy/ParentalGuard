@@ -24,6 +24,7 @@ public sealed partial class SettingsViewModel(
 {
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
+    // Giá trị ĐÃ LƯU ở Service, dạng wire: "" = chưa tuỳ chỉnh/dùng câu mặc định (FE-062, ADR-110).
     private string _lastSavedOverlayMessage = string.Empty;
     private byte[]? _newRecoveryKeyPlaintextBuffer;
 
@@ -134,7 +135,8 @@ public sealed partial class SettingsViewModel(
         try
         {
             ConfigSnapshot snapshot = await configFacade.GetConfigAsync(cancellationToken).ConfigureAwait(true);
-            OverlayMessage = snapshot.OverlayMessage;
+            // FE-012/FE-062 (Architecture/10 mục 7): chưa từng tuỳ chỉnh (rỗng) → hiển thị câu mặc định trong ô nhập.
+            OverlayMessage = OverlayMessageValidation.ToDisplay(snapshot.OverlayMessage);
             _lastSavedOverlayMessage = snapshot.OverlayMessage;
             PerformanceMode = snapshot.PerformanceMode;
             WhitelistedProcessNames = new ObservableCollection<string>(snapshot.WhitelistedProcessNames);
@@ -154,28 +156,31 @@ public sealed partial class SettingsViewModel(
     {
         OverlayMessageError = null;
         OverlayMessageStatus = null;
-        if (!OverlayMessageValidation.IsValid(OverlayMessage))
+        // NFC: bộ gõ "Unicode tổ hợp" gửi dấu dạng combining mark — gộp về ký tự dựng sẵn trước khi validate/gửi.
+        string wire = OverlayMessageValidation.ToWire(OverlayMessage);
+        if (!OverlayMessageValidation.IsValid(wire))
         {
-            OverlayMessage = _lastSavedOverlayMessage;
+            OverlayMessage = OverlayMessageValidation.ToDisplay(_lastSavedOverlayMessage);
             OverlayMessageError = LocalizationService.Get("SettingsOverlayMessageInvalidCharacters");
             return;
         }
 
         try
         {
-            ConfigUpdateOutcome outcome = await configFacade.UpdateOverlayMessageAsync(OverlayMessage, PerformanceMode, cancellationToken).ConfigureAwait(true);
+            ConfigUpdateOutcome outcome = await configFacade.UpdateOverlayMessageAsync(wire, PerformanceMode, cancellationToken).ConfigureAwait(true);
             switch (outcome)
             {
                 case ConfigUpdateOutcome.Success:
-                    _lastSavedOverlayMessage = OverlayMessage;
+                    _lastSavedOverlayMessage = wire;
+                    OverlayMessage = OverlayMessageValidation.ToDisplay(wire);
                     OverlayMessageStatus = LocalizationService.Get("SettingsOverlayMessageSaved");
                     break;
                 case ConfigUpdateOutcome.InvalidCharacters:
-                    OverlayMessage = _lastSavedOverlayMessage;
+                    OverlayMessage = OverlayMessageValidation.ToDisplay(_lastSavedOverlayMessage);
                     OverlayMessageError = LocalizationService.Get("SettingsOverlayMessageInvalidCharacters");
                     break;
                 case ConfigUpdateOutcome.TooLong:
-                    OverlayMessage = _lastSavedOverlayMessage;
+                    OverlayMessage = OverlayMessageValidation.ToDisplay(_lastSavedOverlayMessage);
                     OverlayMessageError = LocalizationService.Get("SettingsOverlayMessageTooLong");
                     break;
             }
@@ -186,10 +191,10 @@ public sealed partial class SettingsViewModel(
         }
     }
 
-    /// <summary>Nút "Khôi phục mặc định" (mục 6.4) — set rỗng cục bộ rồi gửi luôn, không cần xác nhận thêm.</summary>
+    /// <summary>Nút "Khôi phục mặc định" (mục 6.4) — hiện câu mặc định, gửi "" (Overlay tự dùng câu mặc định theo ngôn ngữ, FE-062).</summary>
     public Task ResetOverlayMessageToDefaultAsync(CancellationToken cancellationToken)
     {
-        OverlayMessage = string.Empty;
+        OverlayMessage = OverlayMessageValidation.DefaultMessage;
         return SaveOverlayMessageAsync(cancellationToken);
     }
 
@@ -378,7 +383,34 @@ public static class OverlayMessageValidation
     private const string AllowedPunctuation = ".,!?:;-()\"'";
 
     /// <summary>Chữ cái (Latin + tiếng Việt có dấu)/chữ số/khoảng trắng thường/dấu câu cho phép — mọi ký tự khác (emoji, control char, symbol) đều bị từ chối.</summary>
-    public static bool IsAllowedChar(char c) => char.IsLetter(c) || char.IsDigit(c) || c == ' ' || AllowedPunctuation.Contains(c);
+    /// <remarks>
+    /// Combining mark (<see cref="System.Globalization.UnicodeCategory.NonSpacingMark"/>) được phép trong lúc
+    /// gõ: bộ gõ tiếng Việt chế độ "Unicode tổ hợp" gửi dấu thanh/dấu mũ dạng ký tự kết hợp tách rời —
+    /// vẫn là "chữ tiếng Việt có dấu" theo FE-012a; <see cref="ToWire"/> gộp NFC trước khi gửi Service.
+    /// </remarks>
+    public static bool IsAllowedChar(char c) =>
+        char.IsLetter(c) || char.IsDigit(c) || c == ' ' || AllowedPunctuation.Contains(c)
+        || char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark;
 
     public static bool IsValid(string text) => text.Length <= MaxLength && text.All(IsAllowedChar);
+
+    /// <summary>
+    /// Bug real-hardware (2026-10-01): bản cũ huỷ <c>BeforeTextChanging</c> khi có ký tự cấm — xung đột với
+    /// chuỗi Backspace+ký tự thay thế của bộ gõ tiếng Việt (UniKey/Telex) → không gõ được tiếng Việt. Nay lọc
+    /// SAU khi text đổi (<c>TextChanged</c>), chỉ xoá đúng ký tự cấm, không bao giờ chặn thao tác của bộ gõ.
+    /// </summary>
+    public static string RemoveForbiddenChars(string text) => text.All(IsAllowedChar) ? text : new string(text.Where(IsAllowedChar).ToArray());
+
+    /// <summary>`FE-012`/`FE-062`: câu mặc định lấy từ resource (khớp chính xác <c>OverlayStrings.DefaultBlockedMessage</c> của Overlay).</summary>
+    public static string DefaultMessage => LocalizationService.Get("DefaultOverlayMessage");
+
+    /// <summary>Giá trị lưu ở Service → hiển thị: rỗng (chưa tuỳ chỉnh) hiển thị câu mặc định.</summary>
+    public static string ToDisplay(string stored) => string.IsNullOrEmpty(stored) ? DefaultMessage : stored;
+
+    /// <summary>Ô nhập → giá trị gửi Service: NFC + trim; rỗng hoặc trùng câu mặc định → "" (giữ ngữ nghĩa "theo ngôn ngữ", FE-062).</summary>
+    public static string ToWire(string display)
+    {
+        string normalized = display.Normalize(System.Text.NormalizationForm.FormC).Trim();
+        return normalized.Length == 0 || string.Equals(normalized, DefaultMessage, StringComparison.Ordinal) ? string.Empty : normalized;
+    }
 }

@@ -18,7 +18,10 @@ public class ConfigCoordinatorTests : IDisposable
     private readonly string _auditLogPath = Path.Combine(Path.GetTempPath(), $"pg-audit-config-{Guid.NewGuid():N}.log");
     private readonly string _configDbPath = Path.Combine(Path.GetTempPath(), $"pg-config-config-{Guid.NewGuid():N}.db");
 
-    private sealed record Fixture(ConfigCoordinator Config, AuthCoordinator Auth, AuditLogWriter AuditLog, MonitoringStateHolder Holder, Func<int> PushCount);
+    private sealed record Fixture(ConfigCoordinator Config, AuthCoordinator Auth, AuditLogWriter AuditLog, MonitoringStateHolder Holder, Func<int> PushCount)
+    {
+        public List<string> OverlayMessagesPushed { get; init; } = [];
+    }
 
     private async Task<Fixture> CreateAsync(MonitoringStateData? initial = null)
     {
@@ -31,9 +34,10 @@ public class ConfigCoordinatorTests : IDisposable
         var holder = new MonitoringStateHolder(state);
 
         int pushCount = 0;
-        var configCoordinator = new ConfigCoordinator(holder, _configDbPath, authCoordinator, auditLog, () => pushCount++);
+        List<string> overlayMessagesPushed = [];
+        var configCoordinator = new ConfigCoordinator(holder, _configDbPath, authCoordinator, auditLog, () => pushCount++, overlayMessagesPushed.Add);
 
-        return new Fixture(configCoordinator, authCoordinator, auditLog, holder, () => pushCount);
+        return new Fixture(configCoordinator, authCoordinator, auditLog, holder, () => pushCount) { OverlayMessagesPushed = overlayMessagesPushed };
     }
 
     private static async Task<byte[]> GetValidActionTokenAsync(AuthCoordinator auth, string actionContext = "manage_whitelist")
@@ -72,6 +76,7 @@ public class ConfigCoordinatorTests : IDisposable
         Assert.Equal(ConfigUpdateResult.Success, response.ConfigUpdateResp.Result);
         Assert.Equal("New message.", fx.Holder.Current.OverlayMessage);
         Assert.Equal(0, fx.PushCount()); // performance_mode không đổi -> không push ControlVisionCommand
+        Assert.Equal(["New message."], fx.OverlayMessagesPushed); // ADR-110: OverlayMessageUpdate xuống Overlay
 
         using ConfigDb db = ConfigDb.Open(_configDbPath);
         Assert.Equal("New message.", db.ReadSnapshot().MonitoringState.OverlayMessage);
@@ -89,6 +94,7 @@ public class ConfigCoordinatorTests : IDisposable
         Assert.Equal(ConfigUpdateResult.Success, response.ConfigUpdateResp.Result);
         Assert.Equal(PerformanceMode.MaximumProtection, fx.Holder.Current.PerformanceMode);
         Assert.Equal(1, fx.PushCount());
+        Assert.Empty(fx.OverlayMessagesPushed); // overlay_message không đổi -> không push OverlayMessageUpdate
     }
 
     [Fact]

@@ -44,4 +44,12 @@
   <data name="AutoTimeoutCountdownFormat" xml:space="preserve">
     <value>Tự động đóng sau: {0:D2}:{1:D2}</value>
   </data>
+  <!-- FE-012/FE-062 (07 mục 4.4, ADR-110): câu mặc định khi phụ huynh chưa tuỳ chỉnh — PHẢI khớp chính xác UiStrings.resx DefaultOverlayMessage của ParentalGuard.UI. -->
+  <data name="DefaultBlockedMessage" xml:space="preserve">
+    <value>Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.</value>
+  </data>
+  <!-- FE-012: nhãn nút chính — qua resource (FE-060), phụ huynh không tự đổi được. -->
+  <data name="CloseButtonLabel" xml:space="preserve">
+    <value>Tắt nội dung</value>
+  </data>
 </root>

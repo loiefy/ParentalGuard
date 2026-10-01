@@ -39,6 +39,7 @@ message IpcPayload {
     MonitoringStatusUpdate monitoring_status = 63; // Đợt 2, Service → Overlay — trạng thái icon (FE-021)
     IconPositionUpdate icon_position_update = 64; // Đợt 2, Overlay → Service — kết quả kéo-thả icon (FE-020a)
     IconLayoutSync icon_layout_sync = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
+    OverlayMessageUpdate overlay_message_update = 66; // Đợt 6 (ADR-110, implement Đợt 9), Service → Overlay — thông điệp overlay tuỳ biến (FE-012)
 
     // --- Kênh UI (80-99) ---
     // Password & Authentication (80-91, Đợt 3) — Architecture/08-password-authentication-architecture.md mục 7
@@ -240,6 +241,12 @@ message IconPositionUpdate {
 
 message IconLayoutSync {
   repeated IconPositionUpdate positions = 1; // toàn bộ vị trí đã lưu, push ngay sau handshake
+}
+
+// 07-overlay-architecture.md mục 4.4 (ADR-110) — push lúc connect + mỗi lần ConfigUpdateRequest đổi
+// overlay_message. text rỗng = Overlay tự dùng câu mặc định cục bộ (OverlayStrings.DefaultBlockedMessage, FE-062).
+message OverlayMessageUpdate {
+  string text = 1;
 }
 
 message ShowToastCommand {

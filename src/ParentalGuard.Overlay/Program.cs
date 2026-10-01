@@ -128,6 +128,9 @@ internal static class Program
             case IpcPayload.BodyOneofCase.IconLayoutSync:
                 coordinator.ApplyIconLayoutSync(message.IconLayoutSync);
                 break;
+            case IpcPayload.BodyOneofCase.OverlayMessageUpdate:
+                coordinator.ApplyOverlayMessage(message.OverlayMessageUpdate);
+                break;
             case IpcPayload.BodyOneofCase.ShowToast:
                 // BE-061b: UI Toast thật là Đợt 6 (Architecture/09, chưa viết) — Đợt 0/1 chỉ đảm bảo nhận không throw.
                 ShowToastCommand toast = message.ShowToast;

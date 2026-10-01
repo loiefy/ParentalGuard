@@ -347,6 +347,10 @@
   <data name="SettingsOverlayMessageLabel" xml:space="preserve">
     <value>Thông điệp hiển thị trên overlay chặn nội dung</value>
   </data>
+  <!-- FE-012/FE-062 (Architecture/10 mục 7): PHẢI khớp chính xác OverlayStrings.resx DefaultBlockedMessage của ParentalGuard.Overlay. -->
+  <data name="DefaultOverlayMessage" xml:space="preserve">
+    <value>Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.</value>
+  </data>
   <data name="SettingsSaveButton" xml:space="preserve">
     <value>Lưu</value>
   </data>

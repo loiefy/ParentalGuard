@@ -92,7 +92,7 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public async Task ResetOverlayMessageToDefaultAsync_SetsEmptyAndSaves()
+    public async Task ResetOverlayMessageToDefaultAsync_ShowsDefaultSentence_AndSendsEmpty()
     {
         var configFacade = new FakeConfigFacade
         {
@@ -104,8 +104,54 @@ public sealed class SettingsViewModelTests
 
         await viewModel.ResetOverlayMessageToDefaultAsync(CancellationToken.None);
 
-        Assert.Equal(string.Empty, viewModel.OverlayMessage);
+        // FE-012/FE-062: ô nhập hiện câu mặc định; Service lưu "" (Overlay tự dùng câu mặc định theo ngôn ngữ).
+        Assert.Equal(OverlayMessageValidation.DefaultMessage, viewModel.OverlayMessage);
         Assert.Equal(string.Empty, Assert.Single(configFacade.OverlayMessagesReceived));
+    }
+
+    [Fact]
+    public async Task InitializeAsync_NeverCustomized_ShowsDefaultSentence()
+    {
+        var configFacade = new FakeConfigFacade { Snapshot = new ConfigSnapshot(string.Empty, [], PerformanceModeOption.Balanced) };
+        var viewModel = CreateViewModel(configFacade);
+
+        await viewModel.InitializeAsync(CancellationToken.None);
+
+        Assert.Equal("Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.", viewModel.OverlayMessage);
+    }
+
+    [Fact]
+    public async Task SaveOverlayMessageAsync_UnchangedDefaultSentence_SendsEmpty()
+    {
+        var configFacade = new FakeConfigFacade
+        {
+            Snapshot = new ConfigSnapshot(string.Empty, [], PerformanceModeOption.Balanced),
+            UpdateOutcomes = [ConfigUpdateOutcome.Success],
+        };
+        var viewModel = CreateViewModel(configFacade);
+        await viewModel.InitializeAsync(CancellationToken.None);
+
+        await viewModel.SaveOverlayMessageAsync(CancellationToken.None);
+
+        Assert.Equal(string.Empty, Assert.Single(configFacade.OverlayMessagesReceived));
+    }
+
+    [Fact]
+    public async Task SaveOverlayMessageAsync_DecomposedVietnamese_SendsNfcComposed()
+    {
+        var configFacade = new FakeConfigFacade
+        {
+            Snapshot = new ConfigSnapshot(string.Empty, [], PerformanceModeOption.Balanced),
+            UpdateOutcomes = [ConfigUpdateOutcome.Success],
+        };
+        var viewModel = CreateViewModel(configFacade);
+        await viewModel.InitializeAsync(CancellationToken.None);
+        viewModel.OverlayMessage = "Tiếng Việt"; // bộ gõ "Unicode tổ hợp"
+
+        await viewModel.SaveOverlayMessageAsync(CancellationToken.None);
+
+        Assert.False(viewModel.HasOverlayMessageError);
+        Assert.Equal("Tiếng Việt", Assert.Single(configFacade.OverlayMessagesReceived));
     }
 
     [Fact]

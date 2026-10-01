@@ -27,7 +27,8 @@ public sealed class ConfigCoordinator(
     string configDbPath,
     AuthCoordinator authCoordinator,
     AuditLogWriter auditLog,
-    Action pushControlVisionCommand)
+    Action pushControlVisionCommand,
+    Action<string>? pushOverlayMessage = null)
 {
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
@@ -102,6 +103,7 @@ public sealed class ConfigCoordinator(
             if (current.OverlayMessage != updated.OverlayMessage)
             {
                 await auditLog.AppendAsync("ConfigChanged", new { field = "overlay_message" }, CancellationToken.None).ConfigureAwait(false);
+                pushOverlayMessage?.Invoke(updated.OverlayMessage); // ADR-110 — Overlay áp dụng cho overlay dựng sau đó
             }
 
             if (current.PerformanceMode != updated.PerformanceMode)

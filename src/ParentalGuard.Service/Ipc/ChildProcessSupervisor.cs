@@ -51,7 +51,38 @@ public sealed class ChildProcessSupervisor(
     // Giá trị chưa được chốt số cụ thể trong spec — placeholder hợp lý (tương tự DEFAULT_RISK_THRESHOLD).
     private const uint _gracefulStopDeadlineMs = 2000;
 
+    // Session chưa có user (màn hình logon sau logoff, hoặc session cũ đã chết chờ Worker chuyển).
+    private static readonly TimeSpan _sessionNotReadyRetryDelay = TimeSpan.FromSeconds(2);
+
+    private static readonly TimeSpan _maxRestartBackoff = TimeSpan.FromSeconds(5);
+
     private readonly IpcMessageIdGenerator _messageIds = new();
+
+    /// <summary>
+    /// Lần crash đầu restart ngay (giữ ngân sách phục hồi ≤3s của BE-023); crash lặp liên tiếp không
+    /// qua được handshake thì giãn 0.5s → 1s → 2s → tối đa 5s — chặn vòng lặp nóng khi lỗi là vĩnh viễn.
+    /// </summary>
+    internal static TimeSpan RestartBackoff(int consecutiveFailures) => consecutiveFailures <= 1
+        ? TimeSpan.Zero
+        : TimeSpan.FromMilliseconds(Math.Min(500 * Math.Pow(2, consecutiveFailures - 2), _maxRestartBackoff.TotalMilliseconds));
+
+    private static async Task<bool> DelayOrStopAsync(TimeSpan delay, CancellationToken token)
+    {
+        if (delay <= TimeSpan.Zero)
+        {
+            return !token.IsCancellationRequested;
+        }
+
+        try
+        {
+            await Task.Delay(delay, token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+    }
 
     // ADR-104 (Architecture/02 mục 3a.4): cadence Vision đổi 1s↔10s khi Pause/Resume, ngay giữa 1
     // kết nối đang chạy (không chờ reconnect) — Interlocked vì TimeSpan không phải kiểu volatile hợp lệ.
@@ -160,13 +191,46 @@ public sealed class ChildProcessSupervisor(
 
     private async Task RunLoopAsync(uint sessionId, CancellationToken token)
     {
+        int consecutiveFailures = 0;
+        bool sessionWaitLogged = false;
         while (!token.IsCancellationRequested)
         {
+            // Bug real-hardware (2026-10-01): sau logoff→logon, session cũ không còn user token
+            // (WTSQueryUserToken lỗi 2/1008). Bản cũ coi đây là "child crash" và retry KHÔNG delay —
+            // ~230 vòng/giây, flood Event Log + audit ProcessRestarted + đếm sai ANTI-060. Đây không
+            // phải crash của tiến trình con: chờ yên lặng (không audit, không onChildRestarted) cho tới
+            // khi session có user, hoặc Worker chuyển supervisor sang session mới (huỷ token).
+            SecurityIdentifier userSid;
+            try
+            {
+                userSid = SessionUserLookup.GetUserSid(sessionId);
+            }
+            catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
+            {
+                if (!sessionWaitLogged)
+                {
+                    logger.LogWarning(ex, "{ProcessType}: session {SessionId} has no interactive user yet — waiting.", processType, sessionId);
+                    sessionWaitLogged = true;
+                }
+
+                if (!await DelayOrStopAsync(_sessionNotReadyRetryDelay, token).ConfigureAwait(false))
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            sessionWaitLogged = false;
+            if (consecutiveFailures > 0 && !await DelayOrStopAsync(RestartBackoff(consecutiveFailures), token).ConfigureAwait(false))
+            {
+                break;
+            }
+
             NamedPipeServerStream? pipe = null;
             System.Diagnostics.Process? childProcess = null;
             try
             {
-                SecurityIdentifier userSid = SessionUserLookup.GetUserSid(sessionId);
                 pipe = PipeAclFactory.CreateServerInstance(pipeName, userSid);
 
                 bool useLowIntegrityLevel = resolveLowIntegrityLevel?.Invoke() ?? true;
@@ -191,6 +255,7 @@ public sealed class ChildProcessSupervisor(
 
                 await HandshakeAsync(pipe, token).ConfigureAwait(false);
                 IsConnected = true;
+                consecutiveFailures = 0;
                 onSessionConnected?.Invoke();
 
                 var outbound = Channel.CreateUnbounded<IpcPayload>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
@@ -235,6 +300,7 @@ public sealed class ChildProcessSupervisor(
             }
             catch (Exception ex) when (ex is IOException or IpcFrameViolationException or InvalidOperationException or Win32Exception or OperationCanceledException)
             {
+                consecutiveFailures++;
                 logger.LogWarning(ex, "{ProcessType} IPC session ended, restarting.", processType);
                 onSessionEnded?.Invoke(); // ADR-65 (Architecture/07 mục 4.1.2): respawn đang diễn ra → icon ERROR
                 await auditLog.AppendAsync(

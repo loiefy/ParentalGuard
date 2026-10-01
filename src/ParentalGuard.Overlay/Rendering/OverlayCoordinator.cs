@@ -29,6 +29,7 @@ public sealed class OverlayCoordinator : Form
     private readonly System.Windows.Forms.Timer _windowGoneTimer;
     private readonly HashSet<ulong> _reportedGoneHandles = [];
     private bool _pendingZOrderResync;
+    private string _blockedMessage = string.Empty; // ADR-110: OverlayMessageUpdate gần nhất (RAM)
 
     public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition)
     {
@@ -40,11 +41,6 @@ public sealed class OverlayCoordinator : Form
         FormBorderStyle = FormBorderStyle.FixedToolWindow;
         Opacity = 0;
         Size = new System.Drawing.Size(1, 1);
-        Load += (_, _) =>
-        {
-            Hide();
-            _iconManager.Start();
-        };
 
         // Mục 2.6/3.5: 1 WinEventHook dùng chung cho rect real-time (FE-016b) và z-order (BE-087).
         _winEventRegistration = WinEventHookInterop.Register(
@@ -98,6 +94,30 @@ public sealed class OverlayCoordinator : Form
         ResyncZOrder();
     }
 
+    /// <summary>
+    /// Bug real-hardware (2026-10-01): form điều phối này KHÔNG bao giờ Show() (Program chỉ ép tạo
+    /// Handle), nên sự kiện <c>Load</c> — nơi duy nhất từng gọi <c>_iconManager.Start()</c> — không bao giờ
+    /// chạy → icon trạng thái FE-020 không xuất hiện. Khởi động icon ngay khi có handle; BeginInvoke để
+    /// chạy khi message loop (<c>Application.Run</c>) đã bơm.
+    /// </summary>
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        base.OnHandleCreated(e);
+        BeginInvoke(_iconManager.Start);
+    }
+
+    /// <summary>ADR-110 (07 mục 4.4): áp dụng cho overlay dựng SAU đó, không dựng lại overlay đang hiển thị.</summary>
+    public void ApplyOverlayMessage(OverlayMessageUpdate update)
+    {
+        if (InvokeRequired)
+        {
+            Invoke(() => ApplyOverlayMessage(update));
+            return;
+        }
+
+        _blockedMessage = update.Text;
+    }
+
     public void ApplyMonitoringStatus(MonitoringStatusUpdate status)
     {
         if (InvokeRequired)
@@ -144,7 +164,7 @@ public sealed class OverlayCoordinator : Form
 
     private void CreateAndShow(OverlayRect rect)
     {
-        var form = new ContentBlurOverlayForm(rect, HandleCloseButtonClicked, HandleMergedCloseTriggered);
+        var form = new ContentBlurOverlayForm(rect, HandleCloseButtonClicked, HandleMergedCloseTriggered, _blockedMessage);
         _overlays[rect.WindowHandle] = form;
         form.Show();
     }
