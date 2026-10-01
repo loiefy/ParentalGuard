@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.2.13 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.2.14 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -285,6 +285,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.14 | 2026-10-01 | PATCH — whitelist `S4`: `ListView` `MaxHeight=260` + viền mờ, cuộn dọc khi dài |
 | v0.2.13 | 2026-10-01 | PATCH — (1) nền vùng nội dung #1F1F23 (trước #26262B), các lớp cảnh chỉ lệch nền 2–5 mức màu để chữ nổi rõ. (2) `FE-007`: `VersionPrefix` (mặc định 0.9.0) khai báo 1 lần ở `src/Directory.Build.props` cho cả 6 exe, ghi đè được bằng `-p:Version=`; `AppVersionInfo` đọc `AssemblyInformationalVersion` (+"(Debug)" khi build Debug) — hiển thị ở `NavigationView.PaneFooter` (ẩn khi pane thu gọn) và tab Giới thiệu |
 | v0.2.12 | 2026-10-01 | PATCH — `FE-005d`: `SceneCanvas` vẽ ở code-behind (`DrawScene`): 2 lớp núi (đa giác gợn theo nhiễu tất định của toạ độ x tuyệt đối), hàng thông, hồ (Path, bờ phải cong vào gốc cây) + vệt sóng, cây đào neo góc dưới-phải (Bezier thân/cành, tán = cụm đĩa dọc nửa ngoài mỗi cành, hệ số cỡ 0.72), cánh rơi. Chân trời cách đáy cố định 300 DIP — đổi cỡ cửa sổ không co giãn cảnh. `FE-006a`: title bar #1B1B20 (dark) / #E4E4EB (light), khác thanh menu #303037/#F1F1F5 |
 | v0.2.11 | 2026-10-01 | PATCH — Spec v0.8.5: (1) `FE-005c` ô lưới 190 DIP, bỏ trống 15%, lệch ngẫu nhiên ra ngoài ô, cỡ chùm 1.4–2.5x, màu cánh #222227/#F2F2F5. (2) `FE-006` `MainWindow` đặt màu `AppWindow.TitleBar` (nền/chữ/nút, active/inactive/hover) theo `ActualTheme` của `RootFrame`. (3) `FE-041a` bỏ `Expander` chẩn đoán; `DashboardViewModel.VisionPipelineError` (khớp chuỗi `pipeline-error` trong `vision_diagnostic_state`) → cảnh báo trên dòng Vision. (4) `S10` `AboutPage` (nav Tag `About`, không gate): giá trị tên đơn vị/email/PayPal đọc từ `UiStrings.resx` (`About*Value`) — trống hiện "(đang cập nhật)", URL http(s) → `HyperlinkButton` (trình duyệt mặc định), email → `mailto:` |

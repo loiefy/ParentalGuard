@@ -61,7 +61,11 @@
                         <InfoBar Severity="Success" IsClosable="False"
                                  IsOpen="{x:Bind ViewModel.HasWhitelistStatus, Mode=OneWay}"
                                  Message="{x:Bind ViewModel.WhitelistStatus, Mode=OneWay}" />
-                        <ListView ItemsSource="{x:Bind ViewModel.WhitelistedProcessNames, Mode=OneWay}" SelectionMode="None">
+                        <!-- 2026-10-01: giới hạn chiều cao + thanh cuộn (ListView tự cuộn khi bị giới hạn), viền mờ cho rõ vùng cuộn. -->
+                        <ListView ItemsSource="{x:Bind ViewModel.WhitelistedProcessNames, Mode=OneWay}" SelectionMode="None"
+                                  MaxHeight="260" BorderThickness="1" CornerRadius="6"
+                                  BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollMode="Enabled">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="x:String">
                                     <StackPanel Orientation="Horizontal" Spacing="12">

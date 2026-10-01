@@ -7,13 +7,13 @@ namespace ParentalGuard.Overlay.Tests;
 public class ExclusionRegionCalculatorTests
 {
     [Fact]
-    public void FallbackRect_At100PercentDpi_Is160x50AnchoredTopRight()
+    public void FallbackRect_At100PercentDpi_Is160x40AnchoredTopRight()
     {
         var windowRect = new Rectangle(100, 200, 1000, 800); // Right=1100, Top=200
 
         Rectangle fallback = ExclusionRegionCalculator.FallbackRect(windowRect, dpiScale: 1.0);
 
-        Assert.Equal(new Rectangle(1100 - 160, 200, 160, 50), fallback);
+        Assert.Equal(new Rectangle(1100 - 160, 200, 160, 40), fallback); // FE-016j
     }
 
     [Fact]
@@ -24,20 +24,20 @@ public class ExclusionRegionCalculatorTests
         Rectangle fallback = ExclusionRegionCalculator.FallbackRect(windowRect, dpiScale: 1.5);
 
         Assert.Equal(240, fallback.Width); // 160 * 1.5
-        Assert.Equal(75, fallback.Height); // 50 * 1.5
+        Assert.Equal(60, fallback.Height); // 40 * 1.5
         Assert.Equal(1000 - 240, fallback.X);
         Assert.Equal(0, fallback.Y);
     }
 
     [Fact]
-    public void PaddedRect_AddsSymmetricPaddingAroundUiaButtonRect()
+    public void PaddedRect_Adds16HorizontalAnd6VerticalPadding()
     {
         var windowRect = new Rectangle(0, 0, 1000, 800);
         var uiaButtonRect = new Rectangle(900, 100, 40, 30); // đủ xa biên trên để padding không bị Intersect cắt
 
         Rectangle padded = ExclusionRegionCalculator.PaddedRect(uiaButtonRect, windowRect, dpiScale: 1.0);
 
-        Assert.Equal(new Rectangle(900 - 16, 100 - 16, 40 + 32, 30 + 32), padded);
+        Assert.Equal(new Rectangle(900 - 16, 100 - 6, 40 + 32, 30 + 12), padded); // FE-016j
     }
 
     [Fact]

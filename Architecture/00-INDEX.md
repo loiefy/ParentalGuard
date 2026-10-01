@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-01 | `07` v0.3.5 (vùng loại trừ nút đóng 160×40, đệm dọc 6px — `FE-016j`), `10` v0.2.14 (whitelist có thanh cuộn) |
 | 2026-10-01 | Spec v0.8.7: `05` v0.4.1 (xoay vòng quét cửa sổ `BE-071b`), `10` v0.2.13 (nền đậm hơn, phiên bản ở chân menu `FE-007`), `07` v0.3.4 (nút bánh răng không khối nền) |
 | 2026-10-01 | `10` v0.2.11→**v0.2.12** — nền cảnh hồ + hoa đào + núi rừng, title bar màu riêng (Spec v0.8.6) |
 | 2026-10-01 | `10` v0.2.10→**v0.2.11** — hoa nền dày hơn, title bar cùng tông, bỏ "Chi tiết kỹ thuật", tab Giới thiệu/Donate (Spec v0.8.5) |
