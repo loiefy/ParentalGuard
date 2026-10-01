@@ -29,6 +29,23 @@ public sealed class DashboardViewModelTests
         UsingFallbackConfig: false, AuditLogFreeDiskBytes: 1_000_000_000, PauseAnomalyPendingAck: false,
         IsPaused: false, PauseExpiresAtUnixMs: 0);
 
+    /// <summary>Bug real-hardware 2026-10-01 — trước response đầu tiên không được hiện "mất kết nối"/"Đang hoạt động".</summary>
+    [Fact]
+    public void BeforeFirstStatus_ShowsCheckingState_NotDisconnected()
+    {
+        var viewModel = CreateViewModel();
+
+        Assert.Equal(DashboardCardState.Checking, viewModel.CardState);
+        Assert.False(viewModel.IsActiveState || viewModel.IsErrorState || viewModel.IsPausedState);
+        Assert.Equal(LocalizationService.Get("DashboardHealthChecking"), viewModel.VisionStatusText);
+        Assert.Equal(LocalizationService.Get("DashboardHealthChecking"), viewModel.OverlayStatusText);
+        Assert.Equal(LocalizationService.Get("DashboardHealthChecking"), viewModel.WatchdogStatusText);
+
+        viewModel.ApplyStatus(_healthyActiveStatus);
+
+        Assert.Equal(LocalizationService.Get("DashboardHealthVisionOk"), viewModel.VisionStatusText);
+    }
+
     [Fact]
     public void ApplyStatus_AllChannelsHealthyAndNotPaused_YieldsActiveState()
     {

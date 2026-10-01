@@ -150,6 +150,9 @@
   </data>
 
   <!-- S2 Dashboard (mục 6.2) — thẻ trạng thái. -->
+  <data name="DashboardStatusChecking" xml:space="preserve">
+    <value>Đang kiểm tra trạng thái…</value>
+  </data>
   <data name="DashboardStatusActive" xml:space="preserve">
     <value>Đang hoạt động</value>
   </data>
@@ -218,6 +221,9 @@
   </data>
   <data name="DashboardHealthVisionCpuFallback" xml:space="preserve">
     <value>⚠ Vision Engine đang chạy chế độ CPU dự phòng (chậm hơn bình thường)</value>
+  </data>
+  <data name="DashboardHealthChecking" xml:space="preserve">
+    <value>… Đang kiểm tra</value>
   </data>
   <data name="DashboardHealthVisionDown" xml:space="preserve">
     <value>✗ Vision Engine mất kết nối</value>

@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-09-24
 
 ## 1. Mục tiêu hiệu năng
 
@@ -19,16 +19,13 @@
 | Cửa sổ foreground đang thay đổi nội dung liên tục (cuộn trang, chuyển tab, video đang phát) | Tăng lên 1 frame/giây tạm thời |
 | Vừa phát hiện risk score cận ngưỡng (nghi ngờ nhưng chưa đủ chặn) | Tăng tần suất tạm thời để xác nhận nhanh hơn, giảm độ trễ phát hiện |
 
-> **Cập nhật v0.8.0**: Từ `BE-071a`/`PERF-020a`, mỗi chu kỳ có thể capture tới 4 cửa sổ đang hiển thị (không chỉ foreground) — chi phí capture tăng tương ứng, nhưng bước tốn nhất (inference) chỉ chạy cho cửa sổ có nội dung thay đổi (`PERF-011`).
-
 > **Cập nhật v0.2.0**: Sau khi mở rộng phạm vi giám sát ở `BE-071` (không giới hạn browser), bảng trên đổi từ điều kiện "browser foreground" sang "bất kỳ cửa sổ foreground nào không nằm trong exclude-list". Về mặt hiệu năng, thay đổi này **không làm tăng chi phí capture** (vẫn chỉ capture 1 cửa sổ active tại 1 thời điểm như thiết kế cũ) — chỉ thay đổi điều kiện lọc từ allow-list (browser) sang exclude-list (loại trừ ứng dụng hệ thống rõ ràng không cần thiết).
 
 - `PERF-011`: Dùng **perceptual hashing** (ví dụ pHash) so sánh frame hiện tại với frame trước đó — nếu độ khác biệt dưới ngưỡng, bỏ qua không chạy inference (tiết kiệm phần tốn CPU nhất trong pipeline).
 
 ## 3. Chỉ capture khi cần thiết (Window-aware capture)
 
-- ~~`PERF-020`~~ **DEPRECATED v0.8.0 — superseded bởi `PERF-020a`** (theo `BE-071a`). Nội dung cũ: Dùng `GetForegroundWindow` + kiểm tra process name có nằm trong **exclude-list** (`BE-073`, danh sách process cụ thể xem `BE-073a` ở `02-backend-spec.md`) hay không — nếu cửa sổ foreground nằm trong exclude-list (ứng dụng hệ thống chắc chắn không hiển thị nội dung media), không cần capture, có thể tạm ngưng vòng lặp Vision hoàn toàn cho đến khi có sự kiện đổi cửa sổ. Mọi cửa sổ khác (kể cả không xác định được là loại ứng dụng gì) mặc định **được giám sát**, theo đúng nguyên tắc "ưu tiên an toàn" đã chốt ở `BE-071`/`BE-072`.
-- `PERF-020a` **(ĐÃ CHỐT v0.8.0, 2026-10-01, supersedes `PERF-020`)**: Exclude-list (`BE-073`/`BE-073a`) áp dụng **cho từng cửa sổ** trong danh sách cửa sổ đang hiển thị (`BE-071a`), không chỉ cửa sổ foreground. Chỉ tạm ngưng hẳn vòng lặp Vision (chờ sự kiện đổi cửa sổ) khi **không còn cửa sổ nào** đủ điều kiện giám sát trên mọi màn hình; còn bất kỳ cửa sổ hiển thị nào khác thì tiếp tục capture theo tần suất ở mục 1. Số cửa sổ xử lý mỗi chu kỳ bị chặn trần 4 (`BE-071a`) để giới hạn CPU; cửa sổ không đổi nội dung bỏ qua inference (`PERF-011`).
+- `PERF-020`: Dùng `GetForegroundWindow` + kiểm tra process name có nằm trong **exclude-list** (`BE-073`, danh sách process cụ thể xem `BE-073a` ở `02-backend-spec.md`) hay không — nếu cửa sổ foreground nằm trong exclude-list (ứng dụng hệ thống chắc chắn không hiển thị nội dung media), không cần capture, có thể tạm ngưng vòng lặp Vision hoàn toàn cho đến khi có sự kiện đổi cửa sổ. Mọi cửa sổ khác (kể cả không xác định được là loại ứng dụng gì) mặc định **được giám sát**, theo đúng nguyên tắc "ưu tiên an toàn" đã chốt ở `BE-071`/`BE-072`.
 - `PERF-021`: Nếu máy có nhiều màn hình, chỉ capture vùng màn hình chứa cửa sổ browser đang active, không capture toàn bộ tất cả màn hình mỗi lần (tối ưu băng thông capture + kích thước ảnh cần xử lý). Đây là tối ưu ở cấp **chọn màn hình nào** — muốn tối ưu tiếp ở cấp **crop trong màn hình đó về đúng kích thước cửa sổ**, xem `IMG-012` ở `09-image-processing-spec.md`.
 
 ## 4. Tối ưu tầng inference (AI)
@@ -74,7 +71,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.8.0 | 2026-10-01 | **MINOR — `PERF-020a` (mới, supersedes `PERF-020`, đánh dấu DEPRECATED)**: exclude-list áp dụng cho từng cửa sổ đang hiển thị theo `BE-071a` (`02` v0.15.0); chỉ park vòng lặp khi không còn cửa sổ nào cần giám sát; trần 4 cửa sổ/chu kỳ |
 | v0.7.0 | 2026-09-24 | **MINOR — supersedes `PERF-050`/`PERF-050a`**: phát sinh khi review `Architecture/10-ui-architecture.md` (Đợt 6, Dashboard UI, mục 11 "Câu hỏi mở"). Chủ dự án quyết định trực tiếp: giữ nguyên việc "Chế độ hiệu năng" ở `S4` là `APPROVED`, nhưng **bỏ hẳn mức "Tiết kiệm pin"** — chỉ còn 2 mức "Cân bằng" (mặc định) / "Bảo vệ tối đa". Lý do: "Tiết kiệm pin" là lựa chọn có thể làm giảm hiệu quả bảo vệ trẻ em (giãn tần suất capture/inference), chủ dự án không chấp nhận đánh đổi bảo mật này dù đã có cảnh báo UI đi kèm. Thêm `PERF-050b` (mới, supersedes `PERF-050`) mô tả 2 mức còn lại; `PERF-050` (3 mức cũ) và `PERF-050a` (cảnh báo UI riêng cho "Tiết kiệm pin") đều đánh dấu `DEPRECATED` theo đúng quy tắc không sửa trực tiếp requirement đã `ĐÃ CHỐT`/`APPROVED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.6.0__2026-09-24.md` |
 | v0.6.0 | 2026-09-20 | **MINOR — vá gap quy trình phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI)**: `PERF-050` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.5.3 (cùng dạng gap 2-tầng-trạng-thái đã gặp ở `PAUSE-021`/`ANTI-060` trước đây). Chủ dự án xác nhận trực tiếp 2026-09-20: **DUYỆT đủ cả 3 mức** hiệu năng (Cân bằng/Tiết kiệm pin/Bảo vệ tối đa). Bổ sung `PERF-050a` mới: khi chọn "Tiết kiệm pin", UI **bắt buộc** hiển thị cảnh báo rõ ràng về giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn — ghi rõ vào requirement (không chỉ ngầm hiểu) vì đây là chi tiết UX quan trọng ảnh hưởng trực tiếp tới an toàn trẻ em. Rà soát toàn file `08`: không còn `PERF-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.5.3__2026-09-20.md` |
 | v0.5.3 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |

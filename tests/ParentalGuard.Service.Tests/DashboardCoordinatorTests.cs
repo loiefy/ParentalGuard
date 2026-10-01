@@ -171,6 +171,32 @@ public class DashboardCoordinatorTests : IDisposable
         Assert.Equal(30, response.AuditChartResp.Days.Count);
     }
 
+    /// <summary>Bug real-hardware 2026-10-01 — quét tăng dần: chỉ đếm phần mới, bỏ qua dòng ghi dở, quét lại khi file ngắn đi.</summary>
+    [Fact]
+    public async Task ChartCounts_IncrementalScan_CountsOnlyNewCompleteLines_AndRescansWhenFileShrinks()
+    {
+        Fixture fx = await CreateAsync();
+        DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        await WriteContentBlockedAsync(_auditLogPath, now);
+        Assert.Equal(1u, (await fx.Dashboard.GetContentBlockedCountsByDayAsync(CancellationToken.None)).GetValueOrDefault(today));
+
+        // Lần query lặp lại không đếm trùng.
+        Assert.Equal(1u, (await fx.Dashboard.GetContentBlockedCountsByDayAsync(CancellationToken.None)).GetValueOrDefault(today));
+
+        // Dòng đang ghi dở (chưa có LF) không được tính; hoàn tất dòng thì tính đúng 1 lần.
+        string line = $$"""{"seq":0,"ts_unix_ms":{{now.ToUnixTimeMilliseconds()}},"chain_id":"test","event_type":"ContentBlocked","detail":{},"prev_hash":"0","hash":"0"}""";
+        await File.AppendAllTextAsync(_auditLogPath, line[..20]);
+        Assert.Equal(1u, (await fx.Dashboard.GetContentBlockedCountsByDayAsync(CancellationToken.None)).GetValueOrDefault(today));
+        await File.AppendAllTextAsync(_auditLogPath, line[20..] + "\n");
+        Assert.Equal(2u, (await fx.Dashboard.GetContentBlockedCountsByDayAsync(CancellationToken.None)).GetValueOrDefault(today));
+
+        // File bị thay bằng bản ngắn hơn -> quét lại từ đầu, không giữ số cũ.
+        await File.WriteAllTextAsync(_auditLogPath, string.Empty);
+        Assert.Equal(0u, (await fx.Dashboard.GetContentBlockedCountsByDayAsync(CancellationToken.None)).GetValueOrDefault(today));
+    }
+
     private static async Task TriggerAnomalyAsync(Fixture fx)
     {
         for (int i = 0; i < 6; i++)

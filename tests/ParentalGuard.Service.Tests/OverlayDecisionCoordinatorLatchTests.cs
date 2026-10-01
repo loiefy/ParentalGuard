@@ -85,6 +85,25 @@ public class OverlayDecisionCoordinatorLatchTests : IDisposable
         Assert.Equal(2, notifications);
     }
 
+    /// <summary>`BE-034c` (ĐÃ CHỐT 2026-10-01): cửa sổ không đóng được sau auto-timeout/nút → vi phạm lại thì blur lại, overlay mới (đếm 60s mới).</summary>
+    [Theory]
+    [InlineData(CloseSource.AutoTimeout)]
+    [InlineData(CloseSource.Manual)]
+    public async Task WindowStillViolatingAfterForceClose_IsCoveredAgainWithNewOverlay(CloseSource source)
+    {
+        (OverlayDecisionCoordinator coordinator, _) = await CreateAsync();
+        await ReportAsync(coordinator, windowHandle: 42, riskScore: 0.9f);
+        uint firstOverlayId = Assert.Single(Push(coordinator).Rects).OverlayId;
+
+        await ForceCloseAsync(coordinator, windowHandle: 42, source);
+        await ReportAsync(coordinator, windowHandle: 42, riskScore: 0.9f);
+
+        OverlayRect again = Assert.Single(Push(coordinator).Rects);
+        Assert.Equal(42UL, again.WindowHandle);
+        Assert.NotEqual(firstOverlayId, again.OverlayId);
+        Assert.Equal([42UL], coordinator.CoveredWindowHandles);
+    }
+
     [Fact]
     public async Task BelowThresholdWhenNotCovered_DoesNothing()
     {

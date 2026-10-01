@@ -145,30 +145,45 @@ public sealed class CaptureLoopWorker
         _contextPool.DisposeAll();
     }
 
+    /// <summary>Chỉ resolve rect/process cho cửa sổ đang thực sự hiển thị — EnumWindows trả hàng trăm handle, đa số ẩn.</summary>
+    private static List<WindowSnapshot> SnapshotWindowsInZOrder(IReadOnlyList<string> excludeProcessNames)
+    {
+        var snapshots = new List<WindowSnapshot>();
+        foreach (IntPtr hwnd in WindowZOrderEnumerator.EnumerateTopLevelWindowsInZOrder())
+        {
+            if (!CandidateWindowChecks.IsVisibleTopLevelWindow(hwnd))
+            {
+                continue;
+            }
+
+            string? processName = ForegroundWindowTracker.ResolveProcessName(hwnd);
+            bool monitorable = !IsOwnProcess(processName)
+                && !ExcludeProcessMatcher.IsExcluded(processName, excludeProcessNames)
+                && MonitorSelector.GetMonitorForWindow(hwnd) != IntPtr.Zero;
+            snapshots.Add(new WindowSnapshot(hwnd, WindowRectResolver.Resolve(hwnd), IsShown: true, monitorable));
+        }
+
+        return snapshots;
+    }
+
+    /// <summary>Không phân loại cửa sổ của chính ParentalGuard (Dashboard, overlay) — vẫn tính là vật che.</summary>
+    private static bool IsOwnProcess(string? processName) =>
+        processName is not null && processName.StartsWith("ParentalGuard.", StringComparison.OrdinalIgnoreCase);
+
     /// <returns><c>true</c> nếu foreground bị exclude-list và chu kỳ này không có candidate nào — caller nên park vô hạn (mục 3.3/3.6).</returns>
     private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames, IReadOnlySet<ulong> coveredWindowHandles)
     {
         IntPtr fgHwnd = ForegroundWindowTracker.GetForegroundWindowHandle();
         string? fgProcessName = ForegroundWindowTracker.ResolveProcessName(fgHwnd);
         bool fgInExcludeList = fgHwnd != IntPtr.Zero && ExcludeProcessMatcher.IsExcluded(fgProcessName, excludeProcessNames);
-        bool fgExcluded = fgHwnd == IntPtr.Zero || fgInExcludeList;
 
-        // BE-082/PERF-020: nhánh EnumWindows chỉ chạy khi thật sự có > 1 màn hình — outputs.Count == 1
-        // (phổ biến nhất) giữ nguyên chi phí y hệt Đợt 1 (Architecture/05 mục 3.5).
-        IReadOnlyList<IntPtr> windowsInZOrder = outputs.Count > 1
-            ? WindowZOrderEnumerator.EnumerateTopLevelWindowsInZOrder()
-            : [];
-
-        IReadOnlyList<IntPtr> selected = CandidateWindowSelector.SelectCandidates(
+        // BE-071a/PERF-020a (ĐÃ CHỐT 2026-10-01): giám sát MỌI cửa sổ đang hiển thị trên mọi màn hình —
+        // không còn giới hạn "foreground + 1 cửa sổ/màn hình phụ" (bug real-hardware: cửa sổ vi phạm thứ 2
+        // không bao giờ bị phát hiện; overlay chiếm focus khiến màn hình đơn không còn candidate nào).
+        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectVisibleCandidates(
             fgHwnd,
-            fgExcluded,
-            outputs.Count,
-            windowsInZOrder,
-            MonitorSelector.GetMonitorForWindow,
-            w => CandidateWindowChecks.IsVisibleTopLevelWindow(w) && !ExcludeProcessMatcher.IsExcluded(ForegroundWindowTracker.ResolveProcessName(w), excludeProcessNames));
-
-        // BE-034b: bỏ cửa sổ đang bị overlay che — capture chỉ còn thấy chính overlay của hệ thống.
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.ExcludeCovered(selected, coveredWindowHandles);
+            SnapshotWindowsInZOrder(excludeProcessNames),
+            coveredWindowHandles); // BE-034b: cửa sổ đang bị overlay che bị loại ngay trong lúc chọn
         DebugLog($"ProcessCycle: {candidates.Count} candidate(s).");
         var usedOutputIndexes = new HashSet<int>();
         var usedWindowHandles = new HashSet<IntPtr>();

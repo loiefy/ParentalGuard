@@ -1,6 +1,6 @@
 # 01 — Tổng quan & Phạm vi
 
-> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.3.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Bài toán
 
@@ -28,7 +28,7 @@ Các giải pháp chặn nội dung khiêu dâm truyền thống (DNS blocklist,
 ## 4. Phạm vi Phase 1 (In-scope)
 
 - Nền tảng: Windows 10 (21H2+) và Windows 11, kiến trúc x64.
-- Giám sát nội dung hiển thị trên **mọi cửa sổ ứng dụng đang hiển thị** (cửa sổ foreground được ưu tiên trước — cập nhật v0.4.0 theo `BE-071a`, trước đây chỉ cửa sổ foreground), không giới hạn theo whitelist loại ứng dụng — bao gồm nhưng không giới hạn ở: trình duyệt web (Chrome, Edge, Firefox), video player (VLC, Windows Media Player, PotPlayer, MPC-HC...), ứng dụng xem ảnh, và các ứng dụng khác hiển thị nội dung trực quan. Chi tiết cách tiếp cận "giám sát theo cửa sổ active" thay vì whitelist theo tên ứng dụng ở `02-backend-spec.md` mục `BE-071`.
+- Giám sát nội dung hiển thị trên **cửa sổ ứng dụng đang active (foreground)**, không giới hạn theo whitelist loại ứng dụng — bao gồm nhưng không giới hạn ở: trình duyệt web (Chrome, Edge, Firefox), video player (VLC, Windows Media Player, PotPlayer, MPC-HC...), ứng dụng xem ảnh, và các ứng dụng khác hiển thị nội dung trực quan. Chi tiết cách tiếp cận "giám sát theo cửa sổ active" thay vì whitelist theo tên ứng dụng ở `02-backend-spec.md` mục `BE-071`.
 - Phát hiện ảnh tĩnh khiêu dâm bằng AI classifier local.
 - Overlay blur khớp kích thước cửa sổ ứng dụng vi phạm, đồng thời chừa vùng nút đóng cửa sổ để người dùng luôn thoát được thủ công (xem `FE-016`).
 - Force-close ứng dụng vi phạm sau khi người dùng xác nhận qua nút trên overlay.
@@ -84,7 +84,6 @@ Các giải pháp chặn nội dung khiêu dâm truyền thống (DNS blocklist,
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.4.0 | 2026-10-01 | **MINOR — phạm vi giám sát mở rộng** từ "cửa sổ đang active (foreground)" sang "mọi cửa sổ đang hiển thị" theo `BE-071a` (`02` v0.15.0, chủ dự án chốt sau real-hardware test) |
 | v0.3.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.0 | 2026-09-17 | Thêm `GEN-034` — mở rộng nguyên tắc zero-network từ phạm vi pipeline (`GEN-030`) sang **toàn bộ ứng dụng**, không ngoại lệ auto-update. Đồng bộ với việc `MISC-020` bị REJECTED ở `10-additional-mechanisms-spec.md` |
 | v0.2.0 | 2026-09-17 | Mở rộng phạm vi giám sát từ "chỉ browser" sang "mọi ứng dụng hiển thị nội dung trực quan" (GEN-010); thêm yêu cầu GEN-016 đảm bảo overlay không che nút đóng cửa sổ |

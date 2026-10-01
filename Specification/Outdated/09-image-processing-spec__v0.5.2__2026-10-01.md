@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.5.2 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -64,8 +64,7 @@
 
 ## 5. Xử lý trường hợp đa cửa sổ / đa nội dung
 
-- `IMG-020a` **(ĐÃ CHỐT v0.6.0, 2026-10-01, supersedes `IMG-020`)**: Mỗi chu kỳ có thể có nhiều cửa sổ cần phân tích (mọi cửa sổ đang hiển thị, `BE-071a`) → xử lý **tuần tự** (không song song): cửa sổ foreground trước, rồi theo Z-order trên xuống, tối đa 4 cửa sổ/chu kỳ.
-- ~~`IMG-020`~~ **DEPRECATED v0.6.0 — superseded bởi `IMG-020a`**. Nội dung cũ: Nếu có nhiều cửa sổ cùng foreground khả dĩ (hiếm với Windows, nhưng có thể xảy ra với cấu hình đa màn hình) → xử lý tuần tự theo thứ tự ưu tiên cửa sổ đang có focus thực sự, không xử lý song song không cần thiết (tránh tăng đột biến CPU). Áp dụng cho mọi loại cửa sổ theo phạm vi mở rộng ở `BE-071` (browser, video player, hoặc ứng dụng bất kỳ), không riêng browser.
+- `IMG-020`: Nếu có nhiều cửa sổ cùng foreground khả dĩ (hiếm với Windows, nhưng có thể xảy ra với cấu hình đa màn hình) → xử lý tuần tự theo thứ tự ưu tiên cửa sổ đang có focus thực sự, không xử lý song song không cần thiết (tránh tăng đột biến CPU). Áp dụng cho mọi loại cửa sổ theo phạm vi mở rộng ở `BE-071` (browser, video player, hoặc ứng dụng bất kỳ), không riêng browser.
 
 ## 6. Xử lý ảnh động (video) — giới hạn Phase 1
 
@@ -89,7 +88,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.6.0 | 2026-10-01 | **MINOR — `IMG-020a` (mới, supersedes `IMG-020`)**: xử lý tuần tự nhiều cửa sổ đang hiển thị mỗi chu kỳ (foreground trước, rồi Z-order, tối đa 4) theo `BE-071a` (`02` v0.15.0) |
 | v0.5.2 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` (câu hỏi mở về phương pháp/dataset benchmark ngưỡng risk score ở mục 8 vẫn giữ nguyên, không tính là requirement chưa duyệt) |
 | v0.5.1 | 2026-09-17 | Cập nhật tham chiếu .NET 8 → .NET 10 tại `IMG-014`, khớp `GEN-003a` (supersedes `GEN-003`) ở `00-INDEX.md` |
 | v0.5.0 | 2026-09-17 | **Chốt model AI cụ thể**: `IMG-014` — dùng trọng số `GantMan/nsfw_model` (MobileNetV2, MIT), convert sang ONNX, không đóng gói runtime Python. `IMG-015` — an toàn network đảm bảo bởi 2 lớp độc lập (model là dữ liệu tĩnh + chặn network tầng OS đã có ở `SEC-016`-`018`), thêm hardening tắt telemetry ONNX Runtime. Section 3 mới, renumber các section 3-8 cũ thành 4-9 |

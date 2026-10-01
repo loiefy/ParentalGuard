@@ -11,6 +11,8 @@ namespace ParentalGuard.UI.ViewModels;
 
 public enum DashboardCardState
 {
+    /// <summary>Chưa nhận được <c>DashboardStatusResponse</c> đầu tiên — không suy đoán Active/Error.</summary>
+    Checking,
     Active,
     Paused,
     Error,
@@ -52,7 +54,15 @@ public sealed partial class DashboardViewModel(
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsActiveState), nameof(IsPausedState), nameof(IsErrorState), nameof(StatusCardText))]
-    public partial DashboardCardState CardState { get; set; } = DashboardCardState.Active;
+    public partial DashboardCardState CardState { get; set; } = DashboardCardState.Checking;
+
+    /// <summary>
+    /// Bug real-hardware 2026-10-01: trước response đầu tiên, 3 cờ health mặc định <c>false</c> hiện thành
+    /// "mất kết nối" (kèm thẻ "Đang hoạt động") dù Vision/Overlay vẫn chạy — hiện "Đang kiểm tra…" thay vì đoán.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(WatchdogStatusText), nameof(VisionStatusText), nameof(OverlayStatusText))]
+    public partial bool IsStatusKnown { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusCardText))]
@@ -130,21 +140,22 @@ public sealed partial class DashboardViewModel(
     {
         DashboardCardState.Paused => LocalizationService.GetFormatted("DashboardStatusPaused", PauseCountdownText),
         DashboardCardState.Error => LocalizationService.Get("DashboardStatusError"),
+        DashboardCardState.Checking => LocalizationService.Get("DashboardStatusChecking"),
         _ => LocalizationService.Get("DashboardStatusActive"),
     };
 
-    public string WatchdogStatusText => WatchdogAlive
+    public string WatchdogStatusText => !IsStatusKnown ? LocalizationService.Get("DashboardHealthChecking") : WatchdogAlive
         ? LocalizationService.Get("DashboardHealthWatchdogOk")
         : LocalizationService.Get("DashboardHealthWatchdogDown");
 
     /// <summary>Mục 6.2.4/`FE-041` — so khớp chuỗi con đơn giản trên <c>vision_diagnostic_state</c>, không tự diễn giải thêm.</summary>
-    public string VisionStatusText => !VisionConnected
+    public string VisionStatusText => !IsStatusKnown ? LocalizationService.Get("DashboardHealthChecking") : !VisionConnected
         ? LocalizationService.Get("DashboardHealthVisionDown")
         : VisionCpuFallback
             ? LocalizationService.Get("DashboardHealthVisionCpuFallback")
             : LocalizationService.Get("DashboardHealthVisionOk");
 
-    public string OverlayStatusText => OverlayConnected
+    public string OverlayStatusText => !IsStatusKnown ? LocalizationService.Get("DashboardHealthChecking") : OverlayConnected
         ? LocalizationService.Get("DashboardHealthOverlayOk")
         : LocalizationService.Get("DashboardHealthOverlayDown");
 
@@ -169,8 +180,8 @@ public sealed partial class DashboardViewModel(
         _timer.Interval = _pollInterval;
         _timer.Tick += async (_, _) => await PollAsync().ConfigureAwait(true);
 
-        _ = PollAsync();
-        _ = LoadChartAsync();
+        // Pipe UI xử lý tuần tự — status TRƯỚC, biểu đồ SAU, để thẻ sức khoẻ không phải chờ quét audit.log.
+        _ = PollThenLoadChartAsync();
         _timer.Start();
     }
 
@@ -178,6 +189,12 @@ public sealed partial class DashboardViewModel(
     {
         _timer?.Stop();
         _timer = null;
+    }
+
+    private async Task PollThenLoadChartAsync()
+    {
+        await PollAsync().ConfigureAwait(true);
+        await LoadChartAsync().ConfigureAwait(true);
     }
 
     private async Task PollAsync()
@@ -198,6 +215,7 @@ public sealed partial class DashboardViewModel(
     /// <summary>Internal — seam test-only (<c>InternalsVisibleTo</c> mục AssemblyInfo.cs), verify logic suy ra CardState/health-check không cần DispatcherQueue thật.</summary>
     internal void ApplyStatus(DashboardStatus status)
     {
+        IsStatusKnown = true;
         WatchdogAlive = status.WatchdogAlive;
         VisionConnected = status.VisionConnected;
         OverlayConnected = status.OverlayConnected;

@@ -1,130 +1,100 @@
+using ParentalGuard.Vision.Capture;
 using ParentalGuard.Vision.Pipeline;
 
 namespace ParentalGuard.Vision.Tests;
 
-/// <summary>Architecture/05 mục 3.5 (`IMG-020`, `BE-082`, ADR-64) — hàm thuần, không cần Win32/DXGI thật.</summary>
+/// <summary>
+/// `BE-071a`/`PERF-020a`/`IMG-020a` (ĐÃ CHỐT 2026-10-01, supersedes chiến lược chỉ-foreground) — giám sát
+/// mọi cửa sổ đang hiển thị, foreground trước, rồi Z-order, tối đa 4/chu kỳ. Hàm thuần, không cần Win32/DXGI.
+/// </summary>
 public class CandidateWindowSelectorTests
 {
-    private static readonly IntPtr _fgHwnd = new(1);
-    private static readonly IntPtr _monitor1 = new(101);
-    private static readonly IntPtr _monitor2 = new(102);
-    private static readonly IntPtr _monitor3 = new(103);
+    private static readonly HashSet<ulong> _noneCovered = [];
 
+    private static WindowSnapshot Win(int handle, int x, int y, int w, int h, bool shown = true, bool monitorable = true) =>
+        new(new IntPtr(handle), new WindowRect(x, y, w, h), shown, monitorable);
+
+    /// <summary>Bug real-hardware 2026-10-01: 2 cửa sổ vi phạm đặt cạnh nhau trên 1 màn hình — bản cũ chỉ quét foreground.</summary>
     [Fact]
-    public void SingleMonitor_ReturnsOnlyForegroundWindow_NoZOrderScan()
+    public void TwoSideBySideWindowsOnOneMonitor_BothSelected_ForegroundFirst()
     {
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: false,
-            outputCount: 1,
-            windowsInZOrder: [new IntPtr(2), new IntPtr(3)], // không được xét tới vì outputCount == 1
-            monitorOf: _ => _monitor1,
-            isCandidateWindow: _ => throw new InvalidOperationException("Không được gọi khi outputCount == 1."));
+        IReadOnlyList<WindowSnapshot> z = [Win(1, 0, 0, 960, 1080), Win(2, 960, 0, 960, 1080)];
 
-        Assert.Equal([_fgHwnd], candidates);
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(2), z, _noneCovered);
+
+        Assert.Equal([new IntPtr(2), new IntPtr(1)], result);
+    }
+
+    /// <summary>Bug real-hardware 2026-10-01: overlay (của chính ParentalGuard) chiếm foreground — cửa sổ khác vẫn phải được quét.</summary>
+    [Fact]
+    public void ForegroundIsOwnOverlay_OtherVisibleWindowsStillSelected()
+    {
+        IReadOnlyList<WindowSnapshot> z = [Win(9, 0, 0, 960, 1080, monitorable: false), Win(2, 960, 0, 960, 1080)];
+
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(9), z, _noneCovered);
+
+        Assert.Equal([new IntPtr(2)], result);
     }
 
     [Fact]
-    public void SingleMonitor_ForegroundExcluded_ReturnsEmpty()
+    public void CoveredWindow_SkippedButStillOccludesWindowsBelow()
     {
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: true,
-            outputCount: 1,
-            windowsInZOrder: [],
-            monitorOf: _ => _monitor1,
-            isCandidateWindow: _ => true);
+        // Cửa sổ 1 đang bị overlay che (BE-034b) và che kín hoàn toàn cửa sổ 2 nằm dưới.
+        IReadOnlyList<WindowSnapshot> z = [Win(1, 0, 0, 1920, 1080), Win(2, 100, 100, 800, 600), Win(3, 1920, 0, 1920, 1080)];
 
-        Assert.Empty(candidates);
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(1), z, new HashSet<ulong> { 1 });
+
+        Assert.Equal([new IntPtr(3)], result);
     }
 
     [Fact]
-    public void MultiMonitor_AddsOneWindowPerRemainingMonitor_StopsWhenAllCovered()
+    public void FullyOccludedWindow_Skipped_PartiallyVisibleWindow_Kept()
     {
-        var w2 = new IntPtr(2); // trên monitor2, candidate hợp lệ
-        var w3 = new IntPtr(3); // trên monitor2 (đã phủ bởi w2) — phải bị bỏ qua
-        var w4 = new IntPtr(4); // trên monitor3, candidate hợp lệ
-        var monitorByWindow = new Dictionary<IntPtr, IntPtr> { [_fgHwnd] = _monitor1, [w2] = _monitor2, [w3] = _monitor2, [w4] = _monitor3 };
+        IReadOnlyList<WindowSnapshot> z =
+        [
+            Win(1, 0, 0, 1000, 1000),
+            Win(2, 100, 100, 500, 500), // nằm gọn trong cửa sổ 1 → không nhìn thấy
+            Win(3, 500, 0, 1000, 1000), // lấn ra ngoài cửa sổ 1 → vẫn nhìn thấy 1 phần
+        ];
 
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: false,
-            outputCount: 3,
-            windowsInZOrder: [w2, w3, w4],
-            monitorOf: w => monitorByWindow[w],
-            isCandidateWindow: _ => true);
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(1), z, _noneCovered);
 
-        Assert.Equal([_fgHwnd, w2, w4], candidates);
+        Assert.Equal([new IntPtr(1), new IntPtr(3)], result);
     }
 
     [Fact]
-    public void MultiMonitor_ForegroundExcluded_StillFillsItsMonitorFromZOrder()
+    public void ExcludedOrHiddenOrTinyWindows_NotSelected()
     {
-        // BE-073a: fg bị loại trừ không được thêm vào candidates lẫn không "chiếm chỗ" monitor của nó
-        // — 1 cửa sổ khác không bị loại trừ trên cùng màn hình vẫn phải được chọn (fail-secure).
-        var replacement = new IntPtr(5);
-        var monitorByWindow = new Dictionary<IntPtr, IntPtr> { [_fgHwnd] = _monitor1, [replacement] = _monitor1 };
+        IReadOnlyList<WindowSnapshot> z =
+        [
+            Win(1, 0, 0, 800, 600, monitorable: false), // exclude-list / ParentalGuard
+            Win(2, 900, 0, 800, 600, shown: false), // minimized / cloaked / không tiêu đề
+            Win(3, 0, 700, 40, 40), // nhỏ hơn MinWindowSidePx
+            Win(4, 900, 700, 800, 300),
+        ];
 
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: true,
-            outputCount: 2, // > 1 để nhánh Z-order chạy dù chỉ còn 1 monitor thật sự cần phủ
-            windowsInZOrder: [replacement],
-            monitorOf: w => monitorByWindow[w],
-            isCandidateWindow: _ => true);
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(IntPtr.Zero, z, _noneCovered);
 
-        Assert.Equal([replacement], candidates);
+        Assert.Equal([new IntPtr(4)], result);
     }
 
     [Fact]
-    public void MultiMonitor_SkipsWindowsFailingIsCandidateWindow()
+    public void MoreThanFourVisibleWindows_CappedAtFour_ForegroundAlwaysIncluded()
     {
-        var hiddenWindow = new IntPtr(2);
-        var monitorByWindow = new Dictionary<IntPtr, IntPtr> { [_fgHwnd] = _monitor1, [hiddenWindow] = _monitor2 };
+        IReadOnlyList<WindowSnapshot> z = [.. Enumerable.Range(1, 6).Select(i => Win(i, i * 1000, 0, 900, 900))];
 
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: false,
-            outputCount: 2,
-            windowsInZOrder: [hiddenWindow],
-            monitorOf: w => monitorByWindow[w],
-            isCandidateWindow: _ => false); // vd: ẩn/minimized/exclude-list
+        IReadOnlyList<IntPtr> result = CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(6), z, _noneCovered);
 
-        Assert.Equal([_fgHwnd], candidates);
+        Assert.Equal(CandidateWindowSelector.MaxCandidatesPerCycle, result.Count);
+        Assert.Equal([new IntPtr(6), new IntPtr(1), new IntPtr(2), new IntPtr(3)], result);
     }
 
     [Fact]
-    public void MultiMonitor_SkipsWindowWithUnresolvedMonitor()
+    public void WindowWithUnresolvedRect_Skipped()
     {
-        var closedWindow = new IntPtr(2); // monitorOf trả Zero (vd cửa sổ vừa đóng)
-        var monitorByWindow = new Dictionary<IntPtr, IntPtr> { [_fgHwnd] = _monitor1, [closedWindow] = IntPtr.Zero };
+        IReadOnlyList<WindowSnapshot> z = [new(new IntPtr(1), null, true, true), Win(2, 0, 0, 800, 600)];
 
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            _fgHwnd,
-            foregroundExcluded: false,
-            outputCount: 2,
-            windowsInZOrder: [closedWindow],
-            monitorOf: w => monitorByWindow[w],
-            isCandidateWindow: _ => true);
-
-        Assert.Equal([_fgHwnd], candidates);
-    }
-
-    [Fact]
-    public void NoForegroundWindow_MultiMonitor_StillFillsFromZOrder()
-    {
-        var w2 = new IntPtr(2);
-        var monitorByWindow = new Dictionary<IntPtr, IntPtr> { [w2] = _monitor2 };
-
-        IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectCandidates(
-            IntPtr.Zero,
-            foregroundExcluded: true,
-            outputCount: 2,
-            windowsInZOrder: [w2],
-            monitorOf: w => monitorByWindow[w],
-            isCandidateWindow: _ => true);
-
-        Assert.Equal([w2], candidates);
+        Assert.Equal([new IntPtr(2)], CandidateWindowSelector.SelectVisibleCandidates(new IntPtr(1), z, _noneCovered));
     }
 
     /// <summary>BE-034b (2026-09-30): cửa sổ đang bị overlay che không được capture/phân loại (chỉ còn thấy chính overlay).</summary>

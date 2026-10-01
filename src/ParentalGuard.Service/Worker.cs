@@ -231,6 +231,9 @@ public sealed class Worker(
             _pauseCoordinator,
             InstallPaths.AuditLogPath);
 
+        // Quét audit.log cho biểu đồ S2 ngay lúc khởi động (nền) — query đầu tiên của Dashboard không phải chờ.
+        _ = _dashboardCoordinator.WarmUpChartCacheAsync(stoppingToken);
+
         StartUiSessionServer(stoppingToken);
         StartVisionNetworkWatcherBestEffort();
 
