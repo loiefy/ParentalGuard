@@ -43,6 +43,9 @@ public enum ConfigUpdateOutcome
     Success,
     InvalidCharacters,
     TooLong,
+
+    /// <summary>2026-10-05 (`PWD-024`, ADR-150): chưa có/đã hết phiên đăng nhập phụ huynh.</summary>
+    NotAuthenticated,
 }
 
 public sealed record WhitelistResetOutcome(RemoveWhitelistOutcome Outcome, IReadOnlyList<string> Whitelist);

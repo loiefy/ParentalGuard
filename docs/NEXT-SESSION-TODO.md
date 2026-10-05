@@ -1,6 +1,6 @@
 # Việc cần làm — phiên làm việc tiếp theo
 
-> Ghi lại: 2026-10-01 (cuối phiên). Trạng thái lúc dừng: Spec `APPROVED v0.8.8`, commit `3bde5ad`, 510/510 test pass,
+> Ghi lại: 2026-10-01 (cuối phiên); cập nhật 2026-10-05: mục 2, 8, 10–16 đã làm (Spec `APPROVED v0.9.0`, 547 test pass). Trạng thái lúc dừng: Spec `APPROVED v0.8.8`, commit `3bde5ad`, 510/510 test pass,
 > bản mới nhất đã cài ở `C:\Program Files\ParentalGuard`. Mỗi việc dưới đây là **quyết định sản phẩm (WHAT)** →
 > phải cập nhật `Specification/` đúng quy trình archive (CLAUDE.md) trước/cùng lúc với code.
 
@@ -12,7 +12,7 @@
   capture + (nếu nội dung đổi) 1 lần inference → đo lại CPU với 10 cửa sổ trên máy thật (`PERF-0xx`).
 - Lưu ý liên quan: ngưỡng chế độ overlay gộp `BE-088` cũng là 10 overlay.
 
-## 2. Nút cài đặt (bánh răng) trên cửa sổ blur nhỏ lại ~1/2
+## 2. Nút cài đặt (bánh răng) trên cửa sổ blur nhỏ lại ~1/2 — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
 
 - Hiện tại: `ContentBlurOverlayForm` — nút `\uE713` font Segoe MDL2 14pt, `Padding = 6`, `AutoSize` (`FE-016i`).
 - Cần: thu nhỏ còn khoảng bằng kích thước icon (ước lượng giảm 1 nửa): font ~10–11pt, padding ~2, vùng bấm vẫn
@@ -63,7 +63,10 @@
   không lưu ảnh), chỉ dữ liệu sự kiện; vẫn sau gate mật khẩu; hoàn toàn offline. Chọn thư viện PDF giấy phép phù hợp
   (vd QuestPDF — kiểm tra điều kiện license community, hoặc PdfSharp/MigraDoc MIT).
 
-## 8. Chế độ "Bảo vệ chính phụ huynh"
+## 8. sửa lại background — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+- chỗ nội dung các page chính ở dashboard, background nên thể hiện màu gradient, ở phía trên sáng hơn 1 chút, xuống dưới thì tối dần, nhưng sự khác biệt sáng tối chỉ vừa đủ để nhận biết, không được quá khác biệt
+
+## 9. Chế độ "Bảo vệ chính phụ huynh"
 
 - Cần: checkbox trong `S4` "Bảo vệ cả phụ huynh". Khi bật → hiện thông báo giải thích: dù có mật khẩu, phụ huynh
   cũng **không thể tạm dừng dễ dàng**. Khi bấm Tạm dừng + nhập đúng mật khẩu → phải **chơi 1 trò chơi và đạt đủ điểm**
@@ -72,6 +75,113 @@
   số lần thử/thời gian chờ).
 - Điểm cần quyết định thêm: tắt chế độ này có cần chơi game không (nếu không → dễ bị lách); áp dụng cho cả Gỡ cài
   đặt/đổi whitelist hay chỉ Tạm dừng; tương tác với `PAUSE-021` (cảnh báo tạm dừng quá nhiều lần/ngày).
+
+## 10. Dashboard lần đầu chạy: nêu bật giá trị cốt lõi của app — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- Khi Dashboard mở lần đầu trên máy (sau Onboarding `S1`), hiển thị **khối giới thiệu nổi bật, dễ nhìn**, gồm 5 điểm:
+  1. Bảo vệ trẻ em khỏi nội dung nhạy cảm
+  2. Bảo mật tuyệt đối
+  3. Không lưu dữ liệu trên máy, không chia sẻ bất kỳ dữ liệu nào ra ngoài hoặc lên Internet
+  4. Có cơ chế bảo vệ cả phụ huynh (liên quan mục 9)
+  5. Mã nguồn mở (liên quan mục 6)
+- Mỗi điểm dạng thẻ (icon + tiêu đề ngắn), **có hiệu ứng khi rê chuột** (sáng nhẹ/nổi lên).
+- **ĐÃ CHỐT (2026-10-05):** khối này là màn hình chào **khi app chưa từng có mật khẩu** (lần chạy đầu, trước/cùng
+  Onboarding `S1`). Đã tạo mật khẩu rồi thì **không bao giờ hiển thị lại** → điều kiện hiển thị = "chưa có mật khẩu"
+  (đọc từ Service), không cần cờ "đã xem" riêng.
+- Mỗi thẻ gồm **tiêu đề** (chữ đậm) + **1 câu mô tả ngắn** (chữ nhỏ hơn) bên dưới. Văn phong: **văn viết**, trang
+  trọng, không dùng khẩu ngữ. Không dùng "không lưu dữ liệu"/"tuyệt đối" (sai sự thật hoặc cam kết quá mức).
+- **ĐÃ CHỐT câu chữ (chủ dự án phê duyệt 2026-10-05):**
+  1. **Bảo vệ trẻ em khỏi nội dung nhạy cảm** — Tự động nhận diện và che phủ nội dung khiêu dâm theo thời gian thực.
+  2. **Chỉ phụ huynh mới có quyền gỡ ứng dụng** *(chủ dự án chốt tiêu đề)* — Việc gỡ cài đặt, tạm dừng giám sát và
+     thay đổi thiết lập đều yêu cầu mật khẩu của phụ huynh.
+  3. **Xử lý hoàn toàn trên thiết bị** — Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Không
+     kết nối Internet, không chia sẻ dữ liệu với bên thứ ba.
+  4. **Bảo vệ cả phụ huynh** — Tùy chọn bổ sung bước xác minh khi tạm dừng giám sát, áp dụng cho cả người lớn.
+     *(Chỉ hiển thị khi mục 9 đã hoàn thành.)*
+  5. **Mã nguồn mở** — Mã nguồn được công khai, cho phép bất kỳ ai kiểm chứng cách ứng dụng hoạt động.
+- Spec: thêm `FE-0xx` mới ở `03-frontend-ui-spec.md` (`S2`).
+
+## 11. Onboarding (`S1`): giải thích vì sao phải đặt mật khẩu — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- Ở bước đặt mật khẩu lần đầu, thêm đoạn giải thích ngắn gọn, rõ ràng, ví dụ:
+  "Mật khẩu này giúp ngăn trẻ tự ý tắt, tạm dừng hoặc gỡ ParentalGuard khi chưa có sự cho phép của người lớn.
+  Hãy giữ kín mật khẩu."
+- Spec: bổ sung mục `S1` (`03-frontend-ui-spec.md` mục 3.3) / có thể liên kết `PWD-00x`.
+
+## 12. Tab Cài đặt (`S4`): panel đăng nhập, khoá toàn bộ khi chưa đăng nhập — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- Hiện tại: mỗi thao tác nhạy cảm trong `S4` hỏi mật khẩu riêng (gate theo từng thao tác, `S5`).
+- Cần: đầu tab Cài đặt có **panel đăng nhập** (ô mật khẩu + nút Đăng nhập + link **"Quên mật khẩu?"** dẫn sang luồng
+  Recovery `PWD-032`).
+  - **Chưa đăng nhập**: toàn bộ phần cài đặt **bị làm mờ (greyed), không thao tác được**, nhưng **vẫn cuộn được** để
+    xem hết nội dung.
+  - **Đã đăng nhập**: ẩn panel đăng nhập, bỏ làm mờ, thao tác tự do (không hỏi lại mật khẩu từng thao tác).
+- **Ngoại lệ:** mục **Ngôn ngữ** không cần đăng nhập (xem mục 13).
+- **ĐÃ CHỐT (2026-10-05):**
+  - **1 phiên đăng nhập dùng chung cho cả tab Lịch sử và tab Cài đặt** (tab Lịch sử khi chưa đăng nhập cũng hiện panel
+    đăng nhập thay cho gate `view_audit_log` hiện tại).
+  - Phiên **tự hết hạn sau 10 phút không thao tác**.
+  - Có nút "Đăng xuất"; đóng Dashboard cũng kết thúc phiên.
+  - Tạm dừng giám sát và Gỡ cài đặt **vẫn hỏi mật khẩu riêng** như hiện tại (không nằm trong phạm vi phiên này).
+  - Sai mật khẩu nhiều lần: dùng lại cơ chế khoá tạm hiện có của `PWD-0xx`.
+- Kỹ thuật: Service (SYSTEM) vẫn phải xác thực mỗi lệnh đổi cài đặt (UI chạy quyền user, không tin trạng thái
+  "đã đăng nhập" phía UI) → cần token phiên do Service cấp, có hạn → kiểm tra với `SEC-0xx`/`04-security-spec.md`,
+  có thể phải sửa `Architecture/` (IPC). Chạy security-privacy-auditor sau khi làm.
+- Spec: đổi `S4`/`S5` ở `03-frontend-ui-spec.md`, có thể `06-password-management-spec.md` → archive đúng quy trình.
+
+## 13. Mục Ngôn ngữ: không cần đăng nhập, hiển thị song ngữ — ✅ PHẦN GIAO DIỆN ĐÃ LÀM 2026-10-05 (chỉ tiếng Việt chọn được; bản dịch + lưu lựa chọn thuộc mục 5)
+
+- Bổ sung cho mục 5: mục chọn ngôn ngữ trong `S4` **không bị gate** (đổi được khi chưa đăng nhập, không bị làm mờ).
+- Nhãn mục và tên các ngôn ngữ hiển thị **song ngữ**: ngôn ngữ đang dùng + tiếng Anh, ví dụ
+  "Ngôn ngữ / Language", "Tiếng Việt (Vietnamese)", "Tiếng Pháp (French)"… Nếu ngôn ngữ đang dùng là tiếng Anh thì
+  **chỉ hiện tiếng Anh**.
+- Ngôn ngữ không cần đăng nhập ở **cả** tab Cài đặt (vẫn sáng, không bị làm mờ khi các mục khác bị khoá).
+- Gợi ý: tên mỗi ngôn ngữ nên kèm cả tên gốc ("Français", "Español", "中文") để người không đọc được ngôn ngữ hiện
+  tại vẫn tìm được ngôn ngữ của mình — cần chủ dự án xác nhận.
+- Lý do bỏ gate: đổi ngôn ngữ không làm giảm khả năng bảo vệ. Lưu ý: lệnh IPC đổi ngôn ngữ phải là lệnh riêng,
+  Service chỉ cho phép đổi đúng trường ngôn ngữ khi không có phiên đăng nhập.
+
+## 14. Tab Tổng quan: trạng thái tổng rõ ràng khi đang bảo vệ — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- Ở khối trạng thái tổng: nếu Vision đang chạy bình thường → **icon dấu tích màu xanh lá** + dòng chữ rõ ràng
+  **"Máy tính đang được bảo vệ"**.
+- Các trạng thái khác (tạm dừng / gián đoạn / lỗi) giữ hiển thị như hiện tại nhưng cần có icon + màu tương ứng
+  (vàng/đỏ) để đối lập rõ với trạng thái xanh.
+- **ĐÃ CHỐT (2026-10-05):** trạng thái xanh "Máy tính đang được bảo vệ" chỉ cần **Vision** (nhận diện) **và Overlay**
+  (tiến trình hiển thị lớp che khi phát hiện vi phạm) đang chạy, giám sát không bị tạm dừng. **Không** phụ thuộc
+  Watchdog (Watchdog lỗi thì hiển thị cảnh báo phụ, không làm mất trạng thái xanh).
+
+## 15. Biểu đồ số lần chặn theo ngày: mở rộng tới 6 tháng — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- Hiện tại: `FE-071` — chuyển khoảng xem 7 ngày / 30 ngày.
+- Cần: nút chọn nhanh **1 tuần / 1 tháng / 3 tháng / 6 tháng** (tối đa 6 tháng ≈ 180 ngày).
+- **ĐÃ CHỐT (2026-10-05):** 1 tuần / 1 tháng → cột theo **ngày**; 3 tháng / 6 tháng → cột gộp theo **tuần**.
+- Đã kiểm tra code (2026-10-05): `audit.log` (JSONL hash-chain, `AuditLogWriter`) **không có cơ chế xoay vòng/xoá**
+  → dữ liệu 180 ngày có sẵn. Vẫn ghi vào spec yêu cầu "giữ tối thiểu 180 ngày" để sau này không ai thêm cơ chế xoá
+  ngắn hơn.
+- Spec: `FE-071` → requirement mới supersede khoảng xem.
+
+## 16. Mục "Cách ứng dụng hoạt động & dữ liệu được lưu" — ✅ ĐÃ LÀM 2026-10-05 (Spec v0.9.0)
+
+- **ĐÃ CHỐT (2026-10-05):** đặt **trong tab Giới thiệu** (`S10`), không tạo tab riêng.
+- Nội dung (văn viết, cùng văn phong với mục 10):
+  - App xem màn hình **ngay trên máy**, dùng mô hình AI chạy offline để nhận diện nội dung nhạy cảm, phát hiện thì che
+    mờ cửa sổ đó.
+  - **Không lưu** hình ảnh, âm thanh hay nội dung người dùng xem; **không kết nối Internet**; **không chia sẻ** bất kỳ
+    dữ liệu nào ra ngoài.
+  - Dữ liệu lưu trên máy — **ghi đầy đủ đúng thực tế** (đã đối chiếu code 2026-10-05):
+    - **Nhật ký sự kiện** (chỉ siêu dữ liệu — metadata, có chuỗi băm chống chỉnh sửa):
+      - Thời điểm phát hiện vi phạm, tên ứng dụng (tiến trình) và điểm tin cậy của AI (`ContentBlocked`)
+      - Lịch sử tạm dừng / tiếp tục giám sát (`PauseActivated`/`PauseResumed`)
+      - Đăng nhập thành công/thất bại, thay đổi cài đặt (`AuthAttempt`, `ConfigChanged`)
+      - Sự kiện an ninh: dấu hiệu can thiệp/gỡ cài đặt, khởi động lại dịch vụ (`TamperDetected`,
+        `AttackPatternDetected`, `UninstallInitiated`, `ServiceStarted`, `ProcessRestarted`…)
+    - **Cấu hình**: các cài đặt, danh sách whitelist; mật khẩu chỉ lưu dạng **băm một chiều** (không thể đọc ngược).
+  - Có thể nêu thêm: tiến trình nhận diện bị **chặn mạng ở tầng tường lửa Windows (WFP)** — bằng chứng kỹ thuật cho
+    cam kết "không kết nối Internet".
+- Đồng bộ với `docs/BEHAVIOR-DISCLOSURE.md`. Kiểm tra "không kết nối Internet" đúng với cả bản build cuối
+  (không telemetry, không kiểm tra cập nhật tự động).
+- Spec: thêm `FE-0xx`/`MISC-0xx` mới.
 
 ---
 

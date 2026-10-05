@@ -53,7 +53,7 @@ public sealed partial class DashboardViewModel(
     public partial PauseDurationChoice SelectedPauseDurationChoice { get; set; } = _pauseDurationChoices[2];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsActiveState), nameof(IsPausedState), nameof(IsErrorState), nameof(StatusCardText))]
+    [NotifyPropertyChangedFor(nameof(IsActiveState), nameof(IsPausedState), nameof(IsErrorState), nameof(IsCheckingState), nameof(StatusCardText))]
     public partial DashboardCardState CardState { get; set; } = DashboardCardState.Checking;
 
     /// <summary>
@@ -105,12 +105,17 @@ public sealed partial class DashboardViewModel(
     public partial string VisionDiagnosticStateDetail { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsChartEmpty), nameof(HasChartData), nameof(ChartSummaryText))]
+    [NotifyPropertyChangedFor(nameof(IsChartEmpty), nameof(HasChartData), nameof(ChartSummaryText), nameof(ChartBars))]
     public partial ObservableCollection<DailyBlockCount> ChartData { get; set; } = [];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ChartSummaryText))]
+    [NotifyPropertyChangedFor(nameof(ChartSummaryText), nameof(ChartBars), nameof(ChartTitleText))]
     public partial uint ChartRangeDays { get; set; } = 7;
+
+    /// <summary>`FE-071a`: cột theo ngày (1 tuần/1 tháng) hoặc gộp tuần (3 tháng/6 tháng).</summary>
+    public IReadOnlyList<ChartBar> ChartBars => ChartBucketer.Bucket(ChartData, ChartRangeDays);
+
+    public string ChartTitleText => LocalizationService.Get(ChartBucketer.IsWeekly(ChartRangeDays) ? "DashboardChartTitleWeekly" : "DashboardChartTitleDaily");
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ContentOpacity))]
@@ -129,6 +134,8 @@ public sealed partial class DashboardViewModel(
     public bool IsPausedState => CardState == DashboardCardState.Paused;
 
     public bool IsErrorState => CardState == DashboardCardState.Error;
+
+    public bool IsCheckingState => CardState == DashboardCardState.Checking;
 
     public bool HasErrorMessage => !string.IsNullOrEmpty(ErrorMessage);
 
@@ -236,9 +243,10 @@ public sealed partial class DashboardViewModel(
         IsPaused = status.IsPaused;
         PauseCountdownText = status.IsPaused ? FormatCountdown(status.PauseExpiresAtUnixMs) : string.Empty;
 
-        // Mục 6.2.1 — Error nếu bất kỳ kênh nào gián đoạn, kể cả khi đang Paused (sức khoẻ hệ thống
-        // ưu tiên hiển thị hơn trạng thái pause).
-        CardState = !status.WatchdogAlive || !status.VisionConnected || !status.OverlayConnected
+        // Mục 6.2.1 — Error nếu kênh bảo vệ gián đoạn, kể cả khi đang Paused (sức khoẻ hệ thống ưu tiên hiển thị hơn
+        // trạng thái pause). FE-042 (2026-10-05): "Máy tính đang được bảo vệ" chỉ cần Vision + Overlay — Watchdog lỗi
+        // chỉ hiện ở phần Kiểm tra tình trạng, không làm mất trạng thái xanh.
+        CardState = !status.VisionConnected || !status.OverlayConnected
             ? DashboardCardState.Error
             : status.IsPaused ? DashboardCardState.Paused : DashboardCardState.Active;
     }
@@ -401,7 +409,7 @@ public sealed partial class DashboardViewModel(
         }
     }
 
-    /// <summary>Mục 6.2.5 — toggle 7/30 ngày gọi lại đây với <paramref name="rangeDays"/> mới.</summary>
+    /// <summary>Mục 6.2.5/`FE-071a` — 1 tuần/1 tháng/3 tháng/6 tháng (7/30/90/180) gọi lại đây với <paramref name="rangeDays"/> mới.</summary>
     public async Task SetChartRangeAsync(uint rangeDays)
     {
         ChartRangeDays = rangeDays;

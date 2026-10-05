@@ -14,7 +14,7 @@ namespace ParentalGuard.UI.ViewModels;
 /// gọi từ <c>AuditLogPage.OnNavigatedTo</c>). Trang đầu (<c>page=0</c>) dùng <c>action_token</c> thật
 /// vừa nhận; các trang kế tiếp gửi token rỗng (mục 6.3 — Service tự nhớ "đã qua gate" theo session pipe).
 /// </summary>
-public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPromptService authPromptService) : ObservableObject
+public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPromptService authPromptService, Action? onSessionRejected = null) : ObservableObject
 {
     private const string ViewAuditLogActionContext = "view_audit_log";
     private const uint PageSize = 50;
@@ -92,6 +92,7 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
                 if (retryToken is null || !await LoadPageAsync(retryToken, page: 0).ConfigureAwait(true))
                 {
                     GateCancelled = true;
+                    onSessionRejected?.Invoke(); // PWD-024: Service không chấp nhận phiên → khoá lại.
                     return;
                 }
 
@@ -107,6 +108,18 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>`FE-082`: đăng nhập lại/đăng xuất/hết phiên — xoá toàn bộ nội dung đang hiển thị, về trạng thái ban đầu.</summary>
+    public void Reset()
+    {
+        Entries = [];
+        IsGated = false;
+        HasMore = false;
+        GateCancelled = false;
+        ErrorMessage = null;
+        StatusMessage = null;
+        _nextPage = 0;
     }
 
     /// <summary>Cuộn tới cuối / nút "Tải thêm" (mục 6.3) — gửi token rỗng, Service tự nhớ đã qua gate theo session pipe.</summary>
@@ -125,6 +138,7 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
             {
                 HasMore = false;
                 ErrorMessage = LocalizationService.Get("AuditLogSessionExpired");
+                onSessionRejected?.Invoke();
             }
         }
         catch (UiIpcConnectionException ex)
@@ -140,9 +154,15 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
     /// <summary>Trả <c>true</c> nếu <c>SUCCESS</c> (dòng đã được thêm vào <see cref="Entries"/>), <c>false</c> nếu <c>InvalidToken</c>.</summary>
     private async Task<bool> LoadPageAsync(byte[] actionToken, uint page)
     {
+        ObservableCollection<AuditLogRowViewData> target = Entries;
         try
         {
             AuditLogFetchResult result = await auditFacade.GetAuditLogAsync(actionToken, page, PageSize, CancellationToken.None).ConfigureAwait(true);
+            if (!ReferenceEquals(target, Entries))
+            {
+                return true; // Reset() xảy ra trong lúc chờ (đăng xuất/đăng nhập lại) — bỏ kết quả cũ, không trộn vào danh sách mới.
+            }
+
             if (result.Outcome == AuditLogQueryOutcome.InvalidToken)
             {
                 return false;

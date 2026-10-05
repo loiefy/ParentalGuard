@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.20.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
+> Version: v0.19.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc thiết kế
 
@@ -15,7 +15,6 @@
 - `FE-006` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Thanh tiêu đề (title bar) cửa sổ Dashboard **cùng tông màu với nền app** (theo theme Dark/Light), không dùng thanh xám sáng mặc định.
 - `FE-005a` **(ĐÃ CHỐT v0.14.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: Màn hình Cài đặt (`S4`): mỗi hạng mục cài đặt (Thông điệp chặn nội dung, Danh sách whitelist, Chế độ hiệu năng, Đổi mật khẩu…) trình bày dạng **heading + đoạn nội dung thụt vào** — tên hạng mục là heading, toàn bộ ô nhập/chữ/nút liên quan nằm thụt vào bên dưới; giữa các hạng mục có **1 đường kẻ mờ** phân cách.
 - `FE-003`: UI phía **trẻ em** (overlay, icon trạng thái) phải tối giản, không phán xét gay gắt, đủ rõ để hiểu hành động cần làm.
-- `FE-005e` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, bổ sung `FE-005d`)**: Màu nền vùng nội dung các tab chính là **dải chuyển màu dọc**: phía trên sáng hơn một chút, xuống dưới tối dần. Chênh lệch sáng/tối **chỉ vừa đủ để nhận biết**, không được tương phản mạnh. Cảnh nền `FE-005d` giữ nguyên, vẽ đè lên dải chuyển màu.
 
 ## 2. Danh sách màn hình (Screens)
 
@@ -23,8 +22,8 @@
 |---|---|---|---|
 | S1 | Onboarding / Setup ban đầu | Phụ huynh | Đặt mật khẩu lần đầu, thiết lập câu hỏi/khoá khôi phục, chọn mức độ nhạy cảm mặc định |
 | S2 | Dashboard chính | Phụ huynh | Trạng thái tổng quan: đang hoạt động/tạm dừng, **biểu đồ thống kê số lần chặn** (`FE-070`), truy cập cài đặt |
-| S3 | Lịch sử/Audit log | Phụ huynh (cần đăng nhập — `FE-080`) | Danh sách sự kiện (thời gian, hành động, app liên quan) + biểu đồ theo thời gian — không hiển thị ảnh |
-| S4 | Cài đặt nâng cao | Phụ huynh (cần đăng nhập — `FE-080`, trừ ngôn ngữ) | Whitelist theo tên process/ứng dụng, cấu hình hiệu năng, **nội dung thông điệp overlay** (`FE-012`), ngôn ngữ hiển thị (`FE-063`) — không có mục chỉnh ngưỡng nhạy cảm (xem `BE-091`) |
+| S3 | Lịch sử/Audit log | Phụ huynh | Danh sách sự kiện (thời gian, hành động, app liên quan) + biểu đồ theo thời gian — không hiển thị ảnh |
+| S4 | Cài đặt nâng cao | Phụ huynh | Whitelist theo tên process/ứng dụng, cấu hình hiệu năng, **nội dung thông điệp overlay** (`FE-012`), ngôn ngữ hiển thị (`FE-063`) — không có mục chỉnh ngưỡng nhạy cảm (xem `BE-091`) |
 | S5 | Xác thực mật khẩu (Auth Prompt) | Phụ huynh | Modal yêu cầu mật khẩu trước hành động nhạy cảm (tạm dừng, gỡ, đổi cấu hình) |
 | S6 | Quên mật khẩu / Khôi phục | Phụ huynh | Luồng recovery — xem `06-password-management-spec.md` |
 | S7 | **Overlay chặn nội dung** | Trẻ em | Màn hình blur phủ browser + thông điệp + nút "Tắt nội dung" |
@@ -68,7 +67,6 @@
   - `FE-016g` **(ĐÃ CHỐT v0.9.0, 2026-09-19 — bổ sung lối thoát dự phòng thứ 2 cho `FE-016f`, chốt qua 2 vòng hỏi đáp trực tiếp với chủ dự án; chi tiết hiển thị UI bổ sung/ĐÃ CHỐT v0.9.1)**: Overlay full-screen lock (`FE-016f`) có thêm cơ chế **tự động force-close sau 30 giây không thao tác** — nếu không ai bấm nút "Tắt nội dung" trong vòng 30 giây kể từ lúc overlay hiển thị, hệ thống tự động đóng toàn bộ cửa sổ vi phạm bị gộp + gỡ khoá overlay, không cần mật khẩu hay xác nhận gì thêm (chi tiết luồng kỹ thuật ở `BE-089b`, `02-backend-spec.md`). Đây là **lối thoát độc lập thứ 2** bên cạnh nút bấm thủ công — nhờ vậy `GEN-007a` (bản gốc, chỉ nói "1 lối thoát duy nhất") bị thay thế bởi `GEN-007b` (`00-INDEX.md`, supersedes `GEN-007a`): chế độ gộp không còn là ngoại lệ "chỉ 1 lối thoát duy nhất" của `GEN-007`, mà là "2 lối thoát độc lập: 1 thủ công (nút bấm) + 1 tự động (hết giờ)", giữ đúng tinh thần `GEN-007` dù cơ chế khác biệt.
     - **Đếm ngược trực quan bắt buộc (ĐÃ CHỐT v0.9.1, 2026-09-19)**: Overlay full-screen lock **bắt buộc phải hiển thị số giây đếm ngược còn lại** cho khoảng thời gian chờ auto-timeout 30 giây — **không được đếm ngầm rồi tự đóng bất ngờ không báo trước**. Hiển thị dạng chữ, ví dụ "Tự động đóng sau: 30s" (hoặc định dạng tương đương "00:30"), **giảm dần từng giây** theo thời gian thực, đặt **cạnh/gần nút "Tắt nội dung" duy nhất** trên overlay để người dùng luôn nhìn thấy đồng thời cả nút bấm lẫn thời gian còn lại, biết rõ khi nào hệ thống sẽ tự động force-close nếu không thao tác. Lý do: đây là yêu cầu UX bắt buộc để tránh trẻ bị bất ngờ/hoảng khi màn hình tự đóng không báo trước, đúng tinh thần "lối thoát dự phòng minh bạch" đã chốt ở `GEN-007b`. Chi tiết trình bày cụ thể (font chữ, màu sắc, vị trí chính xác trong bố cục overlay, animation...) **không phải quyết định sản phẩm**, để `feature-dev` tự quyết định ở mức implement UI thông thường theo `FE-001`/Design System (mục 4).
   - `FE-016i` **(ĐÃ CHỐT v0.12.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: **Mọi** cửa sổ overlay (thường lẫn full-screen) có **1 nút hình bánh răng ở góc trên-trái** (v0.18.0: **không có khối nền riêng**, hoà vào nền overlay, chỉ sáng nhẹ khi rê chuột); bấm vào mở Dashboard (cùng cơ chế `FE-023`) để phụ huynh vào Tạm dừng giám sát (vẫn gate mật khẩu như cũ). Nút không thay thế nút "Tắt nội dung" và không nằm trong vùng loại trừ nút đóng gốc (`FE-016`, góc phải).
-  - `FE-016k` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, chỉnh kích thước `FE-016i`)**: Nút bánh răng **nhỏ lại khoảng 1/2** so với bản v0.18.0 (gần bằng đúng kích thước icon, phần đệm quanh icon tối thiểu), vẫn đủ dễ bấm bằng chuột.
   - `FE-016h` **(ĐÃ CHỐT v0.10.0, 2026-09-30 — đi kèm `BE-034a`)**: Overlay thường (1 cửa sổ) **bắt buộc hiển thị đếm ngược trực quan** 60 giây trước khi tự đóng cửa sổ vi phạm — cùng nguyên tắc `FE-016g` (không đếm ngầm rồi tự đóng bất ngờ), cùng vị trí ngay dưới nút "Tắt nội dung". Overlay không tự biến mất vì nội dung bên dưới "hết vi phạm" (`BE-034`) — chỉ đóng qua nút, hết giờ, hoặc khi cửa sổ vi phạm đã bị đóng.
 
 ### 3.2 S8 — Icon trạng thái giám sát
@@ -86,31 +84,11 @@
 - `FE-030` **(cập nhật v0.3.0)**: Luồng bắt buộc theo thứ tự: Giới thiệu ngắn về cách app hoạt động (minh bạch) → Đặt mật khẩu → Thiết lập khôi phục mật khẩu → Hoàn tất, app bắt đầu chạy nền với ngưỡng nhạy cảm mặc định do đội phát triển quyết định (`BE-090`/`BE-091` — **đã bỏ bước "chọn mức độ nhạy cảm" khỏi Onboarding**, vì ngưỡng này không phơi ra cho phụ huynh chỉnh ở Phase 1).
 - `FE-030a` (ĐÃ CHỐT v0.5.0, liên kết `PWD-030a` ở `06-password-management-spec.md`): Bước "Thiết lập khôi phục mật khẩu" bắt buộc phụ huynh tick checkbox xác nhận **"Tôi đã lưu lại Recovery Key"** trước khi cho bấm nút Tiếp tục/Hoàn tất. Nếu chưa tick, không cho hoàn tất Onboarding — nghĩa là app **chưa bắt đầu kích hoạt giám sát**, toàn bộ thiết lập mật khẩu coi như chưa xong.
 - `FE-031`: Bắt buộc phụ huynh phải đọc và xác nhận 1 đoạn giải thích ngắn: dữ liệu không rời máy, ảnh không được lưu — tăng tính minh bạch, tránh hiểu lầm về mục đích sử dụng.
-- `FE-032` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Màn hình đầu tiên khi mở app **trên máy chưa từng đặt mật khẩu** (bước Giới thiệu của `S1`) trình bày nổi bật các giá trị cốt lõi của ứng dụng dưới dạng **thẻ** (biểu tượng + tiêu đề chữ đậm + 1 câu mô tả chữ nhỏ hơn), **có hiệu ứng khi rê chuột** (thẻ sáng/nổi nhẹ lên). Khi đã có mật khẩu thì màn hình này **không bao giờ hiển thị lại**. Văn phong: văn viết, trang trọng; không dùng các cam kết tuyệt đối hoặc sai sự thật (ví dụ "không lưu dữ liệu"). Nội dung đã được chủ dự án phê duyệt:
-  | # | Tiêu đề | Mô tả |
-  |---|---|---|
-  | 1 | Bảo vệ trẻ em khỏi nội dung nhạy cảm | Tự động nhận diện và che phủ nội dung khiêu dâm theo thời gian thực. |
-  | 2 | Chỉ phụ huynh mới có quyền gỡ ứng dụng | Việc gỡ cài đặt, tạm dừng giám sát và thay đổi thiết lập đều yêu cầu mật khẩu của phụ huynh. |
-  | 3 | Xử lý hoàn toàn trên thiết bị | Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Không kết nối Internet, không chia sẻ dữ liệu với bên thứ ba. |
-  | 4 | Bảo vệ cả phụ huynh | Tùy chọn bổ sung bước xác minh khi tạm dừng giám sát, áp dụng cho cả người lớn. *(Chỉ hiển thị khi tính năng "Bảo vệ cả phụ huynh" đã phát hành.)* |
-  | 5 | Mã nguồn mở | Mã nguồn được công khai, cho phép bất kỳ ai kiểm chứng cách ứng dụng hoạt động. |
-- `FE-033` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Bước đặt mật khẩu lần đầu có đoạn giải thích ngắn gọn, rõ ràng lý do cần mật khẩu: mật khẩu giúp ngăn trẻ tự ý tắt, tạm dừng hoặc gỡ ứng dụng khi chưa có sự cho phép của người lớn; phụ huynh cần giữ kín mật khẩu.
 
 ### 3.4 S10 — Giới thiệu (About) — ĐÃ CHỐT v0.16.0, 2026-10-01
 
 - `FE-090`: Tab **Giới thiệu** trên thanh menu trái (cạnh Tổng quan/Lịch sử/Cài đặt), không gate mật khẩu. Nội dung: giới thiệu ngắn về dự án, **tên đơn vị phát triển**, **email liên hệ**, phiên bản app. Tên đơn vị và email **tạm thời để trống** (hiển thị "(đang cập nhật)"), chủ dự án điền sau.
 - `FE-091`: Trong tab Giới thiệu có mục **Ủng hộ dự án (Donate)**, hiện **tài khoản PayPal** (tạm thời để trống, hiển thị "(đang cập nhật)"). App **không** tự xử lý thanh toán — chỉ hiển thị thông tin/liên kết; liên kết mở bằng trình duyệt mặc định của hệ thống.
-- `FE-092` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Trong tab Giới thiệu có mục **"Cách ứng dụng hoạt động và dữ liệu được lưu"**, văn phong văn viết, ngắn gọn, dễ hiểu với phụ huynh, nội dung **đúng với thực tế** của bản build:
-  - Ứng dụng phân tích hình ảnh màn hình ngay trên máy bằng mô hình AI chạy ngoại tuyến; khi phát hiện nội dung nhạy cảm thì che phủ cửa sổ chứa nội dung đó.
-  - Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị; không kết nối Internet; không chia sẻ dữ liệu với bên thứ ba (tiến trình nhận diện bị chặn mạng ở tầng tường lửa Windows).
-  - Liệt kê **đầy đủ** dữ liệu được lưu trên máy: nhật ký sự kiện (chỉ siêu dữ liệu, có chuỗi băm chống chỉnh sửa — `MISC-010`): thời điểm phát hiện vi phạm kèm tên ứng dụng và điểm tin cậy; lịch sử tạm dừng/tiếp tục giám sát; các lần đăng nhập và thay đổi cài đặt; sự kiện an ninh (dấu hiệu can thiệp, gỡ cài đặt, khởi động lại dịch vụ). Cấu hình: các cài đặt, danh sách loại trừ; mật khẩu chỉ lưu dạng băm một chiều.
-
-### 3.5 S3/S4 — Phiên đăng nhập phụ huynh — ĐÃ CHỐT v0.20.0, 2026-10-05
-
-- `FE-080` **(chủ dự án yêu cầu trực tiếp; cơ chế phiên ở `PWD-024`)**: Tab **Cài đặt** (`S4`) và tab **Lịch sử** (`S3`) có **khung đăng nhập** ở đầu trang: ô mật khẩu, nút Đăng nhập, liên kết **"Quên mật khẩu?"** (dẫn tới `S6`). Đăng nhập ở 1 tab có hiệu lực cho cả 2 tab.
-- `FE-081`: **Chưa đăng nhập**: toàn bộ phần cài đặt ở `S4` hiển thị **làm mờ, không thao tác được**, nhưng **vẫn cuộn được** để xem hết nội dung; `S3` chỉ hiện khung đăng nhập (chưa tải lịch sử). **Đã đăng nhập**: ẩn khung đăng nhập, bỏ làm mờ, thao tác tự do (không hỏi lại mật khẩu từng thao tác); hiện nút **Đăng xuất**.
-- `FE-082`: Phiên hết hạn (10 phút không thao tác — `PWD-024`) hoặc đăng xuất → 2 tab tự trở về trạng thái chưa đăng nhập.
-- `FE-083`: Ngoại lệ — mục **Ngôn ngữ** ở `S4` **không cần đăng nhập** (luôn thao tác được, không bị làm mờ) — xem `FE-064`.
 
 ## 4. Design System (tham chiếu kỹ thuật)
 
@@ -128,21 +106,18 @@
 - `FE-060`: **Toàn bộ text hiển thị trong app** (UI dashboard, overlay, thông báo, tooltip, log hiển thị...) phải lấy từ **file tài nguyên ngôn ngữ** (resource file, ví dụ `.resw` chuẩn của Windows App SDK hoặc `.json`/`.resx` tuỳ lựa chọn kỹ thuật ở System Design) — **không hardcode chuỗi text trực tiếp trong code** dưới bất kỳ hình thức nào, kể cả text tưởng chừng cố định như tên nút hay nhãn field.
 - `FE-061`: Ngôn ngữ mặc định Phase 1: **Tiếng Việt**. Kiến trúc phải sẵn sàng để thêm ngôn ngữ khác (tiếng Anh...) ở phase sau chỉ bằng cách thêm file resource mới, không cần sửa code logic.
 - `FE-062`: Nội dung thông điệp overlay do phụ huynh tự cấu hình (`FE-012`) là **ngoại lệ** — đây là dữ liệu người dùng nhập (user content), không phải chuỗi hệ thống, nên lưu riêng trong `config.db` (theo đúng cơ chế ở `02-backend-spec.md`), không nằm trong file resource ngôn ngữ. Giá trị mặc định ban đầu của trường này (trước khi phụ huynh đổi) vẫn được lấy từ file resource ngôn ngữ hiện hành, để nếu sau này đổi ngôn ngữ hệ thống, câu mặc định gợi ý cũng đổi theo tương ứng.
-- `FE-064` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, bổ sung `FE-063`)**: Mục chọn ngôn ngữ ở `S4` **không cần đăng nhập** (`FE-083`). Nhãn mục và tên từng ngôn ngữ hiển thị **song ngữ**: ngôn ngữ đang dùng + tiếng Anh (ví dụ "Ngôn ngữ / Language", "Tiếng Pháp (French)"); nếu ngôn ngữ đang dùng là tiếng Anh thì chỉ hiển thị tiếng Anh. Ngôn ngữ chưa có bản dịch được hiển thị nhưng chưa chọn được (ghi "sắp có / coming soon") cho tới khi bản dịch được bổ sung.
 - `FE-063`: Cài đặt ngôn ngữ (khi có nhiều lựa chọn ở phase sau) nằm trong Cài đặt nâng cao (`S4`), áp dụng toàn app ngay sau khi đổi (không cần khởi động lại nếu kỹ thuật cho phép hot-reload resource, hoặc yêu cầu khởi động lại UI nếu đơn giản hơn — quyết định cụ thể ở System Design).
 
 ## 6. Thống kê trên Dashboard (Chart) — ĐÃ CHỐT v0.3.0
 
 - `FE-070`: Màn hình Dashboard chính (`S2`) và/hoặc màn hình Lịch sử (`S3`) **bắt buộc có biểu đồ thống kê** số lần chặn nội dung theo thời gian (không chỉ danh sách dạng bảng đơn thuần như spec v0.1.0 ban đầu).
 - `FE-071`: Loại biểu đồ đề xuất: biểu đồ cột (bar chart) số lần chặn theo ngày, có thể chuyển đổi khoảng xem (7 ngày / 30 ngày). Có thể mở rộng thêm biểu đồ phân loại theo loại ứng dụng vi phạm (browser vs video player vs khác) ở phase sau nếu hữu ích, không bắt buộc Phase 1.
-- `FE-071a` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, supersedes phần "khoảng xem 7 ngày / 30 ngày" của `FE-071`)**: Biểu đồ số lần chặn có các nút chọn nhanh **1 tuần / 1 tháng / 3 tháng / 6 tháng** (tối đa 6 tháng). 1 tuần và 1 tháng hiển thị mỗi cột = 1 **ngày**; 3 tháng và 6 tháng hiển thị mỗi cột = 1 **tuần** (tránh cột quá dày). Dữ liệu yêu cầu audit log được giữ tối thiểu 180 ngày (`MISC-010b`).
 - `FE-072`: Dữ liệu cho biểu đồ lấy từ audit log (metadata only, đã có sẵn theo `MISC-010`) — không cần lưu trữ thêm dữ liệu riêng cho mục đích thống kê, chỉ cần aggregate lại từ log đã có.
 
 ## 7. Trạng thái rỗng & lỗi (Empty/Error states)
 
 - `FE-040`: Màn hình lịch sử log khi chưa có sự kiện nào → hiển thị trạng thái tích cực ("Chưa phát hiện nội dung nào cần chặn"), tránh cảm giác trống trải tiêu cực.
 - `FE-041a` **(ĐÃ CHỐT v0.16.0, 2026-10-01 — chủ dự án chốt, bổ sung `FE-041`)**: **Bỏ khung "Chi tiết kỹ thuật"** (chuỗi chẩn đoán thô như `ep=directml` — vô nghĩa với phụ huynh). Thay vào đó, dòng Vision trong phần Kiểm tra tình trạng tự hiện cảnh báo rõ ràng khi Vision đang lỗi xử lý ảnh liên tiếp (cùng kiểu cảnh báo CPU dự phòng đã có).
-- `FE-042` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Thẻ trạng thái tổng ở tab Tổng quan: khi **Vision** (nhận diện) **và Overlay** (tiến trình hiển thị lớp che khi phát hiện vi phạm) đều đang chạy và giám sát không tạm dừng → hiển thị **biểu tượng dấu tích màu xanh lá** và dòng chữ rõ ràng **"Máy tính đang được bảo vệ"**. Trạng thái này **không phụ thuộc Watchdog** (Watchdog lỗi chỉ hiện ở phần Kiểm tra tình trạng). Các trạng thái khác (tạm dừng, gián đoạn) có biểu tượng + màu riêng (vàng/đỏ) đối lập rõ với trạng thái xanh.
 - `FE-041`: Khi Vision Engine gặp lỗi (model load fail, GPU không hỗ trợ DirectML...) → Dashboard hiển thị cảnh báo rõ ràng kèm hướng dẫn khắc phục cơ bản, không fail âm thầm.
 
 ## 8. Accessibility
@@ -158,7 +133,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.20.0 | 2026-10-05 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-005e` nền dải chuyển màu dọc; `FE-016k` nút bánh răng overlay nhỏ lại ~1/2; `FE-032` màn hình giới thiệu lần đầu (5 thẻ giá trị cốt lõi, hiệu ứng rê chuột, chỉ khi chưa có mật khẩu); `FE-033` giải thích lý do đặt mật khẩu; `FE-042` trạng thái "Máy tính đang được bảo vệ" (Vision + Overlay); `FE-064` chọn ngôn ngữ song ngữ, không cần đăng nhập; `FE-071a` biểu đồ 1 tuần/1 tháng/3 tháng/6 tháng (supersedes khoảng xem `FE-071`); `FE-080`-`FE-083` khung đăng nhập + phiên dùng chung `S3`/`S4`; `FE-092` mục "Cách ứng dụng hoạt động và dữ liệu được lưu" ở tab Giới thiệu |
 | v0.19.0 | 2026-10-01 | **MINOR — `FE-016j` (mới)**: vùng loại trừ nút đóng 160×40px (trước 160×50 tạm thời), đệm 16px ngang / 6px dọc; đóng câu hỏi mở kích thước vùng loại trừ. Kèm: danh sách whitelist `S4` giới hạn chiều cao + thanh cuộn |
 | v0.18.0 | 2026-10-01 | **MINOR — `FE-007` (mới)**: phiên bản phần mềm ở chân thanh menu, theo cấu hình build. Kèm: nền đậm hơn/cảnh mờ hơn (`FE-005d`), nút bánh răng overlay không khối nền (`FE-016i`) |
 | v0.17.0 | 2026-10-01 | **MINOR — `FE-005d`, `FE-006a` (mới)**: nền cảnh hồ nước + cây hoa đào + núi rừng thay chùm hoa; title bar màu riêng (khác thanh menu), cùng tông app |

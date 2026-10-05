@@ -28,6 +28,18 @@ public sealed partial class AboutPage : Page
         EmailValue.Content = BuildValue(LocalizationService.Get("AboutEmailValue"), isEmail: true);
         PayPalValue.Content = BuildValue(LocalizationService.Get("AboutPayPalValue"), isEmail: false);
         VersionValue.Text = AppVersionInfo.DisplayVersion;
+
+        // FE-092 (2026-10-05): cách ứng dụng hoạt động và dữ liệu được lưu.
+        HowItWorksHeaderText.Text = LocalizationService.Get("AboutHowItWorksHeader");
+        HowItWorksOperationText.Text = LocalizationService.Get("AboutHowItWorksOperation");
+        HowItWorksPrivacyText.Text = LocalizationService.Get("AboutHowItWorksPrivacy");
+        StoredDataIntroText.Text = LocalizationService.Get("AboutStoredDataIntro");
+        foreach (string key in new[] { "AboutStoredDataViolations", "AboutStoredDataPause", "AboutStoredDataAuth", "AboutStoredDataSecurity", "AboutStoredDataConfig" })
+        {
+            StoredDataList.Children.Add(new TextBlock { Text = "•  " + LocalizationService.Get(key), TextWrapping = TextWrapping.Wrap, Opacity = 0.85 });
+        }
+
+        StoredDataNoteText.Text = LocalizationService.Get("AboutStoredDataNote");
     }
 
     private static UIElement BuildValue(string value, bool isEmail)

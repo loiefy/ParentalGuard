@@ -1,0 +1,33 @@
+<UserControl
+    x:Class="ParentalGuard.UI.Views.ParentLoginPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- FE-080/FE-081 (PWD-024): khung đăng nhập phụ huynh dùng chung tab Lịch sử và Cài đặt. -->
+    <Grid>
+        <Border x:Name="LoginCard" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                CornerRadius="8" Padding="20">
+            <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <FontIcon Glyph="&#xE72E;" FontSize="18" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TitleText" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock x:Name="HintText" TextWrapping="Wrap" Opacity="0.8" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PasswordBox x:Name="PasswordInput" MaxLength="50" Width="280" KeyDown="OnPasswordKeyDown" />
+                    <Button x:Name="LoginButton" Style="{StaticResource AccentButtonStyle}" Click="OnLoginClick" />
+                </StackPanel>
+                <TextBlock x:Name="ErrorText" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" Visibility="Collapsed" />
+                <HyperlinkButton x:Name="ForgotPasswordLink" Padding="0" Click="OnForgotPasswordClick" />
+            </StackPanel>
+        </Border>
+
+        <!-- FE-081: đã đăng nhập — ẩn khung đăng nhập, chỉ còn dòng trạng thái + nút Đăng xuất. -->
+        <StackPanel x:Name="LoggedInBar" Orientation="Horizontal" Spacing="12" Visibility="Collapsed">
+            <FontIcon Glyph="&#xE785;" FontSize="16" VerticalAlignment="Center" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+            <TextBlock x:Name="LoggedInText" VerticalAlignment="Center" Opacity="0.85" />
+            <Button x:Name="LogoutButton" Click="OnLogoutClick" />
+        </StackPanel>
+    </Grid>
+</UserControl>

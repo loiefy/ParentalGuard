@@ -199,7 +199,7 @@
     <value>Đang kiểm tra trạng thái…</value>
   </data>
   <data name="DashboardStatusActive" xml:space="preserve">
-    <value>Đang hoạt động</value>
+    <value>Máy tính đang được bảo vệ</value>
   </data>
   <data name="DashboardStatusPaused" xml:space="preserve">
     <value>Tạm dừng — còn {0}</value>
@@ -314,7 +314,7 @@
     <value>Chưa phát hiện nội dung nào cần chặn</value>
   </data>
   <data name="AuditLogSessionExpired" xml:space="preserve">
-    <value>Phiên xem đã hết hạn, vui lòng rời và mở lại mục Lịch sử.</value>
+    <value>Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</value>
   </data>
   <data name="AuditLoadMoreButton" xml:space="preserve">
     <value>Tải thêm</value>
@@ -505,5 +505,149 @@
   </data>
   <data name="RecoveryLockedOutFormat" xml:space="preserve">
     <value>Đã khoá tạm thời do nhập sai nhiều lần. Vui lòng thử lại sau {0}.</value>
+  </data>
+  <data name="ParentLoginTitle" xml:space="preserve">
+    <value>Đăng nhập phụ huynh</value>
+  </data>
+  <data name="ParentLoginHint" xml:space="preserve">
+    <value>Nhập mật khẩu phụ huynh để xem lịch sử và thay đổi cài đặt. Phiên đăng nhập tự kết thúc sau 10 phút không thao tác hoặc khi đóng cửa sổ.</value>
+  </data>
+  <data name="ParentLoginButton" xml:space="preserve">
+    <value>Đăng nhập</value>
+  </data>
+  <data name="ParentLoggedInText" xml:space="preserve">
+    <value>Đã đăng nhập phụ huynh. Phiên tự kết thúc sau 10 phút không thao tác.</value>
+  </data>
+  <data name="ParentLogoutButton" xml:space="preserve">
+    <value>Đăng xuất</value>
+  </data>
+  <data name="ParentLoginFailed" xml:space="preserve">
+    <value>Không thể đăng nhập, vui lòng thử lại.</value>
+  </data>
+  <data name="ParentSessionExpired" xml:space="preserve">
+    <value>Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</value>
+  </data>
+  <data name="LanguageCode" xml:space="preserve">
+    <value>vi</value>
+  </data>
+  <data name="SettingsLanguageHeader" xml:space="preserve">
+    <value>Ngôn ngữ</value>
+  </data>
+  <data name="SettingsLanguageHeaderEnglish" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="SettingsLanguageHint" xml:space="preserve">
+    <value>Thay đổi ngôn ngữ không yêu cầu đăng nhập. Các ngôn ngữ còn lại sẽ được bổ sung khi hoàn tất bản dịch.</value>
+  </data>
+  <data name="LanguageName_vi" xml:space="preserve">
+    <value>Tiếng Việt</value>
+  </data>
+  <data name="LanguageName_en" xml:space="preserve">
+    <value>Tiếng Anh</value>
+  </data>
+  <data name="LanguageName_fr" xml:space="preserve">
+    <value>Tiếng Pháp</value>
+  </data>
+  <data name="LanguageName_es" xml:space="preserve">
+    <value>Tiếng Tây Ban Nha</value>
+  </data>
+  <data name="LanguageName_pt" xml:space="preserve">
+    <value>Tiếng Bồ Đào Nha</value>
+  </data>
+  <data name="LanguageName_zh_Hans" xml:space="preserve">
+    <value>Tiếng Trung (giản thể)</value>
+  </data>
+  <data name="LanguageComingSoon" xml:space="preserve">
+    <value>sắp có</value>
+  </data>
+  <data name="LanguageComingSoonEnglish" xml:space="preserve">
+    <value>coming soon</value>
+  </data>
+  <data name="DashboardStatusPausedTitle" xml:space="preserve">
+    <value>Giám sát đang tạm dừng</value>
+  </data>
+  <data name="DashboardChartTitleDaily" xml:space="preserve">
+    <value>Số lần chặn theo ngày</value>
+  </data>
+  <data name="DashboardChartTitleWeekly" xml:space="preserve">
+    <value>Số lần chặn theo tuần</value>
+  </data>
+  <data name="DashboardChart1WeekButton" xml:space="preserve">
+    <value>1 tuần</value>
+  </data>
+  <data name="DashboardChart1MonthButton" xml:space="preserve">
+    <value>1 tháng</value>
+  </data>
+  <data name="DashboardChart3MonthsButton" xml:space="preserve">
+    <value>3 tháng</value>
+  </data>
+  <data name="DashboardChart6MonthsButton" xml:space="preserve">
+    <value>6 tháng</value>
+  </data>
+  <data name="DashboardChartWeekTooltipFormat" xml:space="preserve">
+    <value>{0} – {1}: {2} lần chặn</value>
+  </data>
+  <data name="OnboardingCard1Title" xml:space="preserve">
+    <value>Bảo vệ trẻ em khỏi nội dung nhạy cảm</value>
+  </data>
+  <data name="OnboardingCard1Body" xml:space="preserve">
+    <value>Tự động nhận diện và che phủ nội dung khiêu dâm theo thời gian thực.</value>
+  </data>
+  <data name="OnboardingCard2Title" xml:space="preserve">
+    <value>Chỉ phụ huynh mới có quyền gỡ ứng dụng</value>
+  </data>
+  <data name="OnboardingCard2Body" xml:space="preserve">
+    <value>Việc gỡ cài đặt, tạm dừng giám sát và thay đổi thiết lập đều yêu cầu mật khẩu của phụ huynh.</value>
+  </data>
+  <data name="OnboardingCard3Title" xml:space="preserve">
+    <value>Xử lý hoàn toàn trên thiết bị</value>
+  </data>
+  <data name="OnboardingCard3Body" xml:space="preserve">
+    <value>Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Không kết nối Internet, không chia sẻ dữ liệu với bên thứ ba.</value>
+  </data>
+  <data name="OnboardingCard4Title" xml:space="preserve">
+    <value>Bảo vệ cả phụ huynh</value>
+  </data>
+  <data name="OnboardingCard4Body" xml:space="preserve">
+    <value>Tùy chọn bổ sung bước xác minh khi tạm dừng giám sát, áp dụng cho cả người lớn.</value>
+  </data>
+  <data name="OnboardingCard5Title" xml:space="preserve">
+    <value>Mã nguồn mở</value>
+  </data>
+  <data name="OnboardingCard5Body" xml:space="preserve">
+    <value>Mã nguồn được công khai, cho phép bất kỳ ai kiểm chứng cách ứng dụng hoạt động.</value>
+  </data>
+  <data name="OnboardingSetPasswordExplanation" xml:space="preserve">
+    <value>Mật khẩu này giúp ngăn trẻ tự ý tắt, tạm dừng hoặc gỡ ParentalGuard khi chưa có sự cho phép của người lớn. Hãy giữ kín mật khẩu và không chia sẻ cho trẻ.</value>
+  </data>
+  <data name="AboutHowItWorksHeader" xml:space="preserve">
+    <value>Cách ứng dụng hoạt động và dữ liệu được lưu</value>
+  </data>
+  <data name="AboutHowItWorksOperation" xml:space="preserve">
+    <value>ParentalGuard phân tích hình ảnh hiển thị trên màn hình ngay trên máy tính này bằng một mô hình trí tuệ nhân tạo chạy ngoại tuyến. Khi phát hiện nội dung nhạy cảm, ứng dụng che phủ cửa sổ chứa nội dung đó.</value>
+  </data>
+  <data name="AboutHowItWorksPrivacy" xml:space="preserve">
+    <value>Ứng dụng không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Ứng dụng không kết nối Internet và không chia sẻ dữ liệu với bên thứ ba; tiến trình nhận diện bị chặn truy cập mạng ở tầng tường lửa của Windows.</value>
+  </data>
+  <data name="AboutStoredDataIntro" xml:space="preserve">
+    <value>Dữ liệu được lưu trên máy gồm:</value>
+  </data>
+  <data name="AboutStoredDataViolations" xml:space="preserve">
+    <value>Nhật ký phát hiện vi phạm: thời điểm, tên ứng dụng và mức độ tin cậy của kết quả nhận diện.</value>
+  </data>
+  <data name="AboutStoredDataPause" xml:space="preserve">
+    <value>Lịch sử tạm dừng và tiếp tục giám sát.</value>
+  </data>
+  <data name="AboutStoredDataAuth" xml:space="preserve">
+    <value>Lịch sử đăng nhập và thay đổi cài đặt.</value>
+  </data>
+  <data name="AboutStoredDataSecurity" xml:space="preserve">
+    <value>Sự kiện hệ thống và an ninh: khởi động dịch vụ, dấu hiệu can thiệp, gỡ cài đặt.</value>
+  </data>
+  <data name="AboutStoredDataConfig" xml:space="preserve">
+    <value>Các thiết lập của ứng dụng và danh sách ứng dụng được loại trừ. Mật khẩu chỉ được lưu dưới dạng mã băm một chiều, không thể khôi phục ngược.</value>
+  </data>
+  <data name="AboutStoredDataNote" xml:space="preserve">
+    <value>Nhật ký chỉ chứa siêu dữ liệu, được bảo vệ bằng chuỗi băm chống chỉnh sửa và được lưu tối thiểu 180 ngày.</value>
   </data>
 </root>

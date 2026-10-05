@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.9.3 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
 
 ## 1. Mục đích
 
@@ -779,6 +779,39 @@ message VerifyAuditChainResponse {                                 // field 155
 }
 ```
 
+### 3.7b Phiên đăng nhập phụ huynh + biểu đồ 6 tháng (v0.10.0, 2026-10-05 — `PWD-024`, `FE-080`–`083`, `FE-071a`)
+
+```proto
+message ParentSessionRequest { // field 158
+  ParentSessionOp op = 1;
+  bytes action_token = 2; // chỉ dùng khi op=OPEN — action_context="parent_session" (08 mục 7.10)
+}
+
+message ParentSessionResponse { // field 159
+  ParentSessionResult result = 1;
+  int64 idle_expires_at_unix_ms = 2; // chỉ có ý nghĩa khi result=SUCCESS
+}
+
+enum ParentSessionOp {
+  PARENT_SESSION_OP_UNSPECIFIED = 0;
+  PARENT_SESSION_OP_OPEN = 1;      // đổi action_token "parent_session" lấy phiên trên kết nối pipe hiện tại
+  PARENT_SESSION_OP_KEEPALIVE = 2; // gia hạn idle (UI gửi khi có thao tác người dùng, tối đa 1 lần/60s)
+  PARENT_SESSION_OP_CLOSE = 3;     // Đăng xuất — idempotent
+}
+
+enum ParentSessionResult {
+  PARENT_SESSION_RESULT_UNSPECIFIED = 0;
+  PARENT_SESSION_RESULT_SUCCESS = 1;
+  PARENT_SESSION_RESULT_INVALID_TOKEN = 2; // OPEN với token sai/hết hạn/sai action_context
+  PARENT_SESSION_RESULT_NOT_ACTIVE = 3;    // KEEPALIVE khi phiên đã hết hạn/chưa mở
+}
+```
+
+- **Phạm vi phiên = đúng 1 kết nối pipe `UI`** (ADR-149): state nằm trong object per-connection (`UiParentSession`, thay `AuditLogViewSession`), tự biến mất khi kết nối đóng (đóng Dashboard → `PWD-024` "đóng Dashboard kết thúc phiên").
+- **Message chấp nhận phiên** (ADR-150): `AuditLogQuery`, `VerifyAuditChainRequest`, `RemoveWhitelistEntryRequest`, `ResetWhitelistRequest` — hợp lệ nếu (a) phiên đang hoạt động (token để rỗng) **hoặc** (b) `action_token` 1-lần đúng `action_context` cũ (giữ tương thích). **`ConfigUpdateRequest` nay BẮT BUỘC phiên đang hoạt động** (supersedes ADR-125 "không gate") — response mới `CONFIG_UPDATE_RESULT_NOT_AUTHENTICATED = 4`. Mỗi request hợp lệ qua phiên **gia hạn idle**.
+- **Không gate**: `ConfigQuery` (UI cần đọc cấu hình để hiển thị bản làm mờ, `FE-081`), `DashboardStatusQuery`, `AuditChartQuery`. Pause/Resume/Uninstall **không** nhận phiên (`PWD-024`) — vẫn `action_token` 1-lần.
+- `AuditChartQuery.range_days` (ADR-151): Service chấp nhận `7 | 30 | 90 | 180` (giá trị khác → 7). Service luôn trả số liệu theo **ngày**; UI tự gộp theo tuần cho 90/180 (`FE-071a`).
+
 ### 3.7a Service-side handler binding (gap fix Đợt 8b) — `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest`
 
 Khảo sát code thật (đầu Đợt 8b) xác nhận đúng 3 message field 98/140/144 (đã định nghĩa schema từ v0.8.0, Đợt 6) chưa từng có handler ở `Service` — rơi vào nhánh `default` của `UiSessionServer.DispatchAsync` (`throw new InvalidOperationException` từ `AuthCoordinator.HandleAsync`). Đây là gap thực thi cuối cùng của nhóm "IPC message đã định nghĩa nhưng `Service` chưa implement" (cùng loại đã đóng cho `ConfigCoordinator`/`AuditLogCoordinator` ở Đợt 7, mở rộng thêm `VerifyAuditChainRequest` ở Đợt 8). Phân công handler cụ thể:
@@ -931,6 +964,9 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 | ADR-142 (v0.8.4) | Thêm `enum VerifyAuditChainResult`/field `result` (field 5) vào `VerifyAuditChainResponse` — **audit fix**: bản implement gốc (ADR-136) drop mất việc enforce gate `view_audit_log` qua `AuditLogViewSession` khi định tuyến, khiến endpoint hoàn toàn không xác thực (FAIL cứng do security-privacy-auditor phát hiện) | Ý đồ "không mang `action_token` riêng" ở ADR-136 vẫn đúng — chỉ thiếu 1 con đường để Service TỪ CHỐI khi session chưa/không còn qua gate; thêm field `result` (cùng pattern `AuditLogQueryResult`) để response phân biệt `SUCCESS` (4 field cũ có ý nghĩa) với `INVALID_TOKEN` (session chưa gate/hết hạn) — additive, không phá field 1-4 cũ (đúng ADR-16) |
 | ADR-145 (v0.8.5) | `AcknowledgePauseAnomalyRequest` (field 140) route tới `PauseCoordinator` (thêm case vào switch có sẵn), KHÔNG phải `DashboardCoordinator` mới dù cùng nhóm field UI-block Dashboard (98-99/140-141/144-145) | `PauseCoordinator` là chủ sở hữu DUY NHẤT `pause_state`/`_gate`/`TryPersist` — để `DashboardCoordinator` tự ghi state này sẽ tạo 2 nguồn ghi song song cho cùng 1 dòng `config.db`, đúng lớp lỗi "2 nguồn ghi trùng lặp" mà `AuditLogCoordinator` đã né bằng cách uỷ quyền `ConfigCoordinator` ghi whitelist (Đợt 6); `DashboardCoordinator` chỉ giữ đúng vai trò đọc-tổng-hợp-thuần (`DashboardStatusQuery`/`AuditChartQuery`) |
 | ADR-146 (v0.8.5) | Xác nhận lại tường minh (không để ngầm hiểu, rút kinh nghiệm FAIL Đợt 7/8): `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest` đều KHÔNG gate `action_token` | `DashboardStatusQuery`/`AuditChartQuery`: thuộc nhóm "biểu đồ/chỉ số tổng hợp" (ADR-121), không lộ `process_name`/nội dung vi phạm cụ thể; `AcknowledgePauseAnomalyRequest`: tuy là hành động ghi nhưng chỉ ẩn banner UI (không tắt/yếu giám sát, không xoá bằng chứng audit log) — cùng nhóm không-gate với `ConfigUpdateRequest.performance_mode`/`overlay_message` (ADR-125), khác nhóm có-gate `manage_whitelist` |
+| ADR-149 (v0.10.0) | Phiên đăng nhập phụ huynh gắn với đúng 1 kết nối pipe `UI` (object per-connection), idle 10 phút đo bằng `MonotonicClock` | Tái dùng đúng mẫu hình đã qua audit 2026-09-28 (`AuditLogViewSession` per-connection) — không có state service-wide để rò sang kết nối khác; kết nối đóng = phiên chết, không cần token bearer sống lâu ngoài pipe đã xác thực danh tính (mục 4.2) + ký HMAC session_key (mục 5.3) |
+| ADR-150 (v0.10.0) | Message thay đổi cấu hình/xem log chấp nhận "phiên HOẶC action_token 1-lần"; `ConfigUpdateRequest` bắt buộc phiên | `PWD-024` yêu cầu Service kiểm tra phiên ở mọi yêu cầu thay đổi cài đặt — chỉ làm mờ UI là không đủ (UI chạy quyền user). Giữ nhánh `action_token` để không phá client/test cũ |
+| ADR-151 (v0.10.0) | `range_days` thêm 90/180; Service trả theo ngày, UI gộp tuần | Giữ contract `DailyBlockCount` không đổi; gộp tuần là thuần trình bày |
 | ADR-148 (v0.8.7) | Xoá Deny tường minh `Everyone`/`WorldSid` khỏi DACL cả 3 pipe `Vision`/`Overlay`/`Watchdog` (mục 2.2) | `Everyone` là superset chứa cả SID hợp lệ đang được Allow (user cụ thể hoặc SYSTEM) — Windows đánh giá DACL canonical Deny-trước-Allow nên Deny-Everyone chặn đứng ngay cả Allow hợp lệ, root cause thật của crash-loop `Vision`/`Overlay` phát hiện lần đầu trên phần cứng thật (Đợt 9) — sandbox/unit-test trước đó không có access-check DACL thật nên chưa từng lộ ra. Deny Anonymous/Guests/Interactive (3 group hẹp, không chứa SID hợp lệ) vẫn giữ nguyên, đủ để chặn kết nối không xác thực mà không tự chặn luôn chính mình |
 | ADR-147 (v0.8.6) | Tăng `_connectBudget` (ngân sách connect sau spawn mới, mục 4.1) từ 2 giây lên 15 giây; tách khái niệm này khỏi ngân sách ≤3s phục hồi crash của `BE-023` (heartbeat-miss trong phiên đã kết nối, không đổi) | Phát hiện lần đầu chạy E2E trên máy thật (Đợt 9): giá trị 2s là giả định lạc quan chưa test thật — `Vision` cần đọc model + verify checksum + khởi tạo DirectML `InferenceSession` (build shader cache D3D12 lần đầu) trước khi connect, cộng cold JIT self-contained + khả năng antivirus quét file `.exe`/`.dll` lớn mới copy — không hiện diện trong sandbox/unit-test. `BE-023` literal text chỉ nói về phục hồi sau khi PHÁT HIỆN crash qua heartbeat-miss (mục 2.4), không quy định thời gian connect lần đầu sau spawn — 2 khái niệm độc lập, sửa 1 bên không kéo theo Specification |
 
@@ -943,6 +979,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.10.0 | 2026-10-05 | MINOR — mục 3.7b: `ParentSessionRequest`/`Response` (field 158/159), phiên phụ huynh per-connection idle 10 phút (ADR-149), message chấp nhận phiên + `ConfigUpdateRequest` bắt buộc phiên, `CONFIG_UPDATE_RESULT_NOT_AUTHENTICATED` (ADR-150, supersedes ADR-125), `range_days` 90/180 (ADR-151). Nguồn: `PWD-024`, `FE-080`–`083`, `FE-071a` |
 | v0.9.3 | 2026-10-01 | PATCH — `MISC-030c`: field 156/157 `ResetWhitelistRequest{action_token}`/`ResetWhitelistResponse{result, whitelist}` (khối UI 140-159), gate `manage_whitelist`; Service đặt `exclude_process_names` = `BE-073a`, xoá mục cũ người dùng, push `ControlVisionCommand`, audit `ConfigChanged{field="whitelist", action="reset"}` |
 | v0.9.2 | 2026-10-01 | PATCH — `MISC-030b`: `ConfigResponse.user_whitelisted_process_names` nay trả whitelist HIỆU DỤNG = `exclude_process_names` (danh sách cấp sẵn `BE-073a`) ∪ mục cũ người dùng thêm (không trùng, không phân biệt hoa thường) — giữ nguyên số field; `RemoveWhitelistEntryRequest` xoá khỏi cả 2 danh sách, audit `ConfigChanged{field="whitelist"}` |
 | v0.9.1 | 2026-10-01 | PATCH — `MISC-030a`: field 146/147 `MarkFalsePositiveRequest/Response` DEPRECATED (giữ số field, không xoá — đúng quy tắc mục 2); `Service` luôn trả `MARK_FALSE_POSITIVE_RESULT_UNSPECIFIED`, không tiêu thụ `action_token`, không ghi whitelist; xoá `ConfigCoordinator.TryAddUserWhitelistEntryAsync` (không còn đường thêm whitelist nào) |

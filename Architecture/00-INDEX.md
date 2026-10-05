@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-05 | Spec v0.9.0: `03` v0.10.0 (`ParentSessionRequest` field 158/159, ADR-149/150/151 — phiên phụ huynh per-connection idle 10 phút, `ConfigUpdateRequest` bắt buộc phiên, `range_days` 90/180), `08` v0.4.0 (mục 7.10, `action_context="parent_session"`), `10` v0.3.0 (mục 6.8: khung đăng nhập `S3`/`S4`, giới thiệu 5 thẻ, ngôn ngữ song ngữ, biểu đồ gộp tuần, "Máy tính đang được bảo vệ", nền dải chuyển màu). Nút bánh răng overlay nhỏ lại (`FE-016k`) là chi tiết implement, không đổi `07` |
 | 2026-10-01 | `07` v0.3.5 (vùng loại trừ nút đóng 160×40, đệm dọc 6px — `FE-016j`), `10` v0.2.14 (whitelist có thanh cuộn) |
 | 2026-10-01 | Spec v0.8.7: `05` v0.4.1 (xoay vòng quét cửa sổ `BE-071b`), `10` v0.2.13 (nền đậm hơn, phiên bản ở chân menu `FE-007`), `07` v0.3.4 (nút bánh răng không khối nền) |
 | 2026-10-01 | `10` v0.2.11→**v0.2.12** — nền cảnh hồ + hoa đào + núi rừng, title bar màu riêng (Spec v0.8.6) |

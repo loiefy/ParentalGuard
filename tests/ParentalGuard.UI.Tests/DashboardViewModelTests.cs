@@ -94,10 +94,10 @@ public sealed class DashboardViewModelTests
     }
 
     [Theory]
-    [InlineData(false, true, true)]
     [InlineData(true, false, true)]
     [InlineData(true, true, false)]
-    public void ApplyStatus_AnyChannelDown_YieldsErrorState_EvenWhenPaused(bool watchdogAlive, bool visionConnected, bool overlayConnected)
+    [InlineData(false, false, true)]
+    public void ApplyStatus_ProtectionChannelDown_YieldsErrorState_EvenWhenPaused(bool watchdogAlive, bool visionConnected, bool overlayConnected)
     {
         var viewModel = CreateViewModel();
 
@@ -110,6 +110,57 @@ public sealed class DashboardViewModelTests
 
         Assert.Equal(DashboardCardState.Error, viewModel.CardState);
         Assert.True(viewModel.IsErrorState);
+    }
+
+    /// <summary>`FE-042` (2026-10-05): "Máy tính đang được bảo vệ" chỉ cần Vision + Overlay — Watchdog lỗi không làm mất trạng thái xanh.</summary>
+    [Fact]
+    public void ApplyStatus_WatchdogDownButVisionAndOverlayUp_StaysActive_ShowsProtectedText()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.ApplyStatus(new DashboardStatus(
+            WatchdogAlive: false, VisionConnected: true, VisionDiagnosticState: "alive", OverlayConnected: true,
+            UsingFallbackConfig: false, AuditLogFreeDiskBytes: 1_000_000_000, PauseAnomalyPendingAck: false,
+            IsPaused: false, PauseExpiresAtUnixMs: 0));
+
+        Assert.Equal(DashboardCardState.Active, viewModel.CardState);
+        Assert.Equal("Máy tính đang được bảo vệ", viewModel.StatusCardText);
+        Assert.Equal(LocalizationService.Get("DashboardHealthWatchdogDown"), viewModel.WatchdogStatusText);
+    }
+
+    /// <summary>`FE-071a`: 3/6 tháng gộp theo tuần, 1 tuần/1 tháng giữ theo ngày; tiêu đề đổi theo.</summary>
+    [Theory]
+    [InlineData(7u, 7, "DashboardChartTitleDaily")]
+    [InlineData(30u, 30, "DashboardChartTitleDaily")]
+    [InlineData(90u, 13, "DashboardChartTitleWeekly")]
+    [InlineData(180u, 26, "DashboardChartTitleWeekly")]
+    public void ChartBars_BucketByRange(uint rangeDays, int expectedBars, string titleKey)
+    {
+        var viewModel = CreateViewModel();
+        DateOnly today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var days = Enumerable.Range(0, (int)rangeDays)
+            .Select(i => new DailyBlockCount(today.AddDays(i - (int)rangeDays + 1).ToString("yyyy-MM-dd"), 1))
+            .ToList();
+
+        viewModel.ChartRangeDays = rangeDays;
+        viewModel.ChartData = new System.Collections.ObjectModel.ObservableCollection<DailyBlockCount>(days);
+
+        Assert.Equal(expectedBars, viewModel.ChartBars.Count);
+        Assert.Equal(rangeDays, (uint)viewModel.ChartBars.Sum(b => b.BlockedCount));
+        Assert.Equal(today.ToString("yyyy-MM-dd"), viewModel.ChartBars[^1].ToDateUtc);
+        Assert.Equal(LocalizationService.Get(titleKey), viewModel.ChartTitleText);
+    }
+
+    [Fact]
+    public void ChartBucketer_Weekly_LastBucketIsFullWeekEndingToday_FirstMayBePartial()
+    {
+        var days = Enumerable.Range(1, 10).Select(i => new DailyBlockCount($"2026-10-{i:00}", (uint)i)).ToList();
+
+        IReadOnlyList<ChartBar> bars = ChartBucketer.Bucket(days, 90);
+
+        Assert.Equal(2, bars.Count);
+        Assert.Equal(new ChartBar("2026-10-01", "2026-10-03", 1 + 2 + 3), bars[0]);
+        Assert.Equal(new ChartBar("2026-10-04", "2026-10-10", 4 + 5 + 6 + 7 + 8 + 9 + 10), bars[1]);
     }
 
     [Fact]

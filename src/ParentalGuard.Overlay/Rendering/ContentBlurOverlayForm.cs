@@ -92,12 +92,15 @@ public sealed class ContentBlurOverlayForm : Form
         _settingsButton = new Button
         {
             Text = "\uE713", // Segoe MDL2 Assets: Settings (bánh răng)
-            Font = new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular),
+            // FE-016k (2026-10-05): nhỏ lại ~1/2 so với v0.18.0 (14pt + đệm 6, AutoSize) — gần bằng icon, đệm tối thiểu.
+            Font = new Font("Segoe MDL2 Assets", 10f, FontStyle.Regular),
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.FromArgb(24, 24, 28), // hoà vào nền overlay — không hiện thành khối chữ nhật
             ForeColor = Color.White,
-            AutoSize = true,
-            Padding = new Padding(6),
+            AutoSize = false,
+            Size = new Size(26, 26),
+            Padding = Padding.Empty,
+            TextAlign = ContentAlignment.MiddleCenter,
             Cursor = Cursors.Hand,
             Visible = onOpenDashboard is not null,
         };
@@ -331,6 +334,8 @@ public sealed class ContentBlurOverlayForm : Form
         }
 
         int margin = (int)Math.Round(12 * DeviceDpi / 96.0);
+        int gearSide = (int)Math.Round(26 * DeviceDpi / 96.0); // FE-016k — bám DPI cùng cỡ font icon
+        _settingsButton.Size = new Size(gearSide, gearSide);
         _settingsButton.Location = new Point(margin, margin);
     }
 

@@ -18,7 +18,7 @@ public class ConfigCoordinatorTests : IDisposable
     private readonly string _auditLogPath = Path.Combine(Path.GetTempPath(), $"pg-audit-config-{Guid.NewGuid():N}.log");
     private readonly string _configDbPath = Path.Combine(Path.GetTempPath(), $"pg-config-config-{Guid.NewGuid():N}.db");
 
-    private sealed record Fixture(ConfigCoordinator Config, AuthCoordinator Auth, AuditLogWriter AuditLog, MonitoringStateHolder Holder, Func<int> PushCount)
+    private sealed record Fixture(ConfigCoordinator Config, AuthCoordinator Auth, AuditLogWriter AuditLog, MonitoringStateHolder Holder, Func<int> PushCount, FakeMonotonicClock Clock, UiParentSession Session)
     {
         public List<string> OverlayMessagesPushed { get; init; } = [];
     }
@@ -37,7 +37,7 @@ public class ConfigCoordinatorTests : IDisposable
         List<string> overlayMessagesPushed = [];
         var configCoordinator = new ConfigCoordinator(holder, _configDbPath, authCoordinator, auditLog, () => pushCount++, overlayMessagesPushed.Add);
 
-        return new Fixture(configCoordinator, authCoordinator, auditLog, holder, () => pushCount) { OverlayMessagesPushed = overlayMessagesPushed };
+        return new Fixture(configCoordinator, authCoordinator, auditLog, holder, () => pushCount, clock, new UiParentSession(clock)) { OverlayMessagesPushed = overlayMessagesPushed };
     }
 
     private static async Task<byte[]> GetValidActionTokenAsync(AuthCoordinator auth, string actionContext = "manage_whitelist")
@@ -57,7 +57,7 @@ public class ConfigCoordinatorTests : IDisposable
     {
         Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { OverlayMessage = "Hi.", UserWhitelistedProcessNames = ["a.exe"] });
 
-        IpcPayload response = await fx.Config.HandleAsync(new IpcPayload { MessageId = 1, ConfigQuery = new ConfigQuery() }, CancellationToken.None);
+        IpcPayload response = await fx.Config.HandleAsync(new IpcPayload { MessageId = 1, ConfigQuery = new ConfigQuery() }, fx.Session, CancellationToken.None);
 
         Assert.Equal("Hi.", response.ConfigResp.OverlayMessage);
         // MISC-030b: whitelist hiển thị = danh sách cấp sẵn BE-073a + mục cũ người dùng thêm.
@@ -69,10 +69,11 @@ public class ConfigCoordinatorTests : IDisposable
     public async Task ConfigUpdate_ValidOverlayMessage_PersistsAndUpdatesHolder_NoPush()
     {
         Fixture fx = await CreateAsync();
+        fx.Session.Open(); // PWD-024/ADR-150: ConfigUpdate bắt buộc phiên phụ huynh
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "New message.", PerformanceMode = PerformanceMode.Balanced } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ConfigUpdateResult.Success, response.ConfigUpdateResp.Result);
         Assert.Equal("New message.", fx.Holder.Current.OverlayMessage);
@@ -87,10 +88,11 @@ public class ConfigCoordinatorTests : IDisposable
     public async Task ConfigUpdate_PerformanceModeChanged_PushesControlVisionCommand()
     {
         Fixture fx = await CreateAsync();
+        fx.Session.Open(); // PWD-024/ADR-150: ConfigUpdate bắt buộc phiên phụ huynh
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "", PerformanceMode = PerformanceMode.MaximumProtection } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ConfigUpdateResult.Success, response.ConfigUpdateResp.Result);
         Assert.Equal(PerformanceMode.MaximumProtection, fx.Holder.Current.PerformanceMode);
@@ -102,10 +104,11 @@ public class ConfigCoordinatorTests : IDisposable
     public async Task ConfigUpdate_PerformanceModeUnspecified_KeepsCurrentMode()
     {
         Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { PerformanceMode = PerformanceMode.MaximumProtection });
+        fx.Session.Open(); // PWD-024/ADR-150: ConfigUpdate bắt buộc phiên phụ huynh
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "", PerformanceMode = PerformanceMode.Unspecified } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ConfigUpdateResult.Success, response.ConfigUpdateResp.Result);
         Assert.Equal(PerformanceMode.MaximumProtection, fx.Holder.Current.PerformanceMode);
@@ -116,11 +119,12 @@ public class ConfigCoordinatorTests : IDisposable
     public async Task ConfigUpdate_MessageTooLong_ReturnsTooLong_DoesNotPersist()
     {
         Fixture fx = await CreateAsync();
+        fx.Session.Open(); // PWD-024/ADR-150: ConfigUpdate bắt buộc phiên phụ huynh
         string tooLong = new('a', 256);
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = tooLong, PerformanceMode = PerformanceMode.Balanced } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ConfigUpdateResult.TooLong, response.ConfigUpdateResp.Result);
         Assert.Equal("", fx.Holder.Current.OverlayMessage);
@@ -130,10 +134,11 @@ public class ConfigCoordinatorTests : IDisposable
     public async Task ConfigUpdate_InvalidCharacters_ReturnsInvalidCharacters()
     {
         Fixture fx = await CreateAsync();
+        fx.Session.Open(); // PWD-024/ADR-150: ConfigUpdate bắt buộc phiên phụ huynh
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "50% off!", PerformanceMode = PerformanceMode.Balanced } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ConfigUpdateResult.InvalidCharacters, response.ConfigUpdateResp.Result);
     }
@@ -145,7 +150,7 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ActionToken = ByteString.CopyFrom([1, 2, 3]), ProcessName = "a.exe" } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(RemoveWhitelistEntryResult.InvalidToken, response.RemoveWhitelistResp.Result);
         Assert.Equal(["a.exe"], fx.Holder.Current.UserWhitelistedProcessNames);
@@ -159,7 +164,7 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ActionToken = ByteString.CopyFrom(token), ProcessName = "missing.exe" } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(RemoveWhitelistEntryResult.NotFound, response.RemoveWhitelistResp.Result);
     }
@@ -172,7 +177,7 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ActionToken = ByteString.CopyFrom(token), ProcessName = "a.exe" } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(RemoveWhitelistEntryResult.Success, response.RemoveWhitelistResp.Result);
         Assert.Equal(["b.exe"], fx.Holder.Current.UserWhitelistedProcessNames);
@@ -191,7 +196,7 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ActionToken = ByteString.CopyFrom(token), ProcessName = "TASKMGR.EXE" } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(RemoveWhitelistEntryResult.Success, response.RemoveWhitelistResp.Result);
         Assert.DoesNotContain(fx.Holder.Current.ExcludeProcessNames, n => n.Equals("Taskmgr.exe", StringComparison.OrdinalIgnoreCase));
@@ -214,7 +219,7 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ResetWhitelistReq = new ResetWhitelistRequest { ActionToken = ByteString.CopyFrom(token) } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ResetWhitelistResult.Success, response.ResetWhitelistResp.Result);
         Assert.Equal(MonitoringStateData.InitialExcludeProcessNames, response.ResetWhitelistResp.Whitelist);
@@ -230,10 +235,91 @@ public class ConfigCoordinatorTests : IDisposable
 
         IpcPayload response = await fx.Config.HandleAsync(
             new IpcPayload { MessageId = 1, ResetWhitelistReq = new ResetWhitelistRequest { ActionToken = ByteString.CopyFrom([1, 2, 3]) } },
-            CancellationToken.None);
+            fx.Session, CancellationToken.None);
 
         Assert.Equal(ResetWhitelistResult.InvalidToken, response.ResetWhitelistResp.Result);
         Assert.Equal(["regedit.exe"], fx.Holder.Current.ExcludeProcessNames);
+    }
+
+    /// <summary>`PWD-024`/ADR-150 — supersedes ADR-125: đổi cài đặt khi chưa đăng nhập phụ huynh bị từ chối, không ghi gì.</summary>
+    [Fact]
+    public async Task ConfigUpdate_NoParentSession_ReturnsNotAuthenticated_DoesNotPersist()
+    {
+        Fixture fx = await CreateAsync();
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "New message.", PerformanceMode = PerformanceMode.MaximumProtection } },
+            fx.Session, CancellationToken.None);
+
+        Assert.Equal(ConfigUpdateResult.NotAuthenticated, response.ConfigUpdateResp.Result);
+        Assert.Equal("", fx.Holder.Current.OverlayMessage);
+        Assert.Equal(PerformanceMode.Balanced, fx.Holder.Current.PerformanceMode);
+        Assert.Equal(0, fx.PushCount());
+    }
+
+    /// <summary>`PWD-024`: phiên tự hết hạn sau 10 phút không thao tác.</summary>
+    [Fact]
+    public async Task ConfigUpdate_ParentSessionIdleExpired_ReturnsNotAuthenticated()
+    {
+        Fixture fx = await CreateAsync();
+        fx.Session.Open();
+        fx.Clock.Now += (long)UiParentSession.IdleTimeout.TotalMilliseconds;
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "New message.", PerformanceMode = PerformanceMode.Balanced } },
+            fx.Session, CancellationToken.None);
+
+        Assert.Equal(ConfigUpdateResult.NotAuthenticated, response.ConfigUpdateResp.Result);
+        Assert.False(fx.Session.IsActive);
+    }
+
+    /// <summary>`PWD-024`: mỗi request hợp lệ gia hạn idle — thao tác liên tục không bị đá ra giữa chừng.</summary>
+    [Fact]
+    public async Task ConfigUpdate_WithinIdleWindow_ExtendsSession()
+    {
+        Fixture fx = await CreateAsync();
+        fx.Session.Open();
+        fx.Clock.Now += (long)UiParentSession.IdleTimeout.TotalMilliseconds - 1000;
+
+        IpcPayload first = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "One.", PerformanceMode = PerformanceMode.Balanced } },
+            fx.Session, CancellationToken.None);
+        fx.Clock.Now += (long)UiParentSession.IdleTimeout.TotalMilliseconds - 1000;
+        IpcPayload second = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 2, ConfigUpdateReq = new ConfigUpdateRequest { OverlayMessage = "Two.", PerformanceMode = PerformanceMode.Balanced } },
+            fx.Session, CancellationToken.None);
+
+        Assert.Equal(ConfigUpdateResult.Success, first.ConfigUpdateResp.Result);
+        Assert.Equal(ConfigUpdateResult.Success, second.ConfigUpdateResp.Result);
+        Assert.Equal("Two.", fx.Holder.Current.OverlayMessage);
+    }
+
+    /// <summary>ADR-150: đã đăng nhập phụ huynh thì xoá whitelist không cần action_token (UI gửi token rỗng).</summary>
+    [Fact]
+    public async Task RemoveWhitelist_ActiveParentSession_EmptyToken_Succeeds()
+    {
+        Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { UserWhitelistedProcessNames = ["a.exe"] });
+        fx.Session.Open();
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ProcessName = "a.exe" } },
+            fx.Session, CancellationToken.None);
+
+        Assert.Equal(RemoveWhitelistEntryResult.Success, response.RemoveWhitelistResp.Result);
+        Assert.Empty(fx.Holder.Current.UserWhitelistedProcessNames);
+    }
+
+    [Fact]
+    public async Task RemoveWhitelist_NoParentSession_EmptyToken_ReturnsInvalidToken()
+    {
+        Fixture fx = await CreateAsync(MonitoringStateData.CreateFirstRunDefault() with { UserWhitelistedProcessNames = ["a.exe"] });
+
+        IpcPayload response = await fx.Config.HandleAsync(
+            new IpcPayload { MessageId = 1, RemoveWhitelistReq = new RemoveWhitelistEntryRequest { ProcessName = "a.exe" } },
+            fx.Session, CancellationToken.None);
+
+        Assert.Equal(RemoveWhitelistEntryResult.InvalidToken, response.RemoveWhitelistResp.Result);
+        Assert.Equal(["a.exe"], fx.Holder.Current.UserWhitelistedProcessNames);
     }
 
     public void Dispose()

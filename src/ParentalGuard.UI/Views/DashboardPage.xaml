@@ -28,17 +28,27 @@
             <InfoBar Severity="Informational" IsOpen="{x:Bind ViewModel.HasErrorMessage, Mode=OneWay}"
                      Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" IsClosable="False" />
 
-            <!-- 1. Thẻ trạng thái tổng quan (mục 6.2.1) -->
-            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="20">
-                <StackPanel Orientation="Horizontal" Spacing="12">
-                    <Ellipse Width="16" Height="16" Fill="#2E7D32" VerticalAlignment="Center"
-                             Visibility="{x:Bind ViewModel.IsActiveState, Mode=OneWay}" />
-                    <Ellipse Width="16" Height="16" Fill="#F9A825" VerticalAlignment="Center"
-                             Visibility="{x:Bind ViewModel.IsPausedState, Mode=OneWay}" />
-                    <Ellipse Width="16" Height="16" Fill="#C62828" VerticalAlignment="Center"
-                             Visibility="{x:Bind ViewModel.IsErrorState, Mode=OneWay}" />
+            <!-- 1. Thẻ trạng thái tổng quan (mục 6.2.1). FE-042: đang bảo vệ = dấu tích xanh lá + "Máy tính đang được bảo vệ";
+                 tạm dừng/gián đoạn có biểu tượng + màu riêng (vàng/đỏ) đối lập rõ. -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="20"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <Grid Width="40" Height="40" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsActiveState, Mode=OneWay}">
+                        <Ellipse Fill="#2E7D32" />
+                        <FontIcon Glyph="&#xE73E;" FontSize="20" Foreground="White" />
+                    </Grid>
+                    <Grid Width="40" Height="40" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsPausedState, Mode=OneWay}">
+                        <Ellipse Fill="#F9A825" />
+                        <FontIcon Glyph="&#xE769;" FontSize="18" Foreground="White" />
+                    </Grid>
+                    <Grid Width="40" Height="40" VerticalAlignment="Center" Visibility="{x:Bind ViewModel.IsErrorState, Mode=OneWay}">
+                        <Ellipse Fill="#C62828" />
+                        <FontIcon Glyph="&#xE7BA;" FontSize="18" Foreground="White" />
+                    </Grid>
+                    <ProgressRing Width="28" Height="28" VerticalAlignment="Center" IsActive="{x:Bind ViewModel.IsCheckingState, Mode=OneWay}"
+                                  Visibility="{x:Bind ViewModel.IsCheckingState, Mode=OneWay}" />
                     <TextBlock Text="{x:Bind ViewModel.StatusCardText, Mode=OneWay}"
-                               Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                               Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
 
@@ -73,10 +83,13 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="ChartTitleText" Grid.Column="0" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="Chart7Button" Click="OnChart7Click" />
-                        <Button x:Name="Chart30Button" Click="OnChart30Click" />
+                    <TextBlock Text="{x:Bind ViewModel.ChartTitleText, Mode=OneWay}" Grid.Column="0" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                    <!-- FE-071a: chọn nhanh 1 tuần / 1 tháng / 3 tháng / 6 tháng (nút đang chọn tô màu nhấn). -->
+                    <StackPanel x:Name="ChartRangeButtons" Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button x:Name="Chart7Button" Tag="7" Click="OnChartRangeClick" />
+                        <Button x:Name="Chart30Button" Tag="30" Click="OnChartRangeClick" />
+                        <Button x:Name="Chart90Button" Tag="90" Click="OnChartRangeClick" />
+                        <Button x:Name="Chart180Button" Tag="180" Click="OnChartRangeClick" />
                     </StackPanel>
                 </Grid>
                 <TextBlock x:Name="ChartEmptyText" Visibility="{x:Bind ViewModel.IsChartEmpty, Mode=OneWay}" />

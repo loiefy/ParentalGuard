@@ -48,6 +48,7 @@ public sealed class ConfigFacade(UiIpcClient client) : IConfigFacade
             ConfigUpdateResult.Success => ConfigUpdateOutcome.Success,
             ConfigUpdateResult.InvalidCharacters => ConfigUpdateOutcome.InvalidCharacters,
             ConfigUpdateResult.TooLong => ConfigUpdateOutcome.TooLong,
+            ConfigUpdateResult.NotAuthenticated => ConfigUpdateOutcome.NotAuthenticated,
             _ => throw new UiIpcConnectionException($"Unexpected ConfigUpdateResult: {resp.Result}."),
         };
     }

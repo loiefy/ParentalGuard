@@ -16,4 +16,7 @@ public static class LocalizationService
     public static string Get(string key) => _resourceManager.GetString(key) ?? key;
 
     public static string GetFormatted(string key, params object[] args) => string.Format(Get(key), args);
+
+    /// <summary>Mã ngôn ngữ của bộ resource đang thực sự được dùng (khoá <c>LanguageCode</c> trong từng file `.resx`, `FE-064`).</summary>
+    public static string CurrentLanguageCode => Get("LanguageCode");
 }

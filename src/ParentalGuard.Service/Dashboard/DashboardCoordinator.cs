@@ -85,7 +85,7 @@ public sealed class DashboardCoordinator(
     private async Task<IpcPayload> HandleAuditChartAsync(IpcPayload request, CancellationToken cancellationToken)
     {
         AuditChartQuery req = request.AuditChartQuery;
-        uint rangeDays = req.RangeDays is 7 or 30 ? req.RangeDays : 7; // FE-071 — chỉ hỗ trợ 2 giá trị, mặc định an toàn nếu client gửi sai.
+        uint rangeDays = req.RangeDays is 7 or 30 or 90 or 180 ? req.RangeDays : 7; // FE-071a (ADR-151) — 1 tuần/1 tháng/3 tháng/6 tháng, mặc định an toàn nếu client gửi sai.
 
         Dictionary<DateOnly, uint> countsByDay = await GetContentBlockedCountsByDayAsync(cancellationToken).ConfigureAwait(false);
 

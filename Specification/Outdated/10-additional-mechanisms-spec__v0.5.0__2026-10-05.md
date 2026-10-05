@@ -1,6 +1,6 @@
 # 10 — Additional Mechanisms Spec (tự nghiên cứu, đề xuất để review)
 
-> Version: v0.6.0 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`| Cập nhật: 2026-10-01
+> Version: v0.5.0 | Trạng thái: Approved — chủ dự án đã approve toàn bộ mục trong file này (bảng ưu tiên mục 10 và từng mục con), trừ `MISC-020`/`MISC-080` đã `REJECTED`| Cập nhật: 2026-10-01
 > Cập nhật: 2026-09-29
 
 Đây là các cơ chế chưa được yêu cầu trực tiếp nhưng cần thiết cho một sản phẩm hoàn chỉnh, dựa trên kinh nghiệm từ các sản phẩm parental control hiện có và các rủi ro đã phân tích xuyên suốt các buổi thảo luận trước. Đề xuất để bạn review và quyết định đưa vào Phase 1 hay để sau.
@@ -11,7 +11,6 @@
 - Cho phép phụ huynh (và về sau, người audit độc lập nếu cần) verify tính toàn vẹn của toàn bộ chuỗi log mà không cần tin tưởng mù quáng vào app đang chạy.
 - Loại sự kiện cần log tối thiểu: bật/tắt giám sát, pause/resume, chặn nội dung (kèm risk score, KHÔNG kèm ảnh), thử xác thực mật khẩu (thành công/thất bại), watchdog restart, thay đổi cấu hình, cập nhật phần mềm.
 - `MISC-010a` (ĐÃ CHỐT v0.2.3, làm rõ phạm vi bảo vệ, không đổi ý nghĩa yêu cầu đã `APPROVED` — chi tiết đầy đủ ở `SEC-041a`, `04-security-spec.md` mục 7): hash-chain ở đây là SHA-256 thuần (không HMAC khoá riêng, không chữ ký số), công thức công khai. Nó bảo vệ khỏi việc entry bị xoá/sửa **ngẫu nhiên** hoặc bởi kẻ tấn công **không có đồng thời** (quyền ghi trực tiếp file `audit.log` bỏ qua `Service` + khả năng khiến `Service` restart) — **không tự nó** chống lại kẻ tấn công SYSTEM-level chủ động hội đủ cả 2 điều kiện này (giới hạn cố hữu của mọi hash-chain không có anchor toàn vẹn bên ngoài, không phải thiếu sót implementation). Lớp phòng thủ thực sự cho nhóm kẻ tấn công đó nằm ở ACL file audit log (`04-security-spec.md` mục 2) và anti-tamper/watchdog (`05-anti-uninstall-tamper-spec.md`), không phải ở bản thân định dạng hash-chain.
-- `MISC-010b` **(ĐÃ CHỐT v0.6.0, 2026-10-05)**: Audit log phải được giữ **tối thiểu 180 ngày** (đủ cho biểu đồ 6 tháng, `FE-071a`). Không được thêm cơ chế xoay vòng/xoá log làm mất dữ liệu trẻ hơn 180 ngày.
 
 ## 2. Cơ chế cập nhật phần mềm (MISC-020, ĐÃ CHỐT v0.2.0 — loại bỏ auto-update)
 
@@ -77,7 +76,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.6.0 | 2026-10-05 | **MINOR — `MISC-010b` (mới)**: giữ audit log tối thiểu 180 ngày (phục vụ biểu đồ 6 tháng `FE-071a`) |
 | v0.5.0 | 2026-10-01 | **MINOR — `MISC-030c` (mới)**: nút "Khôi phục cài đặt gốc" cho whitelist (về đúng `BE-073a`, gate mật khẩu) |
 | v0.4.0 | 2026-10-01 | **MINOR — `MISC-030b` (mới)**: whitelist ở `S4` = danh sách cấp sẵn `BE-073a` (+ mục cũ nếu có), chỉ xoá, không thêm |
 | v0.3.0 | 2026-10-01 | **MINOR — `MISC-030a` (mới, chủ dự án chốt trực tiếp, supersedes `MISC-030` → DEPRECATED)**: bỏ nút "Đánh dấu sai" ở Lịch sử — thao tác đó loại cả ứng dụng khỏi giám sát chỉ vì 1 lần chặn nhầm, và app không lưu ảnh nên không có học lại; Service từ chối `MarkFalsePositiveRequest`; whitelist cũ ở `S4` chỉ còn xoá |

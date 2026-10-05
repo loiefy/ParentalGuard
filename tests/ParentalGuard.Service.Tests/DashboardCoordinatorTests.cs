@@ -171,6 +171,21 @@ public class DashboardCoordinatorTests : IDisposable
         Assert.Equal(30, response.AuditChartResp.Days.Count);
     }
 
+    /// <summary>`FE-071a` (ADR-151): 3 tháng / 6 tháng — Service vẫn trả theo ngày, đủ 90/180 ngày liên tục kết thúc hôm nay.</summary>
+    [Theory]
+    [InlineData(90u)]
+    [InlineData(180u)]
+    public async Task AuditChartQuery_RangeDays90Or180_ReturnsDailySeriesEndingToday(uint rangeDays)
+    {
+        Fixture fx = await CreateAsync();
+
+        IpcPayload response = await fx.Dashboard.HandleAsync(
+            new IpcPayload { MessageId = 7, AuditChartQuery = new AuditChartQuery { RangeDays = rangeDays } }, CancellationToken.None);
+
+        Assert.Equal((int)rangeDays, response.AuditChartResp.Days.Count);
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"), response.AuditChartResp.Days[^1].DateUtc);
+    }
+
     /// <summary>Bug real-hardware 2026-10-01 — quét tăng dần: chỉ đếm phần mới, bỏ qua dòng ghi dở, quét lại khi file ngắn đi.</summary>
     [Fact]
     public async Task ChartCounts_IncrementalScan_CountsOnlyNewCompleteLines_AndRescansWhenFileShrinks()

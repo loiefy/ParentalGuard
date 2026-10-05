@@ -14,6 +14,7 @@ namespace ParentalGuard.UI.Views;
 public sealed partial class SettingsPage : Page
 {
     private readonly NavigationService _navigationService;
+    private readonly ParentSessionService _parentSession;
     private bool _performanceModeInitialized;
 
     public SettingsPage()
@@ -22,10 +23,14 @@ public sealed partial class SettingsPage : Page
 
         IServiceProvider services = ((App)Application.Current).Services;
         _navigationService = services.GetRequiredService<NavigationService>();
+        _parentSession = services.GetRequiredService<ParentSessionService>();
+        // PWD-024/FE-081: thao tác whitelist đi qua phiên đăng nhập (token rỗng), không mở `S5` riêng nữa;
+        // Service từ chối phiên → khoá lại giao diện ngay.
         ViewModel = new SettingsViewModel(
             services.GetRequiredService<IConfigFacade>(),
             services.GetRequiredService<IAuthFacade>(),
-            _navigationService);
+            _parentSession,
+            _parentSession.MarkLoggedOut);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         OverlayMessageLabel.Text = LocalizationService.Get("SettingsOverlayMessageLabel");
@@ -46,6 +51,47 @@ public sealed partial class SettingsPage : Page
         ForgotOldPasswordLink.Content = LocalizationService.Get("SettingsForgotOldPasswordLink");
         NewRecoveryKeyCopyButton.Content = LocalizationService.Get("OnboardingRecoveryKeyCopyButton");
         NewRecoveryKeyAcknowledgeButton.Content = LocalizationService.Get("SettingsRecoveryKeyAcknowledgeButton");
+
+        InitializeLanguagePicker();
+        Loaded += (_, _) =>
+        {
+            _parentSession.SessionChanged += OnParentSessionChanged;
+            ApplyLockState();
+        };
+        Unloaded += (_, _) => _parentSession.SessionChanged -= OnParentSessionChanged;
+    }
+
+    /// <summary>`FE-064`: song ngữ, ngôn ngữ chưa có bản dịch hiển thị nhưng chưa chọn được.</summary>
+    private void InitializeLanguagePicker()
+    {
+        string current = LocalizationService.CurrentLanguageCode;
+        LanguageHeaderText.Text = LanguageCatalog.BuildHeader(current, LocalizationService.Get("SettingsLanguageHeader"), LocalizationService.Get("SettingsLanguageHeaderEnglish"));
+        LanguageHintText.Text = LocalizationService.Get("SettingsLanguageHint");
+        foreach (LanguageOption option in LanguageCatalog.BuildFromResources())
+        {
+            var item = new ComboBoxItem { Content = option.DisplayName, Tag = option.Code, IsEnabled = option.IsAvailable };
+            LanguageCombo.Items.Add(item);
+            if (string.Equals(option.Code, current, StringComparison.OrdinalIgnoreCase))
+            {
+                LanguageCombo.SelectedItem = item;
+            }
+        }
+    }
+
+    private void OnParentSessionChanged(object? sender, EventArgs e) => ApplyLockState();
+
+    /// <summary>`FE-081`: chưa đăng nhập → khối cài đặt làm mờ + không thao tác được (vẫn cuộn được vì ScrollViewer ở ngoài).</summary>
+    private void ApplyLockState()
+    {
+        bool loggedIn = _parentSession.IsLoggedIn;
+        ProtectedSettingsPanel.IsEnabled = loggedIn;
+        ProtectedSettingsPanel.Opacity = loggedIn ? 1.0 : 0.45;
+        if (!loggedIn)
+        {
+            OldPasswordInput.Password = string.Empty;
+            NewPasswordInput.Password = string.Empty;
+            ConfirmNewPasswordInput.Password = string.Empty;
+        }
     }
 
     public SettingsViewModel ViewModel { get; }

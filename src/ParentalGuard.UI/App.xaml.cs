@@ -20,6 +20,7 @@ public partial class App : Application
     private OnboardingViewModel? _activeOnboardingViewModel;
     private SettingsViewModel? _activeSettingsViewModel;
     private RecoveryViewModel? _activeRecoveryViewModel;
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? _idleTimer;
 
     public App()
     {
@@ -49,6 +50,14 @@ public partial class App : Application
 
         var navigationService = Services.GetRequiredService<NavigationService>();
         navigationService.Initialize(mainWindow.RootFrameControl);
+
+        // PWD-024/FE-082: phiên đăng nhập phụ huynh tự khoá sau 10 phút không thao tác.
+        var parentSession = Services.GetRequiredService<ParentSessionService>();
+        mainWindow.HookUserActivity(parentSession.NotifyActivity);
+        _idleTimer = mainWindow.DispatcherQueue.CreateTimer();
+        _idleTimer.Interval = TimeSpan.FromSeconds(5);
+        _idleTimer.Tick += (_, _) => parentSession.CheckIdle();
+        _idleTimer.Start();
 
         mainWindow.Activate();
 
@@ -110,6 +119,8 @@ public partial class App : Application
         var navigationService = Services.GetRequiredService<NavigationService>();
         try
         {
+            // Kết nối mới = phiên phía Service (gắn với kết nối cũ) đã mất — ADR-149.
+            Services.GetRequiredService<ParentSessionService>().MarkLoggedOut();
             await uiIpcClient.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
             var authFacade = Services.GetRequiredService<IAuthFacade>();
             bool passwordConfigured = await authFacade.GetAuthStatusAsync(CancellationToken.None).ConfigureAwait(true);
@@ -137,6 +148,8 @@ public partial class App : Application
         services.AddSingleton<IDashboardFacade, DashboardFacade>();
         services.AddSingleton<IAuditFacade, AuditFacade>();
         services.AddSingleton<IConfigFacade, ConfigFacade>();
+        services.AddSingleton<IParentSessionFacade, ParentSessionFacade>();
+        services.AddSingleton<ParentSessionService>(sp => new ParentSessionService(sp.GetRequiredService<IAuthFacade>(), sp.GetRequiredService<IParentSessionFacade>()));
         services.AddSingleton<NavigationService>();
         return services.BuildServiceProvider();
     }
@@ -162,6 +175,9 @@ public partial class App : Application
         _activeRecoveryViewModel?.Dispose();
         _activeRecoveryViewModel = null;
 
+        _idleTimer?.Stop();
+
+        // PWD-024: đóng Dashboard = kết thúc phiên (ngắt kết nối pipe bên dưới cũng huỷ phiên phía Service — ADR-149).
         var uiIpcClient = Services.GetRequiredService<UiIpcClient>();
         await uiIpcClient.DisconnectAsync().ConfigureAwait(false);
         _singleInstanceGuard?.Dispose();

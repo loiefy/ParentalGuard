@@ -1,6 +1,6 @@
 # 06 — Password Management Spec
 
-> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
+> Version: v0.3.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Phạm vi
 
@@ -25,12 +25,6 @@ Mật khẩu quản trị (parent password) bảo vệ các hành động: gỡ 
 ## 4. Xác thực khi thực hiện hành động nhạy cảm
 
 - `PWD-020`: Modal xác thực (`S5`) xuất hiện mỗi khi: gỡ cài đặt, tạm dừng giám sát, đổi ngưỡng nhạy cảm, xem/xoá log, đổi mật khẩu.
-- `PWD-024` **(ĐÃ CHỐT v0.4.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, supersedes riêng phần "xem log" của `PWD-020` và mọi thao tác trong `S4`; các phần còn lại của `PWD-020` — gỡ cài đặt, tạm dừng giám sát — giữ nguyên `S5` từng lần)**: **Phiên đăng nhập phụ huynh** dùng chung cho tab **Lịch sử** (`S3`) và tab **Cài đặt** (`S4`):
-  - Đăng nhập 1 lần bằng mật khẩu (cùng rate-limit `PWD-021`/`PWD-022`), có liên kết "Quên mật khẩu?" dẫn tới luồng khôi phục (`PWD-032`).
-  - Phiên **tự hết hạn sau 10 phút không thao tác**; có nút **Đăng xuất**; đóng Dashboard cũng kết thúc phiên.
-  - Phiên do `Service` cấp và kiểm tra ở **mọi** yêu cầu thay đổi cài đặt/xem log — không dựa vào trạng thái phía giao diện (UI chạy quyền user thường).
-  - **Không** áp dụng cho tạm dừng giám sát và gỡ cài đặt: 2 thao tác này vẫn hỏi mật khẩu riêng mỗi lần (`S5`).
-  - Đổi mật khẩu vẫn yêu cầu nhập mật khẩu hiện tại (`PWD-040`) dù đã đăng nhập.
 - `PWD-021`: **Rate-limiting chống bruteforce**:
   | Lần sai liên tiếp | Hành động |
   |---|---|
@@ -86,7 +80,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.4.0 | 2026-10-05 | **MINOR — `PWD-024` (mới, chủ dự án yêu cầu trực tiếp)**: phiên đăng nhập phụ huynh dùng chung `S3`/`S4`, hết hạn sau 10 phút không thao tác, có Đăng xuất, đóng Dashboard kết thúc phiên; tạm dừng/gỡ cài đặt vẫn hỏi mật khẩu riêng |
 | v0.3.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.0 | 2026-09-17 | **Chốt nốt câu hỏi mở cuối**: `PWD-035` bổ sung định nghĩa tường minh "ký tự đặc biệt" — liệt kê rõ danh sách symbol bị cấm, xác nhận chữ cái tiếng Việt có dấu (ă, â, ê, ô, ơ, ư, đ...) là chữ cái hợp lệ, không phải ký tự đặc biệt. Không còn câu hỏi mở |
 | v0.2.0 | 2026-09-17 | **Chốt 3 câu hỏi mở**: `PWD-002a` giới hạn mật khẩu tối đa 50 ký tự; `PWD-030a` bắt buộc tick xác nhận "Tôi đã lưu lại Recovery Key" trước khi hoàn tất thiết lập mật khẩu (không xác nhận = thiết lập không thành công); `PWD-034` chốt triển khai câu hỏi bảo mật ở Phase 2 + thêm `PWD-035` quy tắc chuẩn hoá câu trả lời (không phân biệt hoa/thường, cấm ký tự đặc biệt/chữ số, tự lược bỏ khoảng trắng/dấu phẩy/dấu chấm trước khi hash). Phát sinh câu hỏi mở mới về xử lý dấu tiếng Việt trong câu trả lời |

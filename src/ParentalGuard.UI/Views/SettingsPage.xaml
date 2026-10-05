@@ -1,7 +1,8 @@
 <Page
     x:Class="ParentalGuard.UI.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:ParentalGuard.UI.Views">
 
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <!-- Bố cục (bug real-hardware 2026-10-01): cột nội dung căn giữa, rộng tối đa 760, phần tử bên trong align trái. -->
@@ -13,6 +14,9 @@
             </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="1" Spacing="20" HorizontalAlignment="Stretch">
 
+            <!-- FE-080/FE-081 (PWD-024): khung đăng nhập phụ huynh — dùng chung phiên với tab Lịch sử. -->
+            <local:ParentLoginPanel />
+
             <InfoBar Severity="Error" IsClosable="False"
                      IsOpen="{x:Bind ViewModel.HasLoadError, Mode=OneWay}"
                      Message="{x:Bind ViewModel.LoadErrorMessage, Mode=OneWay}" />
@@ -22,6 +26,22 @@
                           HorizontalAlignment="Center" />
 
             <StackPanel Spacing="24" Visibility="{x:Bind ViewModel.IsNotLoading, Mode=OneWay}">
+
+                <!-- FE-064/FE-083: Ngôn ngữ — song ngữ, KHÔNG cần đăng nhập (luôn thao tác được). -->
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="LanguageHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Spacing="8" Margin="24,0,0,0">
+                        <ComboBox x:Name="LanguageCombo" MinWidth="320" />
+                        <TextBlock x:Name="LanguageHintText" TextWrapping="Wrap" Opacity="0.7" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                <!-- FE-081: chưa đăng nhập → làm mờ + không thao tác được; ScrollViewer nằm NGOÀI nên vẫn cuộn xem được. -->
+                <ContentControl x:Name="ProtectedSettingsPanel" IsTabStop="False"
+                                HorizontalContentAlignment="Stretch" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="24">
 
                 <!-- Mục 6.4 — Thông điệp overlay (FE-012/FE-012a). -->
                 <StackPanel Spacing="12">
@@ -138,6 +158,8 @@
                     </StackPanel>
                 </StackPanel>
 
+                </StackPanel>
+                </ContentControl>
             </StackPanel>
         </StackPanel>
         </Grid>

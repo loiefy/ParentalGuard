@@ -10,21 +10,26 @@ using ParentalGuard.UI.ViewModels;
 namespace ParentalGuard.UI.Views;
 
 /// <summary>
-/// `S3` Audit log (Architecture/10-ui-architecture.md mục 6.3) — vào tab luôn hiện `S5` TRƯỚC khi
-/// render nội dung (<see cref="OnNavigatedTo"/> gọi <see cref="AuditLogViewModel.InitializeAsync"/>);
-/// huỷ dialog → <see cref="AuditLogViewModel.GateCancelled"/>=true → điều hướng lại `S2`.
+/// `S3` Audit log (Architecture/10-ui-architecture.md mục 6.3/6.8) — 2026-10-05 (`PWD-024`, `FE-080`/`FE-081`):
+/// không còn mở `S5` khi vào tab; chưa đăng nhập phụ huynh thì chỉ hiện khung đăng nhập, đăng nhập xong (ở tab này
+/// hoặc tab Cài đặt) mới tải lịch sử bằng phiên. Hết phiên/đăng xuất → xoá nội dung đang hiển thị.
 /// </summary>
 public sealed partial class AuditLogPage : Page
 {
+    private readonly ParentSessionService _parentSession;
+
     public AuditLogPage()
     {
         InitializeComponent();
 
         IServiceProvider services = ((App)Application.Current).Services;
+        _parentSession = services.GetRequiredService<ParentSessionService>();
         ViewModel = new AuditLogViewModel(
             services.GetRequiredService<IAuditFacade>(),
-            services.GetRequiredService<NavigationService>());
+            _parentSession,
+            _parentSession.MarkLoggedOut);
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        Unloaded += (_, _) => _parentSession.SessionChanged -= OnParentSessionChanged;
 
         EmptyText.Text = LocalizationService.Get("AuditLogEmptyText");
         LoadMoreButton.Content = LocalizationService.Get("AuditLoadMoreButton");
@@ -40,6 +45,7 @@ public sealed partial class AuditLogPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        _parentSession.SessionChanged += OnParentSessionChanged;
         if (XamlRoot is not null)
         {
             StartGate();
@@ -49,14 +55,31 @@ public sealed partial class AuditLogPage : Page
         Loaded += OnFirstLoaded;
     }
 
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        _parentSession.SessionChanged -= OnParentSessionChanged;
+    }
+
     private void OnFirstLoaded(object sender, RoutedEventArgs e)
     {
         Loaded -= OnFirstLoaded;
         StartGate();
     }
 
+    private void OnParentSessionChanged(object? sender, EventArgs e)
+    {
+        ViewModel.Reset();
+        StartGate();
+    }
+
     private async void StartGate()
     {
+        if (!_parentSession.IsLoggedIn)
+        {
+            return; // FE-081: chỉ hiện khung đăng nhập.
+        }
+
         try
         {
             await ViewModel.InitializeAsync(XamlRoot);
@@ -70,10 +93,7 @@ public sealed partial class AuditLogPage : Page
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(AuditLogViewModel.GateCancelled) && ViewModel.GateCancelled)
-        {
-            Frame.Navigate(typeof(DashboardPage));
-        }
+        // Trước 2026-10-05: huỷ `S5` → quay về `S2`. Nay ở lại tab, khung đăng nhập hiện ra (FE-081).
     }
 
     private async void OnLoadMoreClick(object sender, RoutedEventArgs e) => await ViewModel.LoadMoreAsync();

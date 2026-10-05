@@ -92,6 +92,72 @@ public sealed class AuthCoordinator
         }
     }
 
+    /// <summary>Action context đổi lấy phiên đăng nhập phụ huynh (`PWD-024`, Architecture/08 mục 7.10).</summary>
+    public const string ParentSessionActionContext = "parent_session";
+
+    /// <summary>Đồng hồ monotonic dùng chung — <c>UiSessionServer</c> cấp cho <see cref="UiParentSession"/> mỗi kết nối.</summary>
+    public MonotonicClock Clock => _clock;
+
+    /// <summary>
+    /// `ParentSessionRequest` (Architecture/03 mục 3.7b, ADR-149): OPEN đổi <c>action_token</c> "parent_session"
+    /// lấy phiên trên ĐÚNG kết nối pipe hiện tại; KEEPALIVE gia hạn idle; CLOSE (Đăng xuất) huỷ phiên.
+    /// </summary>
+    public async Task<IpcPayload> HandleParentSessionAsync(IpcPayload request, UiParentSession session, CancellationToken cancellationToken)
+    {
+        ParentSessionRequest req = request.ParentSessionReq;
+        IpcPayload response = NewResponse(request);
+        var resp = new ParentSessionResponse();
+        switch (req.Op)
+        {
+            case ParentSessionOp.Open:
+                byte[] tokenBytes = CredentialBytes.UnsafeGetBuffer(req.ActionToken);
+                bool valid;
+                try
+                {
+                    valid = tokenBytes.Length > 0
+                        && await TryConsumeActionTokenAsync(tokenBytes, ParentSessionActionContext, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    CredentialBytes.Zero(tokenBytes);
+                }
+
+                if (valid)
+                {
+                    resp.Result = ParentSessionResult.Success;
+                    resp.IdleExpiresAtUnixMs = session.Open();
+                }
+                else
+                {
+                    resp.Result = ParentSessionResult.InvalidToken;
+                }
+
+                break;
+            case ParentSessionOp.Keepalive:
+                if (session.TryTouch())
+                {
+                    resp.Result = ParentSessionResult.Success;
+                    resp.IdleExpiresAtUnixMs = session.IdleExpiresAtUnixMs ?? 0;
+                }
+                else
+                {
+                    resp.Result = ParentSessionResult.NotActive;
+                }
+
+                break;
+            case ParentSessionOp.Close:
+                session.Close();
+                resp.Result = ParentSessionResult.Success;
+                break;
+            default:
+                resp.Result = ParentSessionResult.Unspecified;
+                break;
+        }
+
+        response.ParentSessionResp = resp;
+        return response;
+    }
+
     /// <summary>Định tuyến theo <see cref="IpcPayload.BodyOneofCase"/> — pipe UI chỉ gọi đúng 1 hàm này (mục 3, kênh UI chỉ nhận message domain Password/Auth).</summary>
     public Task<IpcPayload> HandleAsync(IpcPayload request, CancellationToken cancellationToken)
     {

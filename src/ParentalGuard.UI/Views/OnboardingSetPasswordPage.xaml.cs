@@ -14,6 +14,7 @@ public sealed partial class OnboardingSetPasswordPage : Page
     {
         InitializeComponent();
         TitleText.Text = LocalizationService.Get("OnboardingSetPasswordTitle");
+        ExplanationInfoBar.Message = LocalizationService.Get("OnboardingSetPasswordExplanation");
         PasswordLabel.Text = LocalizationService.Get("OnboardingPasswordLabel");
         ConfirmPasswordLabel.Text = LocalizationService.Get("OnboardingConfirmPasswordLabel");
         ContinueButton.Content = LocalizationService.Get("ContinueButton");

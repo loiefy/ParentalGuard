@@ -71,7 +71,7 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
 
             session.GateOpenUntilUnixMs = trustedNow + (long)_viewSessionWindow.TotalMilliseconds;
         }
-        else if (session.GateOpenUntilUnixMs is not long gateOpenUntil || trustedNow >= gateOpenUntil)
+        else if (!IsGateOpen(session, trustedNow))
         {
             response.AuditLogResp = new AuditLogResponse { Result = AuditLogQueryResult.InvalidToken };
             return response;
@@ -126,7 +126,7 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
     {
         IpcPayload response = NewResponse(request);
         long trustedNow = clock.UtcNowUnixMs;
-        if (session.GateOpenUntilUnixMs is not long gateOpenUntil || trustedNow >= gateOpenUntil)
+        if (!IsGateOpen(session, trustedNow))
         {
             response.VerifyAuditChainResp = new VerifyAuditChainResponse { Result = VerifyAuditChainResult.InvalidToken };
             return response;
@@ -159,6 +159,14 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
         }
     }
 
+    /// <summary>
+    /// Gate mở nếu phiên đăng nhập phụ huynh của kết nối này còn hiệu lực (gia hạn idle — `PWD-024`, ADR-150)
+    /// HOẶC cửa sổ "đã qua <c>view_audit_log</c>" 1-lần còn hạn (cơ chế cũ, giữ tương thích).
+    /// </summary>
+    private static bool IsGateOpen(AuditLogViewSession session, long trustedNow) =>
+        session.ParentSession?.TryTouch() == true
+        || (session.GateOpenUntilUnixMs is long gateOpenUntil && trustedNow < gateOpenUntil);
+
     private async Task<bool> ConsumeTokenAsync(ByteString token, string actionContext, CancellationToken cancellationToken)
     {
         byte[] tokenBytes = CredentialBytes.UnsafeGetBuffer(token);
@@ -186,4 +194,7 @@ public sealed class AuditLogCoordinator(AuthCoordinator authCoordinator, AuditLo
 public sealed class AuditLogViewSession
 {
     public long? GateOpenUntilUnixMs { get; set; }
+
+    /// <summary>Phiên đăng nhập phụ huynh của CÙNG kết nối pipe (`PWD-024`) — null ở test cũ/kết nối không dùng phiên.</summary>
+    public UiParentSession? ParentSession { get; init; }
 }

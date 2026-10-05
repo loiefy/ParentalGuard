@@ -39,6 +39,20 @@
 
                 <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
+                <!-- FE-092 (2026-10-05): cách ứng dụng hoạt động và dữ liệu được lưu — phải khớp đúng thực tế bản build. -->
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="HowItWorksHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <StackPanel Spacing="10" Margin="24,0,0,0">
+                        <TextBlock x:Name="HowItWorksOperationText" TextWrapping="Wrap" Opacity="0.85" />
+                        <TextBlock x:Name="HowItWorksPrivacyText" TextWrapping="Wrap" Opacity="0.85" />
+                        <TextBlock x:Name="StoredDataIntroText" TextWrapping="Wrap" FontWeight="SemiBold" />
+                        <StackPanel x:Name="StoredDataList" Spacing="6" Margin="8,0,0,0" />
+                        <TextBlock x:Name="StoredDataNoteText" TextWrapping="Wrap" Opacity="0.7" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
                 <StackPanel Spacing="12">
                     <TextBlock x:Name="DonateHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <StackPanel Spacing="12" Margin="24,0,0,0">

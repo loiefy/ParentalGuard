@@ -27,13 +27,16 @@ public sealed class ConfigCoordinator(
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly IpcMessageIdGenerator _messageIds = new();
 
-    /// <summary>Định tuyến theo <see cref="IpcPayload.BodyOneofCase"/> — pipe UI gọi đúng hàm này cho domain Cài đặt (field 148-153).</summary>
-    public Task<IpcPayload> HandleAsync(IpcPayload request, CancellationToken cancellationToken) => request.BodyCase switch
+    /// <summary>
+    /// Định tuyến theo <see cref="IpcPayload.BodyOneofCase"/> — pipe UI gọi đúng hàm này cho domain Cài đặt (field 148-157).
+    /// <paramref name="parentSession"/> là phiên đăng nhập phụ huynh của ĐÚNG kết nối pipe hiện tại (`PWD-024`, ADR-149/150).
+    /// </summary>
+    public Task<IpcPayload> HandleAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken) => request.BodyCase switch
     {
         IpcPayload.BodyOneofCase.ConfigQuery => HandleConfigQueryAsync(request),
-        IpcPayload.BodyOneofCase.ConfigUpdateReq => HandleConfigUpdateAsync(request, cancellationToken),
-        IpcPayload.BodyOneofCase.RemoveWhitelistReq => HandleRemoveWhitelistAsync(request, cancellationToken),
-        IpcPayload.BodyOneofCase.ResetWhitelistReq => HandleResetWhitelistAsync(request, cancellationToken),
+        IpcPayload.BodyOneofCase.ConfigUpdateReq => HandleConfigUpdateAsync(request, parentSession, cancellationToken),
+        IpcPayload.BodyOneofCase.RemoveWhitelistReq => HandleRemoveWhitelistAsync(request, parentSession, cancellationToken),
+        IpcPayload.BodyOneofCase.ResetWhitelistReq => HandleResetWhitelistAsync(request, parentSession, cancellationToken),
         _ => throw new InvalidOperationException($"ConfigCoordinator received unexpected message: {request.BodyCase}."),
     };
 
@@ -51,14 +54,20 @@ public sealed class ConfigCoordinator(
     }
 
     /// <summary>
-    /// Mục 6.4 — KHÔNG gate `S5` (ADR-125, cosmetic/operational). "Full update": UI luôn gửi đủ cả 2
-    /// field hiện hành mỗi lần Save (<c>03-ipc-communication.md</c> mục 3.7) — Service ghi đè nguyên
-    /// vẹn, không tự đoán field nào "thực sự đổi".
+    /// Mục 6.4 — "full update": UI luôn gửi đủ cả 2 field hiện hành mỗi lần Save (<c>03-ipc-communication.md</c>
+    /// mục 3.7) — Service ghi đè nguyên vẹn, không tự đoán field nào "thực sự đổi". 2026-10-05 (`PWD-024`, ADR-150,
+    /// supersedes ADR-125 "không gate"): BẮT BUỘC phiên phụ huynh đang hoạt động trên kết nối này.
     /// </summary>
-    private async Task<IpcPayload> HandleConfigUpdateAsync(IpcPayload request, CancellationToken cancellationToken)
+    private async Task<IpcPayload> HandleConfigUpdateAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken)
     {
         ConfigUpdateRequest req = request.ConfigUpdateReq;
         IpcPayload response = NewResponse(request);
+
+        if (!parentSession.TryTouch())
+        {
+            response.ConfigUpdateResp = new ConfigUpdateResponse { Result = ConfigUpdateResult.NotAuthenticated };
+            return response;
+        }
 
         OverlayMessageValidationResult validation = OverlayMessageValidator.Validate(req.OverlayMessage);
         if (validation == OverlayMessageValidationResult.TooLong)
@@ -117,12 +126,12 @@ public sealed class ConfigCoordinator(
     }
 
     /// <summary>Mục 6.4 — gate `manage_whitelist` (ADR-122): xoá làm YẾU giám sát, khác các field cosmetic khác ở `S4`.</summary>
-    private async Task<IpcPayload> HandleRemoveWhitelistAsync(IpcPayload request, CancellationToken cancellationToken)
+    private async Task<IpcPayload> HandleRemoveWhitelistAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken)
     {
         RemoveWhitelistEntryRequest req = request.RemoveWhitelistReq;
         IpcPayload response = NewResponse(request);
 
-        if (!await ConsumeManageWhitelistTokenAsync(req.ActionToken, cancellationToken).ConfigureAwait(false))
+        if (!await IsAuthorizedAsync(req.ActionToken, parentSession, cancellationToken).ConfigureAwait(false))
         {
             response.RemoveWhitelistResp = new RemoveWhitelistEntryResponse { Result = RemoveWhitelistEntryResult.InvalidToken };
             return response;
@@ -175,10 +184,10 @@ public sealed class ConfigCoordinator(
     /// (`BE-073a`, <see cref="MonitoringStateData.InitialExcludeProcessNames"/>), bỏ mọi mục cũ người dùng thêm.
     /// Gate `manage_whitelist`: thao tác này có thể THÊM lại ứng dụng không bị giám sát.
     /// </summary>
-    private async Task<IpcPayload> HandleResetWhitelistAsync(IpcPayload request, CancellationToken cancellationToken)
+    private async Task<IpcPayload> HandleResetWhitelistAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken)
     {
         IpcPayload response = NewResponse(request);
-        if (!await ConsumeManageWhitelistTokenAsync(request.ResetWhitelistReq.ActionToken, cancellationToken).ConfigureAwait(false))
+        if (!await IsAuthorizedAsync(request.ResetWhitelistReq.ActionToken, parentSession, cancellationToken).ConfigureAwait(false))
         {
             response.ResetWhitelistResp = new ResetWhitelistResponse { Result = ResetWhitelistResult.InvalidToken };
             return response;
@@ -218,12 +227,22 @@ public sealed class ConfigCoordinator(
     internal static IReadOnlyList<string> EffectiveWhitelist(MonitoringStateData state) =>
         [.. state.ExcludeProcessNames.Concat(state.UserWhitelistedProcessNames).Distinct(StringComparer.OrdinalIgnoreCase)];
 
-    private async Task<bool> ConsumeManageWhitelistTokenAsync(ByteString token, CancellationToken cancellationToken)
+    /// <summary>
+    /// ADR-150: phiên phụ huynh đang hoạt động (gia hạn idle) HOẶC <c>action_token</c> 1-lần "manage_whitelist" (giữ
+    /// tương thích). Token luôn bị zero dù đi nhánh nào.
+    /// </summary>
+    private async Task<bool> IsAuthorizedAsync(ByteString token, UiParentSession parentSession, CancellationToken cancellationToken)
     {
         byte[] tokenBytes = CredentialBytes.UnsafeGetBuffer(token);
         try
         {
-            return await authCoordinator.TryConsumeActionTokenAsync(tokenBytes, ManageWhitelistActionContext, cancellationToken).ConfigureAwait(false);
+            if (parentSession.TryTouch())
+            {
+                return true;
+            }
+
+            return tokenBytes.Length > 0
+                && await authCoordinator.TryConsumeActionTokenAsync(tokenBytes, ManageWhitelistActionContext, cancellationToken).ConfigureAwait(false);
         }
         finally
         {

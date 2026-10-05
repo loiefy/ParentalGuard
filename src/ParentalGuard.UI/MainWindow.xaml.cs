@@ -2,6 +2,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Windows.UI;
 
 namespace ParentalGuard.UI;
@@ -23,6 +24,17 @@ public sealed partial class MainWindow : Window
         // FE-006 (2026-10-01): thanh tiêu đề cùng tông màu nền app (thay thanh xám sáng mặc định), theo Dark/Light.
         RootFrame.ActualThemeChanged += (_, _) => ApplyTitleBarColors();
         RootFrame.Loaded += (_, _) => ApplyTitleBarColors();
+    }
+
+    /// <summary>
+    /// `PWD-024` (Architecture/10 mục 6.8): mọi lần bấm chuột/cuộn/gõ phím trong cửa sổ (kể cả sự kiện control con
+    /// đã xử lý) tính là "có thao tác" — gia hạn phiên đăng nhập phụ huynh.
+    /// </summary>
+    public void HookUserActivity(Action onActivity)
+    {
+        RootFrame.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler((_, _) => onActivity()), handledEventsToo: true);
+        RootFrame.AddHandler(UIElement.PointerWheelChangedEvent, new PointerEventHandler((_, _) => onActivity()), handledEventsToo: true);
+        RootFrame.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler((_, _) => onActivity()), handledEventsToo: true);
     }
 
     private void ApplyTitleBarColors()

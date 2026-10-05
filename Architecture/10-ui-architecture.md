@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.2.14 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.3.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -229,6 +229,18 @@ Memory hygiene phía `UI`: giống hệt bước 2 Onboarding (`08` mục 5.3) �
 
 Không thuộc phạm vi file này — xem `07-overlay-architecture.md`. Liệt kê lại ở đây chỉ để đối chiếu đầy đủ danh sách màn hình `Specification/03-frontend-ui-spec.md` mục 2.
 
+### 6.8 Phiên đăng nhập phụ huynh, giới thiệu lần đầu, ngôn ngữ, biểu đồ (v0.3.0, 2026-10-05)
+
+- **`ParentSessionService`** (singleton DI, `PWD-024`/`FE-080`–`083`): giữ `IsLoggedIn`, `LoginAsync(password)` = `AuthVerify("parent_session")` + `ParentSessionRequest{OPEN}`; `LogoutAsync()` = `CLOSE`; event `SessionChanged`. Timer UI (DispatcherQueue, tick 5s) khoá lại khi 10 phút không có thao tác; `MainWindow` bắt `PointerPressed`/`PointerWheelChanged`/`KeyDown` (handledEventsToo) → `NotifyActivity()` → `KEEPALIVE` tối đa 1 lần/60s. Request trả `NOT_AUTHENTICATED`/`INVALID_TOKEN`/`NOT_ACTIVE` → `MarkLoggedOut()`.
+- **Khung đăng nhập** (`ParentLoginPanel` UserControl, dùng ở cả `S3`/`S4`): ô mật khẩu (`PasswordBox` → `byte[]` pinned ngay, cùng quy tắc mục 6.5), nút Đăng nhập, link "Quên mật khẩu?" → `S6`, hiện lỗi sai mật khẩu/khoá tạm như `S5`.
+- **`S4`**: thứ tự mục — khung đăng nhập/nút Đăng xuất → Ngôn ngữ (luôn bật) → khối cài đặt còn lại bọc trong 1 container `IsEnabled=IsLoggedIn`, `Opacity` 0.45 khi chưa đăng nhập. `ScrollViewer` nằm NGOÀI container nên vẫn cuộn được (`FE-081`). Whitelist dùng phiên (token rỗng), không mở `S5`.
+- **`S3`**: chưa đăng nhập → chỉ khung đăng nhập; đăng nhập xong (ở `S3` hoặc `S4`) → tải trang 0 bằng token rỗng (Service chấp nhận qua phiên). Bỏ `S5` `view_audit_log` khi vào tab.
+- **`S1` bước 1** (`FE-032`): 5 thẻ (thẻ 4 ẩn tới khi có tính năng "Bảo vệ cả phụ huynh"), hover = đổi nền thẻ sang `CardBackgroundFillColorSecondaryBrush` + `Translation` Y −2px. Màn hình chỉ xuất hiện khi `AuthStatusQuery.password_configured=false` — đúng điều kiện "chưa từng đặt mật khẩu", không cần cờ riêng.
+- **Ngôn ngữ** (`FE-064`): danh sách tĩnh 6 ngôn ngữ, mỗi mục có tên theo ngôn ngữ đang dùng + tên tiếng Anh trong ngoặc (bỏ ngoặc khi UI culture là `en`). Chỉ ngôn ngữ có resource mới chọn được; còn lại `IsEnabled=false` + "(sắp có / coming soon)". Lưu lựa chọn/đồng bộ Overlay thuộc phạm vi bản dịch (`FE-063`), chưa làm ở bản này.
+- **Biểu đồ** (`FE-071a`): 4 nút 1 tuần/1 tháng/3 tháng/6 tháng → `range_days` 7/30/90/180; 90/180 gộp tuần ở ViewModel (`ChartBucketer`): nhóm 7 ngày liên tiếp tính lùi từ hôm nay, nhãn tooltip = khoảng ngày.
+- **Thẻ trạng thái** (`FE-042`): `CardState.Active` = Vision + Overlay kết nối và không tạm dừng (bỏ điều kiện Watchdog) → icon dấu tích xanh (`FontIcon` `\uE73E` trên nền tròn xanh) + "Máy tính đang được bảo vệ"; Paused/Error dùng icon riêng màu vàng/đỏ.
+- **Nền** (`FE-005e`): `PgContentBackgroundBrush` đổi thành `LinearGradientBrush` dọc, chênh 6–8 mức màu giữa đầu và cuối.
+
 ## 7. Đa ngôn ngữ (`FE-060`–`063`, ADR-124)
 
 **Quyết định: tái dùng đúng pattern `.resx` + `System.Resources.ResourceManager` đã có ở `ParentalGuard.Overlay`** (`src/ParentalGuard.Overlay/Resources/OverlayStrings.cs`) — **không** dùng cơ chế `.resw`/`ResourceLoader` gốc của Windows App SDK. Lý do: (a) `.resw`/`ResourceLoader` thiết kế cho app **packaged** (đánh index qua PRI resource pipeline gắn với package identity) — `ParentalGuard.UI` là unpackaged (mục 2.1), dùng `.resw` sẽ cần thêm cấu hình PRI phức tạp không cần thiết cho nhu cầu hiện tại; (b) nhất quán 1 pattern resource xuyên suốt 6 executable của dự án, giảm chi phí nhận thức; (c) `FE-060`/`061` tường minh để ngỏ lựa chọn kỹ thuật này cho System Design ("`.resw` chuẩn của Windows App SDK hoặc `.json`/`.resx` tuỳ lựa chọn kỹ thuật").
@@ -285,6 +297,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.0 | 2026-10-05 | MINOR — mục 6.8: `ParentSessionService` + khung đăng nhập dùng chung `S3`/`S4` (`PWD-024`, `FE-080`–`083`), giới thiệu lần đầu 5 thẻ (`FE-032`), giải thích mật khẩu (`FE-033`), ngôn ngữ song ngữ (`FE-064`), biểu đồ 4 khoảng + gộp tuần (`FE-071a`), "Máy tính đang được bảo vệ" (`FE-042`), nền dải chuyển màu (`FE-005e`), mục "Cách ứng dụng hoạt động" ở `S10` (`FE-092`) |
 | v0.2.14 | 2026-10-01 | PATCH — whitelist `S4`: `ListView` `MaxHeight=260` + viền mờ, cuộn dọc khi dài |
 | v0.2.13 | 2026-10-01 | PATCH — (1) nền vùng nội dung #1F1F23 (trước #26262B), các lớp cảnh chỉ lệch nền 2–5 mức màu để chữ nổi rõ. (2) `FE-007`: `VersionPrefix` (mặc định 0.9.0) khai báo 1 lần ở `src/Directory.Build.props` cho cả 6 exe, ghi đè được bằng `-p:Version=`; `AppVersionInfo` đọc `AssemblyInformationalVersion` (+"(Debug)" khi build Debug) — hiển thị ở `NavigationView.PaneFooter` (ẩn khi pane thu gọn) và tab Giới thiệu |
 | v0.2.12 | 2026-10-01 | PATCH — `FE-005d`: `SceneCanvas` vẽ ở code-behind (`DrawScene`): 2 lớp núi (đa giác gợn theo nhiễu tất định của toạ độ x tuyệt đối), hàng thông, hồ (Path, bờ phải cong vào gốc cây) + vệt sóng, cây đào neo góc dưới-phải (Bezier thân/cành, tán = cụm đĩa dọc nửa ngoài mỗi cành, hệ số cỡ 0.72), cánh rơi. Chân trời cách đáy cố định 300 DIP — đổi cỡ cửa sổ không co giãn cảnh. `FE-006a`: title bar #1B1B20 (dark) / #E4E4EB (light), khác thanh menu #303037/#F1F1F5 |

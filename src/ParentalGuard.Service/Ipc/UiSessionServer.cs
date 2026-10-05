@@ -151,11 +151,13 @@ public sealed class UiSessionServer(
         // Audit fix 2026-09-28 (xem AuditLogCoordinator class doc): gate "đã qua view_audit_log" phải
         // sống trong ĐÚNG 1 kết nối pipe này — 1 instance mới mỗi lần RunConnectionAsync bắt đầu, không
         // bao giờ chia sẻ giữa 2 kết nối, tự giải phóng khi vòng lặp dưới đây kết thúc.
-        var auditViewSession = new AuditLogViewSession();
+        // PWD-024 (ADR-149): phiên đăng nhập phụ huynh cũng sống đúng trong kết nối này — đóng Dashboard = hết phiên.
+        var parentSession = new UiParentSession(authCoordinator.Clock);
+        var auditViewSession = new AuditLogViewSession { ParentSession = parentSession };
         while (!token.IsCancellationRequested)
         {
             IpcPayload request = await IpcFrameTransport.ReadFrameAsync(pipe, sessionKey, token).ConfigureAwait(false);
-            IpcPayload response = await DispatchAsync(request, auditViewSession, token).ConfigureAwait(false);
+            IpcPayload response = await DispatchAsync(request, auditViewSession, parentSession, token).ConfigureAwait(false);
             try
             {
                 await IpcFrameTransport.WriteFrameAsync(pipe, response, sessionKey, token).ConfigureAwait(false);
@@ -177,7 +179,7 @@ public sealed class UiSessionServer(
     /// (`AuditLogQuery`/`MarkFalsePositiveRequest`) đi qua <see cref="AuditLogCoordinator"/>, còn lại
     /// (Password/Auth) đi qua <see cref="AuthCoordinator"/>.
     /// </summary>
-    private Task<IpcPayload> DispatchAsync(IpcPayload request, AuditLogViewSession auditViewSession, CancellationToken token) => request.BodyCase switch
+    private Task<IpcPayload> DispatchAsync(IpcPayload request, AuditLogViewSession auditViewSession, UiParentSession parentSession, CancellationToken token) => request.BodyCase switch
     {
         IpcPayload.BodyOneofCase.PauseMonitoringReq or
         IpcPayload.BodyOneofCase.ResumeMonitoringReq or
@@ -186,7 +188,8 @@ public sealed class UiSessionServer(
         IpcPayload.BodyOneofCase.ConfigQuery or
         IpcPayload.BodyOneofCase.ConfigUpdateReq or
         IpcPayload.BodyOneofCase.RemoveWhitelistReq or
-        IpcPayload.BodyOneofCase.ResetWhitelistReq => configCoordinator.HandleAsync(request, token),
+        IpcPayload.BodyOneofCase.ResetWhitelistReq => configCoordinator.HandleAsync(request, parentSession, token),
+        IpcPayload.BodyOneofCase.ParentSessionReq => authCoordinator.HandleParentSessionAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.AuditLogQuery or
         IpcPayload.BodyOneofCase.MarkFalsePositiveReq or
         IpcPayload.BodyOneofCase.VerifyAuditChainReq => auditLogCoordinator.HandleAsync(request, auditViewSession, token),

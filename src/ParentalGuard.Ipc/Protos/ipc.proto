@@ -99,6 +99,9 @@ message IpcPayload {
     // 2026-10-01 (MISC-030c) — nút "Khôi phục cài đặt gốc" của whitelist `S4`
     ResetWhitelistRequest reset_whitelist_req = 156;
     ResetWhitelistResponse reset_whitelist_resp = 157;
+    // 2026-10-05 (PWD-024, FE-080) — phiên đăng nhập phụ huynh dùng chung S3/S4, Architecture/03 mục 3.7b
+    ParentSessionRequest parent_session_req = 158;
+    ParentSessionResponse parent_session_resp = 159;
   }
 }
 
@@ -509,7 +512,7 @@ message AcknowledgePauseAnomalyResponse { // field 141
 }
 
 message AuditChartQuery { // field 144
-  uint32 range_days = 1; // 7 hoặc 30 (FE-071) — Phase 1 chỉ hỗ trợ đúng 2 giá trị này
+  uint32 range_days = 1; // 7 / 30 / 90 / 180 (FE-071a, ADR-151) — giá trị khác → 7; luôn trả theo ngày, UI tự gộp tuần
 }
 
 message AuditChartResponse { // field 145
@@ -615,6 +618,7 @@ enum ConfigUpdateResult {
   CONFIG_UPDATE_RESULT_SUCCESS = 1;
   CONFIG_UPDATE_RESULT_INVALID_CHARACTERS = 2; // FE-012a
   CONFIG_UPDATE_RESULT_TOO_LONG = 3; // > 255 ký tự, FE-012
+  CONFIG_UPDATE_RESULT_NOT_AUTHENTICATED = 4; // 2026-10-05 (PWD-024, ADR-150): chưa có phiên phụ huynh đang hoạt động
 }
 
 message RemoveWhitelistEntryRequest { // field 152
@@ -671,4 +675,32 @@ message VerifyAuditChainResponse { // field 155
   int64 total_records_scanned = 2;
   int64 broken_at_seq = 3; // 0 nếu is_intact=true
   int64 verified_at_unix_ms = 4; // = audit_meta.last_full_verify_at_unix_ms sau khi ghi xong
+}
+
+// --- 2026-10-05, phiên đăng nhập phụ huynh (field 158/159 của khối UI 140-159) ---
+// Nguồn: Architecture/03-ipc-communication.md mục 3.7b (ADR-149/150), Architecture/08 mục 7.10, PWD-024.
+// Phiên gắn với ĐÚNG 1 kết nối pipe UI, hết hạn sau 10 phút không thao tác (MonotonicClock).
+
+message ParentSessionRequest { // field 158
+  ParentSessionOp op = 1;
+  bytes action_token = 2; // chỉ dùng khi op=OPEN — action_context="parent_session"
+}
+
+message ParentSessionResponse { // field 159
+  ParentSessionResult result = 1;
+  int64 idle_expires_at_unix_ms = 2; // chỉ có ý nghĩa khi result=SUCCESS (op OPEN/KEEPALIVE)
+}
+
+enum ParentSessionOp {
+  PARENT_SESSION_OP_UNSPECIFIED = 0;
+  PARENT_SESSION_OP_OPEN = 1;
+  PARENT_SESSION_OP_KEEPALIVE = 2;
+  PARENT_SESSION_OP_CLOSE = 3;
+}
+
+enum ParentSessionResult {
+  PARENT_SESSION_RESULT_UNSPECIFIED = 0;
+  PARENT_SESSION_RESULT_SUCCESS = 1;
+  PARENT_SESSION_RESULT_INVALID_TOKEN = 2;
+  PARENT_SESSION_RESULT_NOT_ACTIVE = 3;
 }

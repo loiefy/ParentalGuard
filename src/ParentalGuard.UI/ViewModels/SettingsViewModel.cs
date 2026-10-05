@@ -10,7 +10,9 @@ using ParentalGuard.UI.Services.IpcClient;
 namespace ParentalGuard.UI.ViewModels;
 
 /// <summary>
-/// `S4` Cài đặt nâng cao (Architecture/10-ui-architecture.md mục 6.4) — vào tab KHÔNG gate
+/// `S4` Cài đặt nâng cao (Architecture/10-ui-architecture.md mục 6.4/6.8) — 2026-10-05 (`PWD-024`): thao tác
+/// cài đặt cần phiên đăng nhập phụ huynh; <c>authPromptService</c> production là <see cref="ParentSessionService"/>
+/// (token rỗng khi đã đăng nhập), <c>onSessionRejected</c> khoá lại giao diện khi Service từ chối phiên. Vào tab KHÔNG gate
 /// (<see cref="InitializeAsync"/> load ngay). Đổi mật khẩu tự gate qua <c>old_password</c> (không qua
 /// `S5`, `08` mục 7.4); xoá whitelist entry qua `S5` (<c>manage_whitelist</c>, cùng mẫu hình
 /// <see cref="AuditLogViewModel"/>); đổi thông điệp overlay/chế độ hiệu năng không gate, "full update"
@@ -20,7 +22,8 @@ namespace ParentalGuard.UI.ViewModels;
 public sealed partial class SettingsViewModel(
     IConfigFacade configFacade,
     IAuthFacade authFacade,
-    IAuthPromptService authPromptService) : ObservableObject, IDisposable
+    IAuthPromptService authPromptService,
+    Action? onSessionRejected = null) : ObservableObject, IDisposable
 {
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
@@ -183,6 +186,12 @@ public sealed partial class SettingsViewModel(
                     OverlayMessage = OverlayMessageValidation.ToDisplay(_lastSavedOverlayMessage);
                     OverlayMessageError = LocalizationService.Get("SettingsOverlayMessageTooLong");
                     break;
+                case ConfigUpdateOutcome.NotAuthenticated:
+                    // PWD-024/ADR-150: Service từ chối vì phiên đăng nhập phụ huynh đã hết — khoá lại giao diện.
+                    OverlayMessage = OverlayMessageValidation.ToDisplay(_lastSavedOverlayMessage);
+                    OverlayMessageError = LocalizationService.Get("ParentSessionExpired");
+                    onSessionRejected?.Invoke();
+                    break;
             }
         }
         catch (UiIpcConnectionException ex)
@@ -213,7 +222,13 @@ public sealed partial class SettingsViewModel(
         {
             // "full update" — gửi kèm overlay_message ĐÃ LƯU (không phải bản đang gõ dở trong TextBox).
             ConfigUpdateOutcome outcome = await configFacade.UpdatePerformanceModeAsync(_lastSavedOverlayMessage, mode, cancellationToken).ConfigureAwait(true);
-            if (outcome != ConfigUpdateOutcome.Success)
+            if (outcome == ConfigUpdateOutcome.NotAuthenticated)
+            {
+                PerformanceMode = previous;
+                PerformanceModeError = LocalizationService.Get("ParentSessionExpired");
+                onSessionRejected?.Invoke();
+            }
+            else if (outcome != ConfigUpdateOutcome.Success)
             {
                 PerformanceMode = previous;
                 PerformanceModeError = LocalizationService.Get("SettingsPerformanceModeSaveFailed");
@@ -284,6 +299,7 @@ public sealed partial class SettingsViewModel(
                 }
 
                 WhitelistError = LocalizationService.Get("DashboardActionTokenExpired");
+                onSessionRejected?.Invoke();
             }
         }
         catch (UiIpcConnectionException ex)
@@ -307,6 +323,7 @@ public sealed partial class SettingsViewModel(
                     break;
                 case RemoveWhitelistOutcome.InvalidToken:
                     WhitelistError = LocalizationService.Get("DashboardActionTokenExpired");
+                    onSessionRejected?.Invoke();
                     if (!allowRetry)
                     {
                         break;

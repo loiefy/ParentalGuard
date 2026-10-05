@@ -38,6 +38,41 @@ public sealed class SettingsViewModelTests
         Assert.Equal(PerformanceModeOption.MaximumProtection, viewModel.PerformanceMode);
     }
 
+    /// <summary>`PWD-024`/ADR-150: Service từ chối vì hết phiên → hoàn tác ô nhập, báo hết phiên, khoá lại giao diện.</summary>
+    [Fact]
+    public async Task SaveOverlayMessageAsync_NotAuthenticated_RevertsAndReportsSessionRejected()
+    {
+        var configFacade = new FakeConfigFacade
+        {
+            Snapshot = new ConfigSnapshot("Cũ.", [], PerformanceModeOption.Balanced),
+            UpdateOutcomes = [ConfigUpdateOutcome.NotAuthenticated],
+        };
+        int rejected = 0;
+        var viewModel = new SettingsViewModel(configFacade, new FakeAuthFacade(), new FakeAuthPromptService([[1]]), () => rejected++);
+        await viewModel.InitializeAsync(CancellationToken.None);
+        viewModel.OverlayMessage = "Mới.";
+
+        await viewModel.SaveOverlayMessageAsync(CancellationToken.None);
+
+        Assert.Equal("Cũ.", viewModel.OverlayMessage);
+        Assert.Equal(LocalizationService.Get("ParentSessionExpired"), viewModel.OverlayMessageError);
+        Assert.Equal(1, rejected);
+    }
+
+    [Fact]
+    public async Task SetPerformanceModeAsync_NotAuthenticated_RevertsAndReportsSessionRejected()
+    {
+        var configFacade = new FakeConfigFacade { UpdateOutcomes = [ConfigUpdateOutcome.NotAuthenticated] };
+        int rejected = 0;
+        var viewModel = new SettingsViewModel(configFacade, new FakeAuthFacade(), new FakeAuthPromptService([[1]]), () => rejected++);
+        await viewModel.InitializeAsync(CancellationToken.None);
+
+        await viewModel.SetPerformanceModeAsync(PerformanceModeOption.MaximumProtection, CancellationToken.None);
+
+        Assert.Equal(PerformanceModeOption.Balanced, viewModel.PerformanceMode);
+        Assert.Equal(1, rejected);
+    }
+
     [Fact]
     public async Task InitializeAsync_ConnectionFailure_SetsLoadErrorMessage()
     {

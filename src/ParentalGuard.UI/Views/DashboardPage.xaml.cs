@@ -47,9 +47,11 @@ public sealed partial class DashboardPage : Page
         ConnectionLostInfoBar.Message = LocalizationService.Get("DashboardConnectionLostMessage");
         DiskSpaceLowInfoBar.Message = LocalizationService.Get("DashboardHealthDiskSpaceLow");
         FallbackConfigInfoBar.Message = LocalizationService.Get("DashboardHealthFallbackConfig");
-        ChartTitleText.Text = LocalizationService.Get("DashboardChartTitle");
-        Chart7Button.Content = LocalizationService.Get("DashboardChart7DaysButton");
-        Chart30Button.Content = LocalizationService.Get("DashboardChart30DaysButton");
+        Chart7Button.Content = LocalizationService.Get("DashboardChart1WeekButton");
+        Chart30Button.Content = LocalizationService.Get("DashboardChart1MonthButton");
+        Chart90Button.Content = LocalizationService.Get("DashboardChart3MonthsButton");
+        Chart180Button.Content = LocalizationService.Get("DashboardChart6MonthsButton");
+        HighlightSelectedRange();
         ChartEmptyText.Text = LocalizationService.Get("DashboardChartEmptyText");
     }
 
@@ -69,15 +71,35 @@ public sealed partial class DashboardPage : Page
 
     private async void OnResumeClick(object sender, RoutedEventArgs e) => await ViewModel.ResumeAsync(XamlRoot);
 
-    private async void OnChart7Click(object sender, RoutedEventArgs e) => await ViewModel.SetChartRangeAsync(7);
+    private async void OnChartRangeClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && uint.TryParse(tag, out uint rangeDays))
+        {
+            await ViewModel.SetChartRangeAsync(rangeDays);
+        }
+    }
 
-    private async void OnChart30Click(object sender, RoutedEventArgs e) => await ViewModel.SetChartRangeAsync(30);
+    /// <summary>`FE-071a`: nút khoảng xem đang chọn dùng kiểu nhấn (AccentButtonStyle).</summary>
+    private void HighlightSelectedRange()
+    {
+        var accent = (Style)Application.Current.Resources["AccentButtonStyle"];
+        var normal = (Style)Application.Current.Resources["DefaultButtonStyle"];
+        foreach (Button button in ChartRangeButtons.Children.OfType<Button>())
+        {
+            button.Style = button.Tag is string tag && tag == ViewModel.ChartRangeDays.ToString(System.Globalization.CultureInfo.InvariantCulture) ? accent : normal;
+        }
+    }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(DashboardViewModel.ChartData) or nameof(DashboardViewModel.IsChartEmpty))
         {
             RenderChart();
+        }
+
+        if (e.PropertyName == nameof(DashboardViewModel.ChartRangeDays))
+        {
+            HighlightSelectedRange();
         }
     }
 
@@ -96,7 +118,8 @@ public sealed partial class DashboardPage : Page
             return;
         }
 
-        IReadOnlyList<DailyBlockCount> data = ViewModel.ChartData;
+        // FE-071a: cột theo ngày hoặc đã gộp tuần (3/6 tháng).
+        IReadOnlyList<ChartBar> data = ViewModel.ChartBars;
         uint max = data.Max(d => d.BlockedCount);
         if (max == 0)
         {
@@ -128,11 +151,14 @@ public sealed partial class DashboardPage : Page
             // Yêu cầu chủ dự án 2026-10-01: hiệu ứng khi di chuột lên cột (sáng màu + tooltip ngày/số lần).
             rect.PointerEntered += (_, _) => rect.Fill = _barHoverBrush;
             rect.PointerExited += (_, _) => rect.Fill = _barBrush;
-            ToolTipService.SetToolTip(rect, LocalizationService.GetFormatted("DashboardChartBarTooltipFormat", FormatChartDate(data[i].DateUtc), count));
+            string tooltip = data[i].IsSingleDay
+                ? LocalizationService.GetFormatted("DashboardChartBarTooltipFormat", FormatChartDate(data[i].FromDateUtc), count)
+                : LocalizationService.GetFormatted("DashboardChartWeekTooltipFormat", FormatChartDate(data[i].FromDateUtc), FormatChartDate(data[i].ToDateUtc), count);
+            ToolTipService.SetToolTip(rect, tooltip);
             ChartCanvas.Children.Add(rect);
 
-            // Yêu cầu chủ dự án 2026-10-01: hiện số lần chặn trên đầu mỗi cột có giá trị > 0.
-            if (count > 0)
+            // Yêu cầu chủ dự án 2026-10-01: hiện số lần chặn trên đầu mỗi cột có giá trị > 0 (bỏ khi cột quá hẹp — 1 tháng/6 tháng).
+            if (count > 0 && slot >= 14)
             {
                 var label = new TextBlock
                 {
