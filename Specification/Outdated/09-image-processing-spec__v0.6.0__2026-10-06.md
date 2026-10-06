@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -42,13 +42,10 @@
 
 ## 3. Model AI: lựa chọn cụ thể (ĐÃ CHỐT v0.5.0)
 
-- `IMG-014` **(DEPRECATED v0.7.0 — superseded by `IMG-014a`; GantMan vẫn giữ làm lựa chọn build thay thế)**: Model AI dùng cho bước Inference (Bước 5) dựa trên **trọng số đã train sẵn của [`GantMan/nsfw_model`](https://github.com/GantMan/nsfw_model)** — kiến trúc **MobileNetV2**, license **MIT**, phân loại 5 lớp: `drawing` / `hentai` / `neutral` / `porn` / `sexy` (risk score tổng hợp từ các lớp nhạy cảm, chi tiết công thức để ở System Design).
+- `IMG-014`: Model AI dùng cho bước Inference (Bước 5) dựa trên **trọng số đã train sẵn của [`GantMan/nsfw_model`](https://github.com/GantMan/nsfw_model)** — kiến trúc **MobileNetV2**, license **MIT**, phân loại 5 lớp: `drawing` / `hentai` / `neutral` / `porn` / `sexy` (risk score tổng hợp từ các lớp nhạy cảm, chi tiết công thức để ở System Design).
   - Chỉ lấy **trọng số model**, convert sang định dạng `.onnx` (qua `tf2onnx` hoặc tương đương) — **không đóng gói/chạy code Python gốc** (`nsfw_detector` package) dưới bất kỳ hình thức nào. Toàn bộ app chạy trên C#/.NET 10 + ONNX Runtime (`GEN-003a`), sản phẩm cuối **không có runtime Python** nào.
   - Yêu cầu duy nhất của MIT license: giữ lại file LICENSE gốc của `GantMan/nsfw_model` trong tài liệu bên thứ ba đi kèm bản phân phối (ví dụ `THIRD-PARTY-LICENSES.txt`).
   - Bắt buộc validate lại (precision/recall) trên bộ dataset benchmark riêng của dự án trước khi khoá cứng ngưỡng risk score mặc định (liên kết câu hỏi mở còn lại ở mục 7, `BE-090`) — model gốc không được train riêng cho bối cảnh Việt Nam/ngữ cảnh sử dụng thực tế của app.
-- `IMG-014a` **(ĐÃ CHỐT v0.7.0, 2026-10-06 — chủ dự án quyết định sau đánh giá trên máy thật; supersedes `IMG-014`)**: Model AI mặc định là **[`Marqo/nsfw-image-detection-384`](https://huggingface.co/Marqo/nsfw-image-detection-384)** — Vision Transformer (ViT-tiny), ảnh đầu vào **384×384**, license **Apache-2.0**, phân loại 2 lớp (NSFW / SFW); risk score = xác suất lớp NSFW. Cùng nguyên tắc `IMG-014`: chỉ lấy trọng số, chuyển sang `.onnx` (công cụ chuyển đổi nằm trong repo), không có runtime Python trong sản phẩm. Yêu cầu của Apache-2.0: kèm LICENSE/NOTICE và ghi công tác giả trong tài liệu bên thứ ba của bản phân phối. `GantMan/nsfw_model` (và `Falconsai/nsfw_image_detection`, Apache-2.0) vẫn chọn được bằng cờ build cho mục đích so sánh/thử nghiệm.
-  - Căn cứ (đo trên màn hình thật của chủ dự án, cùng khung hình cho cả 3 model): ảnh bình thường bị GantMan báo nhầm (cận mặt hút vape 91%, đám đông phát biểu 73%) — Marqo 6–7%, Falconsai 0%; kết hợp `IMG-016`, Marqo bắt được 56/58 khung video khiêu dâm thật, 0/22 báo nhầm (ngưỡng 70%).
-- `IMG-016` **(ĐÃ CHỐT v0.7.0, 2026-10-06)**: **Chấm điểm theo vùng con** — risk score của 1 cửa sổ = **giá trị lớn nhất** giữa điểm của **cả cửa sổ** và điểm của **5 vùng con** (4 vùng góc chồng lấn, mỗi vùng 60% chiều rộng × 60% chiều cao, và 1 vùng giữa). Lý do: nội dung vi phạm thường chỉ chiếm một phần cửa sổ (video dọc giữa trang web, ảnh trong bài viết) — chấm cả cửa sổ làm nội dung bị "pha loãng" (đo thực tế: chỉ bắt được 0–28% khung video khiêu dâm ở ngưỡng 70%). Để giới hạn CPU, có thể chỉ chấm vùng con khi điểm cả cửa sổ vượt 1 mức sàn thấp (giá trị cụ thể ở System Design, phải thấp hơn hẳn điểm thấp nhất đo được trên nội dung vi phạm thật).
 - `IMG-015` (ĐÃ CHỐT v0.5.0): **An toàn network của model được đảm bảo bởi 2 lớp độc lập**, không phụ thuộc vào việc "tin tưởng" thư viện/model đã chọn:
   1. File `.onnx` sau khi convert là **dữ liệu tĩnh** (trọng số số học) — không chứa code thực thi, về bản chất không có khả năng tự thực hiện network call dưới bất kỳ hình thức nào.
   2. `Vision` process (nơi load model + chạy ONNX Runtime) đã bị **chặn network tuyệt đối ở tầng OS** (Windows Filtering Platform outbound rule) theo `SEC-016`/`SEC-017`/`SEC-018` ở `04-security-spec.md` — lớp phòng thủ độc lập này chặn được kể cả nếu có thành phần nào đó (ONNX Runtime, dependency ẩn...) cố gắng kết nối mạng ngoài dự kiến, không phụ thuộc vào việc model/thư viện có "sạch" hay không.
@@ -92,7 +89,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.7.0 | 2026-10-06 | **MINOR (chủ dự án quyết định)**: `IMG-014a` model mặc định Marqo/nsfw-image-detection-384 (Apache-2.0, ViT-tiny 384, 2 lớp) supersedes `IMG-014` (GantMan → DEPRECATED, giữ làm lựa chọn build); `IMG-016` chấm điểm = max(cả cửa sổ, 5 vùng con) |
 | v0.6.0 | 2026-10-01 | **MINOR — `IMG-020a` (mới, supersedes `IMG-020`)**: xử lý tuần tự nhiều cửa sổ đang hiển thị mỗi chu kỳ (foreground trước, rồi Z-order, tối đa 4) theo `BE-071a` (`02` v0.15.0) |
 | v0.5.2 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` (câu hỏi mở về phương pháp/dataset benchmark ngưỡng risk score ở mục 8 vẫn giữ nguyên, không tính là requirement chưa duyệt) |
 | v0.5.1 | 2026-09-17 | Cập nhật tham chiếu .NET 8 → .NET 10 tại `IMG-014`, khớp `GEN-003a` (supersedes `GEN-003`) ở `00-INDEX.md` |

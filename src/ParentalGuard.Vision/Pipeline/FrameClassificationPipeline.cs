@@ -22,10 +22,19 @@ public sealed class FrameClassificationPipeline
 
     private byte[] _pixelBuffer = [];
 
-    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null)
+    /// <summary>
+    /// `IMG-016`: chỉ chấm thêm 5 vùng con khi điểm cả cửa sổ đạt mức sàn này (giới hạn CPU — `PERF-032a`). Đo trên máy chủ
+    /// dự án 2026-10-06 (Marqo): cửa sổ phát video khiêu dâm thật có điểm cả cửa sổ thấp nhất 0.13, cửa sổ bình thường trung vị 0.07.
+    /// </summary>
+    public const float DefaultSubRegionGate = 0.10f;
+
+    private readonly float _subRegionGate;
+
+    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate)
     {
         _classifier = classifier;
         _auditor = auditor ?? NullFrameBufferAuditor.Instance;
+        _subRegionGate = subRegionGate;
 
         // ADR-43: cấp phát đúng 1 lần lúc khởi tạo, tái dùng suốt vòng đời process — kích thước
         // luôn cố định 224x224x3 (IMG-014), không phụ thuộc kích thước cửa sổ.
@@ -137,7 +146,18 @@ public sealed class FrameClassificationPipeline
 
             if (contentChanged)
             {
-                FrameResizerNormalizer.Resize(_pixelBuffer, crop.Width, crop.Height, _inputTensor, _classifier.InputLayout);
+                // IMG-016: max(cả cửa sổ, 5 vùng con) — phải chạy TRƯỚC khi zero buffer pixel bên dưới.
+                var whole = new WindowRect(0, 0, crop.Width, crop.Height);
+                riskScore = ClassifyRegion(crop.Width, crop.Height, whole);
+                if (riskScore >= _subRegionGate)
+                {
+                    foreach (WindowRect region in SubRegions(crop.Width, crop.Height))
+                    {
+                        riskScore = Math.Max(riskScore, ClassifyRegion(crop.Width, crop.Height, region));
+                    }
+                }
+
+                _hashCache.UpdateRiskScore(hwnd, riskScore);
             }
         }
         finally
@@ -150,26 +170,6 @@ public sealed class FrameClassificationPipeline
             _auditor.OnZeroed("pixel_buffer_bgra8", _pixelBuffer.Length);
         }
 
-        if (contentChanged)
-        {
-            NsfwClassProbabilities probabilities;
-            try
-            {
-                probabilities = _classifier.Classify(_inputTensor);
-            }
-            finally
-            {
-                // IMG-003 (bảng mục 6, dòng "DenseTensor<float> input", v0.3.0): chỉ áp dụng khi
-                // content_changed=true — khi skip, Resize/Classify chưa từng chạm tensor nên không có
-                // gì để zero (tensor vẫn nguyên trạng zero từ lần ghi+zero trước đó).
-                _inputTensor.Buffer.Span.Clear();
-                _auditor.OnZeroed("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
-            }
-
-            riskScore = RiskScoreAggregator.Aggregate(probabilities);
-            _hashCache.UpdateRiskScore(hwnd, riskScore);
-        }
-
         return new VisionInferenceResult
         {
             FrameId = frameId,
@@ -180,6 +180,39 @@ public sealed class FrameClassificationPipeline
             CapturedAtUnixMs = capturedAtUnixMs,
             ContentChanged = contentChanged,
         };
+    }
+
+    /// <summary>Resize 1 vùng của buffer pixel hiện hành vào tensor, phân loại, zero tensor ngay (IMG-003).</summary>
+    private float ClassifyRegion(int width, int height, WindowRect region)
+    {
+        try
+        {
+            FrameResizerNormalizer.Resize(_pixelBuffer, width, height, region, _inputTensor, _classifier.InputLayout);
+            return RiskScoreAggregator.Aggregate(_classifier.Classify(_inputTensor));
+        }
+        finally
+        {
+            // IMG-003 (bảng mục 6, dòng "DenseTensor<float> input"): zero sau MỖI lần phân loại.
+            _inputTensor.Buffer.Span.Clear();
+            _auditor.OnZeroed("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
+        }
+    }
+
+    /// <summary>`IMG-016`: 4 vùng góc chồng lấn (60%×60%) + 1 vùng giữa — đúng bộ vùng đã đánh giá trên máy chủ dự án 2026-10-06.</summary>
+    internal static IReadOnlyList<WindowRect> SubRegions(int width, int height)
+    {
+        int w = Math.Max(1, (int)(width * 0.6));
+        int h = Math.Max(1, (int)(height * 0.6));
+        int right = width - w;
+        int bottom = height - h;
+        return
+        [
+            new WindowRect(0, 0, w, h),
+            new WindowRect(right, 0, w, h),
+            new WindowRect(0, bottom, w, h),
+            new WindowRect(right, bottom, w, h),
+            new WindowRect((int)(width * 0.2), (int)(height * 0.15), Math.Max(1, (int)(width * 0.6)), Math.Max(1, (int)(height * 0.8))),
+        ];
     }
 
     /// <summary>Gọi đúng 1 lần cuối mỗi chu kỳ capture (Architecture/05 mục 3.8.2) — evict hash của cửa sổ không còn candidate.</summary>

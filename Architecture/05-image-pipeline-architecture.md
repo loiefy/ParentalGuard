@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.4.5 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Mục đích và phạm vi
 
@@ -481,6 +481,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.5.0 | 2026-10-06 | MINOR — `IMG-014a`/`IMG-016`/`PERF-032a` (Spec v0.11.0): model mặc định Marqo (cờ `ParentalGuardModel` mặc định `Marqo`); `FrameClassificationPipeline` chấm cả cửa sổ, nếu điểm ≥ `DefaultSubRegionGate` (0.10) chấm thêm 5 vùng con (`SubRegions`: 4 góc 60%×60% + vùng giữa 60%×80%), risk = max — toàn bộ chạy TRƯỚC khi zero buffer pixel, tensor zero sau MỖI lần phân loại (IMG-003). `FrameResizerNormalizer.Resize` thêm overload theo vùng (không cấp buffer trung gian). Kiểm chứng trên máy chủ dự án 60s: cửa sổ video khiêu dâm thật 40/41 lượt ≥ 70% (trung bình 86%), cửa sổ bình thường 0 lượt (tối đa 43%) |
 | v0.4.5 | 2026-10-06 | PATCH (thử nghiệm, mặc định KHÔNG đổi) — cờ build `ParentalGuardModel` = GantMan (mặc định) | Marqo (`Marqo/nsfw-image-detection-384`, Apache-2.0, ViT-tiny 384) | Falconsai (`Falconsai/nsfw_image_detection`, Apache-2.0, ViT-base 224). `tools/export_nsfw_models.py` xuất ONNX đã bọc sẵn chuẩn hoá mean/std + softmax: input `pixels` [1,3,H,W] RGB [0,1], output `probs` [1,2] = [bình thường, nsfw]. `NsfwClassifier` nhận output 5 lớp hoặc 2 lớp (P(nsfw) dồn vào lớp Porn để `RiskScoreAggregator` giữ nguyên), kích thước input đọc từ metadata model; checksum `MISC-090` theo từng mô hình. Đổi mặc định sang mô hình mới là thay đổi WHAT (`IMG-014`) — chờ chủ dự án quyết định sau đánh giá |
 | v0.4.4 | 2026-10-06 | PATCH — mục 3.8.1 (bug real-hardware, video chủ dự án): dHash 64 bit lấy mẫu 72 ĐIỂM đơn lẻ không nhận ra nội dung đổi trong 1 vùng con của cửa sổ (băng chuyền ảnh trong Edge) → điểm của ảnh trước (91%) bị tái dùng cho ảnh sau (Elsa/quảng cáo, thật ra ~13%) — và ngược lại có thể bỏ sót nội dung vi phạm mới xuất hiện trong vùng nhỏ. Nay: hash khối 1024 bit (`PerceptualHash.ComputeBlockDHash`: lưới 33×32 ô, độ sáng TRUNG BÌNH mỗi ô, so 2 ô liền kề), ngưỡng "không đổi" ≤ 8/1024 bit; thêm lưới an toàn `WindowHashCache.MaxConsecutiveReuse = 3` — dùng lại điểm cũ tối đa 3 chu kỳ liên tiếp rồi bắt buộc phân loại lại. Hash vẫn là state kỹ thuật RAM-only (IMG-011), không phải ảnh |
 | v0.4.3 | 2026-10-06 | PATCH — bug real-hardware (cửa sổ Edge trên màn hình phụ bị chấm 90%, chụp trực tiếp cửa sổ chỉ 16%): Desktop Duplication là ảnh màn hình ĐÃ GHÉP nên crop theo khung cửa sổ lấy luôn nội dung cửa sổ khác đè lên (đã tái hiện: crop của Vision chứa cửa sổ xem ảnh nằm trên Edge). Nay (1) `CandidateWindowSelector.OccludersAbove` lấy bounds các cửa sổ hiển thị nằm trên cửa sổ đang xét (cùng định nghĩa "vật che" với chọn candidate), `OcclusionMask` tô đen phần bị che TRƯỚC hash/resize/phân loại; còn lộ < 10% thì bỏ qua chu kỳ. (2) Crop toàn 0 (khung Desktop Duplication đầu tiên sau khi tạo duplication chưa có nội dung — đã tái hiện) → không phân loại, không gửi kết quả, không cập nhật hash cache |

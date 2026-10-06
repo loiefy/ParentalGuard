@@ -17,7 +17,14 @@ public static class FrameResizerNormalizer
     /// sang [-1, 1] bên trong. Bug đã sửa: bản cũ tự đưa về [-1, 1] trước → model thấy [-3, 1]
     /// (chuẩn hoá 2 lần), phân phối đầu vào lệch hẳn, không phát hiện được nội dung vi phạm.
     /// </summary>
-    public static void Resize(ReadOnlySpan<byte> sourceBgra8, int sourceWidth, int sourceHeight, DenseTensor<float> destination, TensorLayout layout)
+    public static void Resize(ReadOnlySpan<byte> sourceBgra8, int sourceWidth, int sourceHeight, DenseTensor<float> destination, TensorLayout layout) =>
+        Resize(sourceBgra8, sourceWidth, sourceHeight, new WindowRect(0, 0, sourceWidth, sourceHeight), destination, layout);
+
+    /// <summary>
+    /// `IMG-016` (2026-10-06): như bản trên nhưng chỉ lấy <paramref name="region"/> (toạ độ trong ảnh nguồn) — dùng để chấm
+    /// vùng con của cửa sổ mà không cần cấp phát buffer ảnh trung gian.
+    /// </summary>
+    public static void Resize(ReadOnlySpan<byte> sourceBgra8, int sourceWidth, int sourceHeight, WindowRect region, DenseTensor<float> destination, TensorLayout layout)
     {
         ArgumentNullException.ThrowIfNull(destination);
         if (sourceWidth <= 0 || sourceHeight <= 0)
@@ -30,25 +37,30 @@ public static class FrameResizerNormalizer
             throw new ArgumentException("Source buffer smaller than sourceWidth*sourceHeight*4 (BGRA8).", nameof(sourceBgra8));
         }
 
+        int regionX = Math.Clamp(region.X, 0, sourceWidth - 1);
+        int regionY = Math.Clamp(region.Y, 0, sourceHeight - 1);
+        int regionWidth = Math.Clamp(region.Width, 1, sourceWidth - regionX);
+        int regionHeight = Math.Clamp(region.Height, 1, sourceHeight - regionY);
+
         (int destHeight, int destWidth) = GetSpatialDimensions(destination.Dimensions, layout);
         Span<float> destSpan = destination.Buffer.Span;
 
-        float xRatio = sourceWidth / (float)destWidth;
-        float yRatio = sourceHeight / (float)destHeight;
+        float xRatio = regionWidth / (float)destWidth;
+        float yRatio = regionHeight / (float)destHeight;
 
         for (int y = 0; y < destHeight; y++)
         {
             float srcYf = ((y + 0.5f) * yRatio) - 0.5f;
-            int y0 = Math.Clamp((int)MathF.Floor(srcYf), 0, sourceHeight - 1);
-            int y1 = Math.Clamp(y0 + 1, 0, sourceHeight - 1);
-            float fy = Math.Clamp(srcYf - y0, 0f, 1f);
+            int y0 = regionY + Math.Clamp((int)MathF.Floor(srcYf), 0, regionHeight - 1);
+            int y1 = Math.Min(y0 + 1, regionY + regionHeight - 1);
+            float fy = Math.Clamp(srcYf - (y0 - regionY), 0f, 1f);
 
             for (int x = 0; x < destWidth; x++)
             {
                 float srcXf = ((x + 0.5f) * xRatio) - 0.5f;
-                int x0 = Math.Clamp((int)MathF.Floor(srcXf), 0, sourceWidth - 1);
-                int x1 = Math.Clamp(x0 + 1, 0, sourceWidth - 1);
-                float fx = Math.Clamp(srcXf - x0, 0f, 1f);
+                int x0 = regionX + Math.Clamp((int)MathF.Floor(srcXf), 0, regionWidth - 1);
+                int x1 = Math.Min(x0 + 1, regionX + regionWidth - 1);
+                float fx = Math.Clamp(srcXf - (x0 - regionX), 0f, 1f);
 
                 for (int channel = 0; channel < 3; channel++)
                 {

@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
 
 ## 1. Mục tiêu hiệu năng
 
@@ -36,7 +36,6 @@
 - `PERF-030`: Dùng **ONNX Runtime với DirectML execution provider** để tận dụng GPU tích hợp (Intel UHD/AMD APU) hoặc GPU rời nếu có — giảm tải CPU đáng kể so với chạy thuần CPU provider.
 - `PERF-031`: Fallback về CPU execution provider nếu máy không hỗ trợ DirectML, kèm cảnh báo hiệu năng có thể thấp hơn hiển thị trong Dashboard (`FE-041`).
 - `PERF-032`: Chọn model kích thước nhẹ (MobileNet-based hoặc tương đương, input resolution thấp như 224×224 hoặc thấp hơn nếu độ chính xác vẫn chấp nhận được) thay vì model độ chính xác cao nhưng nặng — đánh đổi có chủ đích giữa độ chính xác và hiệu năng, cần benchmark thực tế để chọn điểm cân bằng (chi tiết quy trình đánh giá ở `11-testing-qa-process.md`). **Model cụ thể đã chốt: xem `IMG-014` ở `09-image-processing-spec.md`** (trọng số `GantMan/nsfw_model`, kiến trúc MobileNetV2, license MIT, convert sang ONNX).
-- `PERF-032a` **(ĐÃ CHỐT v0.9.0, 2026-10-06 — chủ dự án quyết định, supersedes riêng phần "input resolution 224×224 hoặc thấp hơn" của `PERF-032`)**: Chấp nhận model ViT-tiny ảnh đầu vào 384×384 (`IMG-014a`, ~70 ms/lần chấm trên CPU máy chủ dự án, gấp ~10 lần MobileNetV2) và chấm thêm vùng con (`IMG-016`) — độ chính xác (giảm báo nhầm, giảm bỏ sót) được ưu tiên hơn CPU. Bù lại: chỉ chấm vùng con khi điểm cả cửa sổ vượt mức sàn; giới hạn số luồng suy luận để không chiếm hết CPU.
 
 ## 5. Quản lý bộ nhớ (Memory Management)
 
@@ -75,7 +74,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.9.0 | 2026-10-06 | **MINOR — `PERF-032a` (mới)**: chấp nhận model 384×384 (Marqo) + chấm vùng con, ưu tiên độ chính xác hơn CPU |
 | v0.8.0 | 2026-10-01 | **MINOR — `PERF-020a` (mới, supersedes `PERF-020`, đánh dấu DEPRECATED)**: exclude-list áp dụng cho từng cửa sổ đang hiển thị theo `BE-071a` (`02` v0.15.0); chỉ park vòng lặp khi không còn cửa sổ nào cần giám sát; trần 4 cửa sổ/chu kỳ |
 | v0.7.0 | 2026-09-24 | **MINOR — supersedes `PERF-050`/`PERF-050a`**: phát sinh khi review `Architecture/10-ui-architecture.md` (Đợt 6, Dashboard UI, mục 11 "Câu hỏi mở"). Chủ dự án quyết định trực tiếp: giữ nguyên việc "Chế độ hiệu năng" ở `S4` là `APPROVED`, nhưng **bỏ hẳn mức "Tiết kiệm pin"** — chỉ còn 2 mức "Cân bằng" (mặc định) / "Bảo vệ tối đa". Lý do: "Tiết kiệm pin" là lựa chọn có thể làm giảm hiệu quả bảo vệ trẻ em (giãn tần suất capture/inference), chủ dự án không chấp nhận đánh đổi bảo mật này dù đã có cảnh báo UI đi kèm. Thêm `PERF-050b` (mới, supersedes `PERF-050`) mô tả 2 mức còn lại; `PERF-050` (3 mức cũ) và `PERF-050a` (cảnh báo UI riêng cho "Tiết kiệm pin") đều đánh dấu `DEPRECATED` theo đúng quy tắc không sửa trực tiếp requirement đã `ĐÃ CHỐT`/`APPROVED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.6.0__2026-09-24.md` |
 | v0.6.0 | 2026-09-20 | **MINOR — vá gap quy trình phát hiện bởi `architecture-writer` khi viết kiến trúc Đợt 6 (Dashboard UI)**: `PERF-050` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.5.3 (cùng dạng gap 2-tầng-trạng-thái đã gặp ở `PAUSE-021`/`ANTI-060` trước đây). Chủ dự án xác nhận trực tiếp 2026-09-20: **DUYỆT đủ cả 3 mức** hiệu năng (Cân bằng/Tiết kiệm pin/Bảo vệ tối đa). Bổ sung `PERF-050a` mới: khi chọn "Tiết kiệm pin", UI **bắt buộc** hiển thị cảnh báo rõ ràng về giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn — ghi rõ vào requirement (không chỉ ngầm hiểu) vì đây là chi tiết UX quan trọng ảnh hưởng trực tiếp tới an toàn trẻ em. Rà soát toàn file `08`: không còn `PERF-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.5.3__2026-09-20.md` |
