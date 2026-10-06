@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-06 | Bug real-hardware: `05` v0.4.4 (hash khối 1024 bit thay dHash 72 điểm — sửa điểm "kẹt" từ ảnh trước sang ảnh sau; bắt buộc phân loại lại sau 3 chu kỳ dùng lại điểm cũ) |
 | 2026-10-06 | Bug real-hardware: `05` v0.4.3 (tô đen phần cửa sổ bị cửa sổ khác che trước khi phân loại; bỏ qua khung Desktop Duplication đen) |
 | 2026-10-06 | Bug real-hardware: `05` v0.4.2 (Vision DPI-aware PerMonitorV2 — sửa crop lệch gây nhận diện nhầm), `07` v0.3.6 (overlay hạ khỏi topmost khi có cửa sổ khác nằm trên cửa sổ vi phạm) |
 | 2026-10-06 | Spec v0.10.0: `03` v0.10.1 (`DebugWindowScore` field 68 — chế độ developer `DEV-050`–`052`). `S1` cùng tông Dashboard/Donate tab riêng là chi tiết implement UI, không đổi `10` |

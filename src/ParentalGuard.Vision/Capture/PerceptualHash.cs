@@ -50,4 +50,67 @@ public static class PerceptualHash
             luma.Clear();
         }
     }
+
+    /// <summary>Số <c>ulong</c> của <see cref="ComputeBlockDHash"/> (32 hàng × 32 bit = 1024 bit).</summary>
+    public const int BlockHashWords = 16;
+
+    private const int BlockCols = 33;
+    private const int BlockRows = 32;
+    private const int BlockSampleStep = 2;
+
+    /// <summary>
+    /// Bug real-hardware 2026-10-06 (video chủ dự án: ảnh băng chuyền trong Edge đổi nhưng điểm 91% của ảnh trước "kẹt"
+    /// sang ảnh sau): <see cref="ComputeDHash64"/> chỉ lấy 72 ĐIỂM ảnh đơn lẻ trên cả cửa sổ — nội dung đổi trong 1 vùng
+    /// con hầu như không chạm điểm mẫu nào nên bị coi là "không đổi". Bản này chia cửa sổ thành lưới 33×32 ô, lấy độ sáng
+    /// TRUNG BÌNH mỗi ô (lấy mẫu cách 1 pixel) rồi so 2 ô liền kề → 1024 bit: thay đổi ở bất kỳ vùng nào cỡ vài % diện tích
+    /// đều làm lệch nhiều bit. <paramref name="destination"/> phải có <see cref="BlockHashWords"/> phần tử.
+    /// </summary>
+    public static void ComputeBlockDHash(ReadOnlySpan<byte> bgra8, int width, int height, Span<ulong> destination)
+    {
+        Span<int> luma = stackalloc int[BlockCols * BlockRows];
+        try
+        {
+            for (int row = 0; row < BlockRows; row++)
+            {
+                int y0 = row * height / BlockRows;
+                int y1 = Math.Max(y0 + 1, (row + 1) * height / BlockRows);
+                for (int col = 0; col < BlockCols; col++)
+                {
+                    int x0 = col * width / BlockCols;
+                    int x1 = Math.Max(x0 + 1, (col + 1) * width / BlockCols);
+                    long sum = 0;
+                    int count = 0;
+                    for (int y = y0; y < y1; y += BlockSampleStep)
+                    {
+                        int rowOffset = y * width * 4;
+                        for (int x = x0; x < x1; x += BlockSampleStep)
+                        {
+                            int offset = rowOffset + (x * 4);
+                            sum += bgra8[offset] + bgra8[offset + 1] + bgra8[offset + 2];
+                            count++;
+                        }
+                    }
+
+                    luma[(row * BlockCols) + col] = count == 0 ? 0 : (int)(sum / count);
+                }
+            }
+
+            for (int row = 0; row < BlockRows; row++)
+            {
+                ulong bits = 0;
+                for (int col = 0; col < BlockCols - 1; col++)
+                {
+                    bits = (bits << 1) | (luma[(row * BlockCols) + col] < luma[(row * BlockCols) + col + 1] ? 1UL : 0UL);
+                }
+
+                // 2 hàng 32 bit gộp vào 1 ulong.
+                int word = row / 2;
+                destination[word] = row % 2 == 0 ? bits << 32 : destination[word] | bits;
+            }
+        }
+        finally
+        {
+            luma.Clear(); // IMG-003: buffer dẫn xuất từ pixel
+        }
+    }
 }

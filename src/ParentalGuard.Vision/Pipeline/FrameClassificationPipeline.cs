@@ -128,7 +128,9 @@ public sealed class FrameClassificationPipeline
 
             // Mục 3.8.1/ADR-129 (v0.3.0): hash-gate NGAY SAU readback, TRƯỚC resize — dùng chung 1 tín
             // hiệu cho cả PERF-010 (Service, qua ContentChanged) và PERF-011 (skip cục bộ dưới đây).
-            ulong newHash = PerceptualHash.ComputeDHash64(_pixelBuffer, crop.Width, crop.Height);
+            // Bug 2026-10-06: hash khối 1024 bit thay dHash 72 điểm — xem PerceptualHash.ComputeBlockDHash.
+            Span<ulong> newHash = stackalloc ulong[PerceptualHash.BlockHashWords];
+            PerceptualHash.ComputeBlockDHash(_pixelBuffer, crop.Width, crop.Height, newHash);
             contentChanged = _hashCache.ResolveContentChanged(hwnd, newHash, out float cachedRiskScore);
             riskScore = cachedRiskScore;
 
