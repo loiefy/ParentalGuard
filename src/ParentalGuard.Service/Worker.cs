@@ -182,7 +182,9 @@ public sealed class Worker(
         // riêng) vì cần đóng gói `config.MonitoringState` từ closure, giống các lambda BuildControlVisionCommand khác trong hàm này.
         async Task HandleVisionResultAsync(IpcPayload message, CancellationToken ct)
         {
+#if !PARENTALGUARD_SUPPRESS_OVERLAY
             await _overlayDecisionCoordinator!.HandleVisionResultAsync(message, ct).ConfigureAwait(false);
+#endif
 #if PARENTALGUARD_DEVELOPER_MODE
             // DEV-051: chế độ developer — chuyển tiếp điểm rủi ro từng cửa sổ cho Overlay vẽ viền + %.
             VisionInferenceResult debugResult = message.VisionResult;

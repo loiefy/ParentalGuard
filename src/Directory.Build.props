@@ -42,4 +42,14 @@
     <DefineConstants>$(DefineConstants);PARENTALGUARD_DEVELOPER_MODE</DefineConstants>
   </PropertyGroup>
 
+  <!-- DEV-050 (debug, 2026-10-06): bản DEBUG quay màn hình — giữ nguyên nhận diện + khung developer, nhưng Service KHÔNG
+       dựng overlay khi phát hiện vi phạm (và không ghi ContentBlocked). Mặc định TẮT; chỉ bật khi build bản debug:
+       -p:ParentalGuardSuppressOverlay=true. Tuyệt đối không dùng cho bản phát hành. -->
+  <PropertyGroup>
+    <ParentalGuardSuppressOverlay Condition="'$(ParentalGuardSuppressOverlay)' == ''">false</ParentalGuardSuppressOverlay>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ParentalGuardSuppressOverlay)' == 'true'">
+    <DefineConstants>$(DefineConstants);PARENTALGUARD_SUPPRESS_OVERLAY</DefineConstants>
+  </PropertyGroup>
+
 </Project>
