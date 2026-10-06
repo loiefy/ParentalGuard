@@ -133,7 +133,15 @@ internal sealed class DeveloperOverlay : IDisposable
         private static readonly IntPtr HwndTopmost = new(-1);
         private static readonly Color KeyColor = Color.FromArgb(1, 0, 1);
         private static readonly Color FrameColor = Color.OrangeRed;
-        private static readonly Color RegionColor = Color.FromArgb(255, 255, 236, 139); // vàng nhạt
+        // Mỗi vùng con 1 màu riêng — đúng thứ tự FrameClassificationPipeline.SubRegions: trên-trái, trên-phải, dưới-trái, dưới-phải, giữa.
+        private static readonly Color[] RegionColors =
+        [
+            Color.FromArgb(255, 255, 236, 139), // vàng nhạt
+            Color.FromArgb(255, 0, 255, 255),   // cyan
+            Color.FromArgb(255, 124, 252, 0),   // xanh lá
+            Color.FromArgb(255, 255, 105, 180), // hồng
+            Color.FromArgb(255, 0, 191, 255),   // xanh da trời
+        ];
 
         private Rectangle _bounds;
 
@@ -155,7 +163,7 @@ internal sealed class DeveloperOverlay : IDisposable
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public DateTime LastUpdatedUtc { get; set; }
 
-        /// <summary>IMG-016: vùng con (toạ độ tương đối cửa sổ) + điểm — vẽ viền vàng nhạt.</summary>
+        /// <summary>IMG-016: vùng con (toạ độ tương đối cửa sổ) + điểm — mỗi vùng 1 màu viền riêng.</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public IReadOnlyList<(Rectangle Rect, float Score)> Regions { get; set; } = [];
 
@@ -230,14 +238,16 @@ internal sealed class DeveloperOverlay : IDisposable
             g.Clear(KeyColor);
 
             // IMG-016: viền vàng nhạt cho từng vùng con + % nhỏ ở góc trên-trái vùng (vẽ trước để viền đỏ cam nằm trên cùng).
-            using (var regionPen = new Pen(RegionColor, 1))
             using (var regionFont = new Font("Segoe UI", 8f, FontStyle.Bold))
             {
-                foreach ((Rectangle r, float score) in Regions)
+                for (int i = 0; i < Regions.Count; i++)
                 {
+                    (Rectangle r, float score) = Regions[i];
+                    Color color = RegionColors[i % RegionColors.Length];
+                    using var regionPen = new Pen(color, 1);
                     g.DrawRectangle(regionPen, r.X, r.Y, Math.Max(1, r.Width - 1), Math.Max(1, r.Height - 1));
                     string label = $"{Math.Round(Math.Clamp(score, 0f, 1f) * 100):0}%";
-                    TextRenderer.DrawText(g, label, regionFont, new Point(r.X + 3, r.Y + 2), Color.Black, RegionColor, TextFormatFlags.NoPadding);
+                    TextRenderer.DrawText(g, label, regionFont, new Point(r.X + 3, r.Y + 2), Color.Black, color, TextFormatFlags.NoPadding);
                 }
             }
 
