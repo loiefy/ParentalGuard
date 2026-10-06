@@ -319,7 +319,25 @@ public sealed class OverlayCoordinator : Form
         ulong handle = unchecked((ulong)hwnd.ToInt64());
         if (!_overlays.ContainsKey(handle))
         {
-            // Mục 2.6/3.5: lọc theo _overlays.Keys, tránh xử lý sự kiện của toàn bộ hệ thống.
+            // Bug 2026-10-06: cửa sổ KHÁC (vd Dashboard) được đưa lên trên/kéo đè lên cửa sổ vi phạm → tính lại xem overlay
+            // có phải hạ xuống không (ZOrderSync.ComputeDemoted). Đổi foreground xử lý NGAY (không debounce) để overlay
+            // không kịp đè lên cửa sổ mới hiện lên; mọi sự kiện khác của cửa sổ không theo dõi vẫn bỏ qua (mục 2.6/3.5).
+            if (_overlays.Count == 0)
+            {
+                return;
+            }
+
+            if (eventType == WinEventHookInterop.EventSystemForeground)
+            {
+                _pendingZOrderResync = true;
+                FlushWinEvents();
+            }
+            else if (eventType == WinEventHookInterop.EventObjectLocationChange && hwnd == GetForegroundWindow())
+            {
+                _pendingZOrderResync = true;
+                RestartDebounceTimer();
+            }
+
             return;
         }
 
@@ -369,6 +387,10 @@ public sealed class OverlayCoordinator : Form
             ResyncZOrder();
         }
     }
+
+    [System.Runtime.InteropServices.DefaultDllImportSearchPaths(System.Runtime.InteropServices.DllImportSearchPath.System32)]
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
     /// <summary>`BE-087`: z-index cục bộ — ADR-56.</summary>
     private void ResyncZOrder()

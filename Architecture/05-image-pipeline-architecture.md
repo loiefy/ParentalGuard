@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.4.1 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.4.2 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Mục đích và phạm vi
 
@@ -481,6 +481,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.4.2 | 2026-10-06 | PATCH — bug real-hardware (nhận diện nhầm VS Code/Edge 71–91%): `Vision` PHẢI gọi `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` đầu `Main` (cùng ADR-61 của `Overlay`). Khi DPI-unaware, `DXGI_OUTPUT_DESC.DesktopCoordinates` bị ảo hoá theo tỉ lệ (màn 2880×1920 @200% báo 1440×960) trong khi `DWMWA_EXTENDED_FRAME_BOUNDS` và texture Desktop Duplication là pixel vật lý → vùng crop lệch sang nội dung khác. Đã xác nhận thực nghiệm trên máy chủ dự án; chạy mô hình offline trên đúng ảnh màn hình chỉ cho 13% |
 | v0.4.1 | 2026-10-01 | PATCH — `BE-071b`: `SelectVisibleCandidates(..., rotationOffset)` — foreground luôn có, 3 suất còn lại lấy các cửa sổ hiển thị khác theo vòng tròn bắt đầu từ `rotationOffset`; `CaptureLoopWorker` tăng offset thêm 3 mỗi chu kỳ. Bug thật: cửa sổ thứ 5+ theo Z-order không bao giờ được quét. Cửa sổ rời candidate >5 chu kỳ bị evict hash (mục 3.8.2) nên lần quay lại được phân loại đầy đủ |
 | v0.4.0 | 2026-10-01 | MINOR — theo Spec v0.7.8 (`BE-071a`/`BE-034c`/`PERF-020a`/`IMG-020a`, chủ dự án chốt sau real-hardware test: 2 cửa sổ vi phạm cùng lúc chỉ 1 bị blur; cửa sổ không đóng được sau timeout không bị blur lại). Mục 3.5: thuật toán chọn candidate mới — mọi cửa sổ đang hiển thị (foreground trước, Z-order, trần 4, loại cửa sổ bị che hoàn toàn bằng lưới mẫu 8×8, loại cửa sổ DWM-cloaked và của chính ParentalGuard). `BE-034c` không cần cơ chế mới: force-close gỡ cửa sổ khỏi `covered_window_handles` → `ControlVisionCommand` đánh thức Vision → cửa sổ còn tồn tại được phân loại lại ngay chu kỳ kế, vi phạm thì Service tạo overlay mới (overlay_id mới, đếm 60s mới) |
 | v0.3.5 | 2026-09-30 | PATCH — **real-hardware bug fix (Đợt 9): pipeline chạy nhưng không bao giờ phát hiện nội dung vi phạm**, 2 bug độc lập. (1) Normalize sai (mục 4.2 `FrameResizerNormalizer`): code áp `(pixel/127.5)-1` trong khi graph `nsfw_model.onnx` tự chứa `Mul(2)`/`Sub(1)` → model nhận `[-3,1]` (chuẩn hoá 2 lần), phân phối lệch hẳn (đo bằng onnxruntime: ảnh phong cảnh bị đọc thành `drawing` thay vì `neutral`). Sửa thành `pixel/255`, chốt câu hỏi "xác nhận công thức khi implement" để ngỏ từ v0.1.0; thêm contract test trên model thật. (2) Crop sai toạ độ (mục 4.2 `GpuWindowCropper`/mục 3.5 multi-monitor): box `CopySubresourceRegion` dùng thẳng toạ độ virtual desktop, không trừ offset output, không clip — với màn hình phụ toạ độ âm/khác 0 hoặc cửa sổ lấn mép, box không hợp lệ và D3D11 im lặng không copy → phân loại ảnh đen. Sửa: `MonitorSelector.OutputInfo` mang `DesktopBounds`, `WindowRectResolver.ToOutputLocalCrop` đổi + clip; `Bbox` giữ nguyên toạ độ tuyệt đối. Không đổi Spec (thuần HOW) |

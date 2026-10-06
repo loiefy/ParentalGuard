@@ -41,6 +41,10 @@ TaskScheduler.UnobservedTaskException += (_, e) =>
 
 DebugLog("Vision Main() bắt đầu.");
 
+// Bug 2026-10-06: toạ độ màn hình/cửa sổ phải cùng hệ pixel vật lý — xem DpiAwareness.
+bool dpiAware = DpiAwareness.EnablePerMonitorV2();
+DebugLog($"SetProcessDpiAwarenessContext(PerMonitorV2) = {dpiAware}.");
+
 using CancellationTokenSource cts = new();
 Console.CancelKeyPress += (_, eventArgs) =>
 {

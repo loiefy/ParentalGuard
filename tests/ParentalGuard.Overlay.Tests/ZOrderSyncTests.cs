@@ -1,3 +1,4 @@
+using System.Drawing;
 using ParentalGuard.Overlay.Windows;
 
 namespace ParentalGuard.Overlay.Tests;
@@ -36,5 +37,38 @@ public class ZOrderSyncTests
         IReadOnlyList<IntPtr> applicationOrder = ZOrderSync.ComputeBackToFrontApplicationOrder([a, b, c], tracked);
 
         Assert.Equal([c, b, a], applicationOrder);
+    }
+
+    /// <summary>Bug 2026-10-06: Dashboard (cửa sổ thường) nằm trên + chồng lên cửa sổ vi phạm → overlay phải hạ xuống.</summary>
+    [Fact]
+    public void ComputeDemoted_ForeignWindowAboveAndOverlapping_Demotes()
+    {
+        IntPtr dashboard = new(1), edge = new(2);
+        var bounds = new Dictionary<IntPtr, Rectangle> { [dashboard] = new(100, 100, 800, 600), [edge] = new(0, 0, 1000, 700) };
+
+        IReadOnlySet<IntPtr> demoted = ZOrderSync.ComputeDemoted([dashboard, edge], new HashSet<IntPtr> { edge }, _ => true, h => bounds[h]);
+
+        Assert.Equal([edge], demoted);
+    }
+
+    [Fact]
+    public void ComputeDemoted_ForeignWindowAboveButNotOverlapping_StaysTopmost()
+    {
+        IntPtr other = new(1), edge = new(2);
+        var bounds = new Dictionary<IntPtr, Rectangle> { [other] = new(2000, 0, 500, 500), [edge] = new(0, 0, 1000, 700) };
+
+        Assert.Empty(ZOrderSync.ComputeDemoted([other, edge], new HashSet<IntPtr> { edge }, _ => true, h => bounds[h]));
+    }
+
+    /// <summary>Cửa sổ khác nằm DƯỚI cửa sổ vi phạm, hoặc là cửa sổ topmost/của Overlay, không làm overlay hạ xuống.</summary>
+    [Fact]
+    public void ComputeDemoted_ForeignWindowBelowOrNotNormal_StaysTopmost()
+    {
+        IntPtr topmostOrOwn = new(1), edge = new(2), below = new(3);
+        var bounds = new Dictionary<IntPtr, Rectangle> { [topmostOrOwn] = new(0, 0, 500, 500), [edge] = new(0, 0, 1000, 700), [below] = new(0, 0, 900, 900) };
+
+        IReadOnlySet<IntPtr> demoted = ZOrderSync.ComputeDemoted([topmostOrOwn, edge, below], new HashSet<IntPtr> { edge }, h => h != topmostOrOwn, h => bounds[h]);
+
+        Assert.Empty(demoted);
     }
 }

@@ -1,6 +1,6 @@
 # 07 — Overlay Architecture (vùng loại trừ, đa cửa sổ/z-index/gộp, multi-monitor)
 
-> Version: v0.3.5 | Trạng thái: Draft | Cập nhật: 2026-10-01
+> Version: v0.3.6 | Trạng thái: Draft | Cập nhật: 2026-10-06
 
 ## 0. Ghi chú tổ chức tài liệu (vì sao có file này, vì sao đánh số `07`)
 
@@ -333,6 +333,7 @@ Phát hiện khi viết `10-ui-architecture.md` (Đợt 6, `S4` Cài đặt nân
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.6 | 2026-10-06 | PATCH — mục 3.5 (bug real-hardware: overlay đè lên Dashboard mở phía trên cửa sổ vi phạm): overlay KHÔNG còn luôn `HWND_TOPMOST`. `ZOrderSync.ComputeDemoted`: nếu có cửa sổ thường khác (hiển thị, không cloak, không topmost, không thuộc `Overlay`) nằm trên cửa sổ vi phạm và chồng lên vùng của nó → overlay rời dải topmost, đặt ngay trên cửa sổ vi phạm (dưới cửa sổ kia); ngược lại giữ topmost như cũ. Đổi foreground của BẤT KỲ cửa sổ nào → resync ngay (không debounce); di chuyển cửa sổ foreground → resync có debounce. Thứ tự tương đối giữa các overlay (`BE-087`) giữ nguyên. Overlay gộp full-screen vẫn luôn topmost |
 | v0.3.5 | 2026-10-01 | PATCH — `FE-016j`: `ExclusionRegionCalculator.FallbackRect` 160×40 (trước 160×50), `PaddedRect` đệm 16 ngang / 6 dọc (trước 16 mọi cạnh) |
 | v0.3.4 | 2026-10-01 | PATCH — nút bánh răng overlay cùng màu nền overlay (#18181C), chỉ sáng nhẹ khi hover/nhấn |
 | v0.3.3 | 2026-10-01 | PATCH — `FE-021a`: icon trạng thái vẽ thêm ký hiệu trắng theo tỉ lệ cỡ icon — tick (Active), 2 vạch pause (Paused), chấm than (Error) |
