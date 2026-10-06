@@ -68,7 +68,11 @@ public sealed class FrameClassificationPipeline
             return null;
         }
 
+#if PARENTALGUARD_FAST_DETECTION
+        IDisposable? fullScreenFrame = capture.AcquireNextFrame(adapterIndex, outputIndex, timeoutMs: 50);
+#else
         IDisposable? fullScreenFrame = capture.AcquireNextFrame(adapterIndex, outputIndex, timeoutMs: 500);
+#endif
         if (fullScreenFrame is null)
         {
             return null;

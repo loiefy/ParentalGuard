@@ -642,7 +642,11 @@ public sealed class Worker(
         var command = new ControlVisionCommand
         {
             MonitoringEnabled = monitoringEnabled,
+#if PARENTALGUARD_FAST_DETECTION
+            CaptureIntervalMs = 500, // bản debug quét nhanh (2 lần/giây) — bỏ qua Adaptive Frame Rate
+#else
             CaptureIntervalMs = captureIntervalMs,
+#endif
             RiskThreshold = state.RiskThreshold,
         };
         command.ExcludeProcessNames.AddRange(state.ExcludeProcessNames);

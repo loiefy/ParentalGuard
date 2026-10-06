@@ -19,7 +19,7 @@ internal sealed class DeveloperOverlay : IDisposable
     private static readonly TimeSpan _staleAfter = TimeSpan.FromSeconds(15);
 
     private readonly Dictionary<ulong, DeveloperFrameForm> _frames = [];
-    private readonly System.Windows.Forms.Timer _followTimer = new() { Interval = 200 };
+    private readonly System.Windows.Forms.Timer _followTimer = new() { Interval = 100 };
 
     public DeveloperOverlay()
     {

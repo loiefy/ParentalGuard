@@ -51,5 +51,14 @@
   <PropertyGroup Condition="'$(ParentalGuardSuppressOverlay)' == 'true'">
     <DefineConstants>$(DefineConstants);PARENTALGUARD_SUPPRESS_OVERLAY</DefineConstants>
   </PropertyGroup>
+  <!-- DEV-050 (debug, 2026-10-06): bản DEBUG quét nhanh — mỗi cửa sổ đang hiển thị được phân loại 2 lần/giây (chu kỳ cố
+       định 500ms tính cả thời gian xử lý, mọi cửa sổ trong 1 chu kỳ, chờ khung hình tối đa 50ms) để khung developer cập
+       nhật liên tục. Tốn CPU hơn nhiều — mặc định TẮT; chỉ bật khi build bản debug: -p:ParentalGuardFastDetection=true. -->
+  <PropertyGroup>
+    <ParentalGuardFastDetection Condition="'$(ParentalGuardFastDetection)' == ''">false</ParentalGuardFastDetection>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ParentalGuardFastDetection)' == 'true'">
+    <DefineConstants>$(DefineConstants);PARENTALGUARD_FAST_DETECTION</DefineConstants>
+  </PropertyGroup>
 
 </Project>

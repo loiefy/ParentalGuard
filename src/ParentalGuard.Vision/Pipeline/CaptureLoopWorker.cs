@@ -127,6 +127,7 @@ public sealed class CaptureLoopWorker
             DebugLog("Trước EnumerateOutputs.");
             IReadOnlyList<MonitorSelector.OutputInfo> outputs = MonitorSelector.EnumerateOutputs(factory);
             DebugLog($"EnumerateOutputs OK, {outputs.Count} output(s). Trước ProcessCycle.");
+            long cycleStartedMs = Environment.TickCount64;
             bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames, config.CoveredWindowHandles);
             DebugLog("ProcessCycle xong.");
             if (foregroundExcludedNoCandidates)
@@ -140,7 +141,13 @@ public sealed class CaptureLoopWorker
                 continue;
             }
 
+#if PARENTALGUARD_FAST_DETECTION
+            // Bản debug quét nhanh: chu kỳ cố định tính cả thời gian xử lý (đúng "2 lần/giây").
+            WaitOnEvent((int)Math.Max(0, config.CaptureIntervalMs - (Environment.TickCount64 - cycleStartedMs)), cancellationToken);
+#else
+            _ = cycleStartedMs;
             WaitOnEvent(config.CaptureIntervalMs, cancellationToken);
+#endif
         }
 
         _contextPool.DisposeAll();
