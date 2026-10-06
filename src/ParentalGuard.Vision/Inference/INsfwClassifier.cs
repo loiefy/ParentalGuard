@@ -13,5 +13,8 @@ public interface INsfwClassifier : IDisposable
     /// <summary>Layout tensor input mà classifier này kỳ vọng — pipeline dựng <see cref="DenseTensor{T}"/> đúng theo đây (ADR-48).</summary>
     TensorLayout InputLayout { get; }
 
+    /// <summary>Cạnh ảnh vuông đầu vào (224 GantMan/Falconsai, 384 Marqo) — đọc từ metadata model.</summary>
+    int InputSize => 224;
+
     NsfwClassProbabilities Classify(DenseTensor<float> input);
 }

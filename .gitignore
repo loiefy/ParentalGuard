@@ -36,3 +36,6 @@ secrets.json
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# Mô hình Falconsai ~343MB vượt giới hạn GitHub — tạo lại bằng tools/export_nsfw_models.py
+models/nsfw_falconsai_224.onnx

@@ -29,7 +29,8 @@ public sealed class FrameClassificationPipeline
 
         // ADR-43: cấp phát đúng 1 lần lúc khởi tạo, tái dùng suốt vòng đời process — kích thước
         // luôn cố định 224x224x3 (IMG-014), không phụ thuộc kích thước cửa sổ.
-        int[] shape = classifier.InputLayout == TensorLayout.Nhwc ? [1, 224, 224, 3] : [1, 3, 224, 224];
+        int size = classifier.InputSize; // 224 (GantMan/Falconsai) hoặc 384 (Marqo) — cờ build ParentalGuardModel
+        int[] shape = classifier.InputLayout == TensorLayout.Nhwc ? [1, size, size, 3] : [1, 3, size, size];
         _inputTensor = new DenseTensor<float>(shape);
         _auditor.OnBufferAllocated("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
     }

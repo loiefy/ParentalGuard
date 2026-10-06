@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.4.4 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.4.5 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Mục đích và phạm vi
 
@@ -481,6 +481,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.4.5 | 2026-10-06 | PATCH (thử nghiệm, mặc định KHÔNG đổi) — cờ build `ParentalGuardModel` = GantMan (mặc định) | Marqo (`Marqo/nsfw-image-detection-384`, Apache-2.0, ViT-tiny 384) | Falconsai (`Falconsai/nsfw_image_detection`, Apache-2.0, ViT-base 224). `tools/export_nsfw_models.py` xuất ONNX đã bọc sẵn chuẩn hoá mean/std + softmax: input `pixels` [1,3,H,W] RGB [0,1], output `probs` [1,2] = [bình thường, nsfw]. `NsfwClassifier` nhận output 5 lớp hoặc 2 lớp (P(nsfw) dồn vào lớp Porn để `RiskScoreAggregator` giữ nguyên), kích thước input đọc từ metadata model; checksum `MISC-090` theo từng mô hình. Đổi mặc định sang mô hình mới là thay đổi WHAT (`IMG-014`) — chờ chủ dự án quyết định sau đánh giá |
 | v0.4.4 | 2026-10-06 | PATCH — mục 3.8.1 (bug real-hardware, video chủ dự án): dHash 64 bit lấy mẫu 72 ĐIỂM đơn lẻ không nhận ra nội dung đổi trong 1 vùng con của cửa sổ (băng chuyền ảnh trong Edge) → điểm của ảnh trước (91%) bị tái dùng cho ảnh sau (Elsa/quảng cáo, thật ra ~13%) — và ngược lại có thể bỏ sót nội dung vi phạm mới xuất hiện trong vùng nhỏ. Nay: hash khối 1024 bit (`PerceptualHash.ComputeBlockDHash`: lưới 33×32 ô, độ sáng TRUNG BÌNH mỗi ô, so 2 ô liền kề), ngưỡng "không đổi" ≤ 8/1024 bit; thêm lưới an toàn `WindowHashCache.MaxConsecutiveReuse = 3` — dùng lại điểm cũ tối đa 3 chu kỳ liên tiếp rồi bắt buộc phân loại lại. Hash vẫn là state kỹ thuật RAM-only (IMG-011), không phải ảnh |
 | v0.4.3 | 2026-10-06 | PATCH — bug real-hardware (cửa sổ Edge trên màn hình phụ bị chấm 90%, chụp trực tiếp cửa sổ chỉ 16%): Desktop Duplication là ảnh màn hình ĐÃ GHÉP nên crop theo khung cửa sổ lấy luôn nội dung cửa sổ khác đè lên (đã tái hiện: crop của Vision chứa cửa sổ xem ảnh nằm trên Edge). Nay (1) `CandidateWindowSelector.OccludersAbove` lấy bounds các cửa sổ hiển thị nằm trên cửa sổ đang xét (cùng định nghĩa "vật che" với chọn candidate), `OcclusionMask` tô đen phần bị che TRƯỚC hash/resize/phân loại; còn lộ < 10% thì bỏ qua chu kỳ. (2) Crop toàn 0 (khung Desktop Duplication đầu tiên sau khi tạo duplication chưa có nội dung — đã tái hiện) → không phân loại, không gửi kết quả, không cập nhật hash cache |
 | v0.4.2 | 2026-10-06 | PATCH — bug real-hardware (nhận diện nhầm VS Code/Edge 71–91%): `Vision` PHẢI gọi `SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` đầu `Main` (cùng ADR-61 của `Overlay`). Khi DPI-unaware, `DXGI_OUTPUT_DESC.DesktopCoordinates` bị ảo hoá theo tỉ lệ (màn 2880×1920 @200% báo 1440×960) trong khi `DWMWA_EXTENDED_FRAME_BOUNDS` và texture Desktop Duplication là pixel vật lý → vùng crop lệch sang nội dung khác. Đã xác nhận thực nghiệm trên máy chủ dự án; chạy mô hình offline trên đúng ảnh màn hình chỉ cho 13% |

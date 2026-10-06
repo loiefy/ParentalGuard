@@ -9,7 +9,13 @@ namespace ParentalGuard.Vision.Configuration;
 public static class ModelPaths
 {
     private const string _modelDirEnvVar = "PARENTALGUARD_MODEL_DIR";
+#if PARENTALGUARD_MODEL_MARQO
+    private const string _modelFileName = "nsfw_marqo_384.onnx";
+#elif PARENTALGUARD_MODEL_FALCONSAI
+    private const string _modelFileName = "nsfw_falconsai_224.onnx";
+#else
     private const string _modelFileName = "nsfw_model.onnx";
+#endif
 
     public static string ModelDirectory => Environment.GetEnvironmentVariable(_modelDirEnvVar)
         ?? Path.Combine(AppContext.BaseDirectory, "models");

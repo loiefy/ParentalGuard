@@ -15,6 +15,8 @@ public sealed class NsfwClassifier : INsfwClassifier
 
     public TensorLayout InputLayout { get; }
 
+    public int InputSize { get; }
+
     /// <summary>Model 5 lớp cố định 224×224×3 (`IMG-014`/`PERF-032`) — <paramref name="modelBytes"/> đã được caller nạp sẵn (đọc file 1 lần).</summary>
     public NsfwClassifier(byte[] modelBytes, SessionOptions sessionOptions)
     {
@@ -26,6 +28,7 @@ public sealed class NsfwClassifier : INsfwClassifier
         var inputMeta = _session.InputMetadata.First();
         _inputName = inputMeta.Key;
         InputLayout = DetermineLayout(inputMeta.Value.Dimensions);
+        InputSize = DetermineInputSize(inputMeta.Value.Dimensions, InputLayout);
         _outputName = _session.OutputMetadata.First().Key;
     }
 
@@ -38,13 +41,15 @@ public sealed class NsfwClassifier : INsfwClassifier
         float[] probabilities = results.First().AsEnumerable<float>().ToArray();
         try
         {
-            if (probabilities.Length != 5)
+            return probabilities.Length switch
             {
-                throw new InvalidOperationException($"Expected 5 class probabilities from nsfw_model output, got {probabilities.Length}.");
-            }
-
-            // Thứ tự alphabet của GantMan/nsfw_model: drawing, hentai, neutral, porn, sexy (IMG-014).
-            return new NsfwClassProbabilities(probabilities[0], probabilities[1], probabilities[2], probabilities[3], probabilities[4]);
+                // Thứ tự alphabet của GantMan/nsfw_model: drawing, hentai, neutral, porn, sexy (IMG-014).
+                5 => new NsfwClassProbabilities(probabilities[0], probabilities[1], probabilities[2], probabilities[3], probabilities[4]),
+                // Mô hình 2 lớp (Marqo/Falconsai, tools/export_nsfw_models.py): [P(bình thường), P(nsfw)] — dồn P(nsfw) vào
+                // lớp Porn để RiskScoreAggregator (hentai+porn+sexy) cho đúng P(nsfw), không cần nhánh riêng.
+                2 => new NsfwClassProbabilities(Drawing: 0f, Hentai: 0f, Neutral: probabilities[0], Porn: probabilities[1], Sexy: 0f),
+                _ => throw new InvalidOperationException($"Expected 5 or 2 class probabilities from model output, got {probabilities.Length}."),
+            };
         }
         finally
         {
@@ -56,6 +61,12 @@ public sealed class NsfwClassifier : INsfwClassifier
     /// <summary>ADR-48: NCHW nếu trục thứ 2 (index 1, sau batch) bằng 3 kênh màu, ngược lại mặc định NHWC.</summary>
     private static TensorLayout DetermineLayout(int[] dimensions) =>
         dimensions.Length == 4 && dimensions[1] == 3 ? TensorLayout.Nchw : TensorLayout.Nhwc;
+
+    private static int DetermineInputSize(int[] dimensions, TensorLayout layout)
+    {
+        int size = dimensions.Length == 4 ? (layout == TensorLayout.Nchw ? dimensions[2] : dimensions[1]) : -1;
+        return size > 0 ? size : 224;
+    }
 
     public void Dispose() => _session.Dispose();
 }

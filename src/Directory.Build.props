@@ -60,5 +60,18 @@
   <PropertyGroup Condition="'$(ParentalGuardFastDetection)' == 'true'">
     <DefineConstants>$(DefineConstants);PARENTALGUARD_FAST_DETECTION</DefineConstants>
   </PropertyGroup>
+  <!-- 2026-10-06 (thử nghiệm theo yêu cầu chủ dự án): chọn mô hình AI nhận diện cho Vision — GantMan (mặc định, 5 lớp,
+       224×224), Marqo (Marqo/nsfw-image-detection-384, Apache-2.0, ViT-tiny 384×384) hoặc Falconsai
+       (Falconsai/nsfw_image_detection, Apache-2.0, ViT-base 224×224). File .onnx tương ứng phải có trong thư mục models/
+       của bản cài (tools/export_nsfw_models.py tạo 2 file mới). Ví dụ: -p:ParentalGuardModel=Marqo -->
+  <PropertyGroup>
+    <ParentalGuardModel Condition="'$(ParentalGuardModel)' == ''">GantMan</ParentalGuardModel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ParentalGuardModel)' == 'Marqo'">
+    <DefineConstants>$(DefineConstants);PARENTALGUARD_MODEL_MARQO</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ParentalGuardModel)' == 'Falconsai'">
+    <DefineConstants>$(DefineConstants);PARENTALGUARD_MODEL_FALCONSAI</DefineConstants>
+  </PropertyGroup>
 
 </Project>
