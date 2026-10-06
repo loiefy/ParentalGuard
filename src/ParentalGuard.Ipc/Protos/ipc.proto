@@ -723,4 +723,5 @@ message DebugWindowScore {
 message DebugRegionScore {
   Rect rect = 1;
   float risk_score = 2;
+  bool is_content_region = 3; // IMG-016a: vùng con thứ 6 (vùng video/ảnh phát hiện động) — Overlay vẽ viền tím nét đứt
 }

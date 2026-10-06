@@ -87,7 +87,7 @@ public class SubRegionScoringTests
     }
 
     private static VisionInferenceResult Run(BrightFractionClassifier classifier, float gate) =>
-        new FrameClassificationPipeline(classifier, subRegionGate: gate)
+        new FrameClassificationPipeline(classifier, subRegionGate: gate, detectContentRegion: false)
             .ProcessFrame(new NoOpFrameCapture(), new BrightCornerCropper(), new WindowRect(0, 0, W, H), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 1)!;
 
     [Fact]

@@ -75,6 +75,18 @@ public sealed class WindowHashCache
         return false;
     }
 
+    /// <summary>IMG-016a: chép hash khung trước của cửa sổ (nếu có) — dùng tìm vùng chuyển động TRƯỚC khi <see cref="ResolveContentChanged(IntPtr, ReadOnlySpan{ulong}, out float)"/> ghi đè.</summary>
+    public bool TryCopyPreviousHash(IntPtr windowHandle, Span<ulong> destination)
+    {
+        if (!_entries.TryGetValue(windowHandle, out WindowHashEntry? entry) || entry.PreviousHash.Length != destination.Length)
+        {
+            return false;
+        }
+
+        entry.PreviousHash.CopyTo(destination);
+        return true;
+    }
+
     /// <summary>Gọi sau khi vừa chạy inference thật (content_changed=true) — cache lại cho chu kỳ sau tái dùng (PERF-011).</summary>
     public void UpdateRiskScore(IntPtr windowHandle, float riskScore)
     {

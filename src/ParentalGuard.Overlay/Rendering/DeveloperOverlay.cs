@@ -41,7 +41,7 @@ internal sealed class DeveloperOverlay : IDisposable
         if (score.ContentChanged || score.Regions.Count > 0)
         {
             // Nội dung đổi: thay bằng đúng các vùng con vừa chấm (rỗng = chu kỳ này không chấm vùng con). Không đổi: giữ nguyên.
-            frame.Regions = [.. score.Regions.Select(r => (new Rectangle(r.Rect.X, r.Rect.Y, r.Rect.Width, r.Rect.Height), r.RiskScore))];
+            frame.Regions = [.. score.Regions.Select(r => (new Rectangle(r.Rect.X, r.Rect.Y, r.Rect.Width, r.Rect.Height), r.RiskScore, r.IsContentRegion))];
         }
 
         Rectangle? bounds = DwmInterop.GetExtendedFrameBounds(new IntPtr(unchecked((long)score.WindowHandle)))
@@ -143,6 +143,8 @@ internal sealed class DeveloperOverlay : IDisposable
             Color.FromArgb(255, 0, 191, 255),   // xanh da trời
         ];
 
+        private static readonly Color ContentRegionColor = Color.FromArgb(255, 186, 85, 211); // tím (vùng thứ 6)
+
         private Rectangle _bounds;
 
         public DeveloperFrameForm()
@@ -165,7 +167,7 @@ internal sealed class DeveloperOverlay : IDisposable
 
         /// <summary>IMG-016: vùng con (toạ độ tương đối cửa sổ) + điểm — mỗi vùng 1 màu viền riêng.</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
-        public IReadOnlyList<(Rectangle Rect, float Score)> Regions { get; set; } = [];
+        public IReadOnlyList<(Rectangle Rect, float Score, bool IsContentRegion)> Regions { get; set; } = [];
 
         protected override bool ShowWithoutActivation => true;
 
@@ -240,11 +242,17 @@ internal sealed class DeveloperOverlay : IDisposable
             // IMG-016: viền vàng nhạt cho từng vùng con + % nhỏ ở góc trên-trái vùng (vẽ trước để viền đỏ cam nằm trên cùng).
             using (var regionFont = new Font("Segoe UI", 8f, FontStyle.Bold))
             {
-                for (int i = 0; i < Regions.Count; i++)
+                int fixedIndex = 0;
+                foreach ((Rectangle r, float score, bool isContentRegion) in Regions)
                 {
-                    (Rectangle r, float score) = Regions[i];
-                    Color color = RegionColors[i % RegionColors.Length];
-                    using var regionPen = new Pen(color, 1);
+                    // IMG-016a: vùng thứ 6 (vùng video/ảnh động) — viền tím nét đứt; 5 vùng cố định mỗi vùng 1 màu.
+                    Color color = isContentRegion ? ContentRegionColor : RegionColors[fixedIndex++ % RegionColors.Length];
+                    using var regionPen = new Pen(color, isContentRegion ? 2 : 1);
+                    if (isContentRegion)
+                    {
+                        regionPen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                    }
+
                     g.DrawRectangle(regionPen, r.X, r.Y, Math.Max(1, r.Width - 1), Math.Max(1, r.Height - 1));
                     string label = $"{Math.Round(Math.Clamp(score, 0f, 1f) * 100):0}%";
                     TextRenderer.DrawText(g, label, regionFont, new Point(r.X + 3, r.Y + 2), Color.Black, color, TextFormatFlags.NoPadding);

@@ -75,7 +75,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_SecondCallIdenticalPixels_SkipsClassifyAndReusesCachedRiskScore()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         byte[] pattern = DarkPattern();
 
         VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100)!;
@@ -91,7 +91,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_SkippedFrame_StillFillsBboxAndCapturedAtUnixMs()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         byte[] pattern = DarkPattern();
         pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
@@ -107,7 +107,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_DrasticallyDifferentPixels_RunsClassifyAgain()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
 
         VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(DarkPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100)!;
         VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(LightPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200)!;
@@ -122,7 +122,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_DifferentWindowHandle_IsIndependentFirstTime()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         byte[] pattern = DarkPattern();
         pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
@@ -136,7 +136,7 @@ public class FrameClassificationPipelineHashGateTests
     public void EndCaptureCycle_FiveIdleCyclesForWindow_EvictsHash_NextCallIsTreatedAsFirstTime()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         byte[] pattern = DarkPattern();
         pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
@@ -156,7 +156,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_AllZeroCrop_ReturnsNull_DoesNotClassify()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
 
         VisionInferenceResult? result = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(new byte[16]), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
@@ -169,7 +169,7 @@ public class FrameClassificationPipelineHashGateTests
     public void ProcessFrame_ChangeOnlyInsideOccludedArea_IsTreatedAsUnchanged()
     {
         var classifier = new CountingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         WindowRect[] rightColumnCovered = [new WindowRect(1, 0, 1, 2)];
         byte[] first = DarkPattern();
         byte[] second = DarkPattern();

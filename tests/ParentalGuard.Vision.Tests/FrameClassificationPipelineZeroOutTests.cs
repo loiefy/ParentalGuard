@@ -30,7 +30,7 @@ public class FrameClassificationPipelineZeroOutTests
         var auditor = new RecordingFrameBufferAuditor();
         var cropper = new ThrowingAfterPartialWriteCropper();
         var classifier = new NotCalledClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
 
         Assert.Throws<InvalidOperationException>(() =>
             pipeline.ProcessFrame(new NoOpFrameCapture(), cropper, SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 0));
@@ -53,7 +53,7 @@ public class FrameClassificationPipelineZeroOutTests
         var auditor = new RecordingFrameBufferAuditor();
         var cropper = new SucceedingCropper();
         var classifier = new ThrowingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
 
         Assert.Throws<InvalidOperationException>(() =>
             pipeline.ProcessFrame(new NoOpFrameCapture(), cropper, SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 0));
@@ -69,7 +69,7 @@ public class FrameClassificationPipelineZeroOutTests
         var auditor = new RecordingFrameBufferAuditor();
         var cropper = new SucceedingCropper();
         var classifier = new SucceedingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
 
         pipeline.ProcessFrame(new NoOpFrameCapture(), cropper, SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 0);
 
@@ -93,7 +93,7 @@ public class FrameClassificationPipelineZeroOutTests
     {
         var auditor = new RecordingFrameBufferAuditor();
         var classifier = new SucceedingClassifier();
-        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity);
+        var pipeline = new FrameClassificationPipeline(classifier, auditor, subRegionGate: float.PositiveInfinity, detectContentRegion: false);
         var firstWindowCropper = new SucceedingCropper();
         var secondWindowCropper = new AssertsDestinationStartsZeroCropper();
 

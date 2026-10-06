@@ -33,8 +33,11 @@ public sealed class FrameClassificationPipeline
     // DEV-051: vị trí crop so với góc trên-trái cửa sổ (crop có thể bị cắt ở mép màn hình) — đổi vùng con sang toạ độ cửa sổ.
     private (int X, int Y) _lastCropOffsetInWindow;
 
-    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate)
+    private readonly bool _detectContentRegion;
+
+    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate, bool detectContentRegion = true)
     {
+        _detectContentRegion = detectContentRegion;
         _classifier = classifier;
         _auditor = auditor ?? NullFrameBufferAuditor.Instance;
         _subRegionGate = subRegionGate;
@@ -147,6 +150,8 @@ public sealed class FrameClassificationPipeline
             // Bug 2026-10-06: hash khối 1024 bit thay dHash 72 điểm — xem PerceptualHash.ComputeBlockDHash.
             Span<ulong> newHash = stackalloc ulong[PerceptualHash.BlockHashWords];
             PerceptualHash.ComputeBlockDHash(_pixelBuffer, crop.Width, crop.Height, newHash);
+            Span<ulong> previousHash = stackalloc ulong[PerceptualHash.BlockHashWords];
+            bool hasPreviousHash = _hashCache.TryCopyPreviousHash(hwnd, previousHash);
             contentChanged = _hashCache.ResolveContentChanged(hwnd, newHash, out float cachedRiskScore);
             riskScore = cachedRiskScore;
 
@@ -169,6 +174,21 @@ public sealed class FrameClassificationPipeline
                         });
 #endif
                     }
+                }
+
+                // IMG-016a: vùng con thứ 6 — vùng video/ảnh phát hiện động; LUÔN chấm khi tìm được (không qua mức sàn).
+                if (_detectContentRegion && ContentRegionDetector.Detect(_pixelBuffer, crop.Width, crop.Height, hasPreviousHash ? previousHash : [], newHash) is { } content)
+                {
+                    float contentScore = ClassifyRegion(crop.Width, crop.Height, content);
+                    riskScore = Math.Max(riskScore, contentScore);
+#if PARENTALGUARD_DEVELOPER_MODE
+                    debugRegions.Add(new DebugRegionScore
+                    {
+                        Rect = new Rect { X = content.X + _lastCropOffsetInWindow.X, Y = content.Y + _lastCropOffsetInWindow.Y, Width = content.Width, Height = content.Height },
+                        RiskScore = contentScore,
+                        IsContentRegion = true,
+                    });
+#endif
                 }
 
                 _hashCache.UpdateRiskScore(hwnd, riskScore);
