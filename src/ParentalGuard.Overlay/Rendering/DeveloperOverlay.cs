@@ -38,6 +38,12 @@ internal sealed class DeveloperOverlay : IDisposable
 
         frame.RiskScore = score.RiskScore;
         frame.LastUpdatedUtc = DateTime.UtcNow;
+        if (score.ContentChanged || score.Regions.Count > 0)
+        {
+            // Nội dung đổi: thay bằng đúng các vùng con vừa chấm (rỗng = chu kỳ này không chấm vùng con). Không đổi: giữ nguyên.
+            frame.Regions = [.. score.Regions.Select(r => (new Rectangle(r.Rect.X, r.Rect.Y, r.Rect.Width, r.Rect.Height), r.RiskScore))];
+        }
+
         Rectangle? bounds = DwmInterop.GetExtendedFrameBounds(new IntPtr(unchecked((long)score.WindowHandle)))
             ?? (score.Bbox is { } b ? new Rectangle(b.X, b.Y, b.Width, b.Height) : null);
         if (bounds is { } r)
@@ -127,6 +133,7 @@ internal sealed class DeveloperOverlay : IDisposable
         private static readonly IntPtr HwndTopmost = new(-1);
         private static readonly Color KeyColor = Color.FromArgb(1, 0, 1);
         private static readonly Color FrameColor = Color.OrangeRed;
+        private static readonly Color RegionColor = Color.FromArgb(255, 255, 236, 139); // vàng nhạt
 
         private Rectangle _bounds;
 
@@ -147,6 +154,10 @@ internal sealed class DeveloperOverlay : IDisposable
 
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public DateTime LastUpdatedUtc { get; set; }
+
+        /// <summary>IMG-016: vùng con (toạ độ tương đối cửa sổ) + điểm — vẽ viền vàng nhạt.</summary>
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public IReadOnlyList<(Rectangle Rect, float Score)> Regions { get; set; } = [];
 
         protected override bool ShowWithoutActivation => true;
 
@@ -184,7 +195,7 @@ internal sealed class DeveloperOverlay : IDisposable
             }
             else
             {
-                Invalidate(CircleBounds());
+                Invalidate();
             }
         }
 
@@ -217,6 +228,19 @@ internal sealed class DeveloperOverlay : IDisposable
         {
             Graphics g = e.Graphics;
             g.Clear(KeyColor);
+
+            // IMG-016: viền vàng nhạt cho từng vùng con + % nhỏ ở góc trên-trái vùng (vẽ trước để viền đỏ cam nằm trên cùng).
+            using (var regionPen = new Pen(RegionColor, 1))
+            using (var regionFont = new Font("Segoe UI", 8f, FontStyle.Bold))
+            {
+                foreach ((Rectangle r, float score) in Regions)
+                {
+                    g.DrawRectangle(regionPen, r.X, r.Y, Math.Max(1, r.Width - 1), Math.Max(1, r.Height - 1));
+                    string label = $"{Math.Round(Math.Clamp(score, 0f, 1f) * 100):0}%";
+                    TextRenderer.DrawText(g, label, regionFont, new Point(r.X + 3, r.Y + 2), Color.Black, RegionColor, TextFormatFlags.NoPadding);
+                }
+            }
+
             using (var pen = new Pen(FrameColor, 2) { Alignment = PenAlignment.Inset })
             {
                 g.DrawRectangle(pen, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);

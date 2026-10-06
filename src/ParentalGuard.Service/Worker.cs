@@ -188,11 +188,17 @@ public sealed class Worker(
 #if PARENTALGUARD_DEVELOPER_MODE
             // DEV-051: chế độ developer — chuyển tiếp điểm rủi ro từng cửa sổ cho Overlay vẽ viền + %.
             VisionInferenceResult debugResult = message.VisionResult;
-            _overlaySupervisor!.TryEnqueueBusinessMessage(payload => payload.DebugWindowScore = new DebugWindowScore
+            _overlaySupervisor!.TryEnqueueBusinessMessage(payload =>
             {
-                WindowHandle = debugResult.WindowHandle,
-                Bbox = debugResult.Bbox,
-                RiskScore = debugResult.RiskScore,
+                var debug = new DebugWindowScore
+                {
+                    WindowHandle = debugResult.WindowHandle,
+                    Bbox = debugResult.Bbox,
+                    RiskScore = debugResult.RiskScore,
+                    ContentChanged = debugResult.ContentChanged,
+                };
+                debug.Regions.AddRange(debugResult.DebugRegions);
+                payload.DebugWindowScore = debug;
             });
 #endif
 

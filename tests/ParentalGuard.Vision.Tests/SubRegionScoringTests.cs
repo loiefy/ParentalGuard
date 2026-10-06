@@ -124,4 +124,21 @@ public class SubRegionScoringTests
         Assert.Contains(regions, r => r.X == 0 && r.Y == 0);
         Assert.Contains(regions, r => r.X + r.Width == 1000 && r.Y + r.Height == 500);
     }
+
+    /// <summary>DEV-051 (bản build chế độ developer): kết quả mang theo điểm từng vùng con để Overlay vẽ viền vàng nhạt.</summary>
+    [Fact]
+    public void DeveloperMode_ResultCarriesSubRegionScores_OnlyWhenSubRegionsEvaluated()
+    {
+        VisionInferenceResult evaluated = Run(new BrightFractionClassifier(), gate: 0f);
+        VisionInferenceResult skipped = Run(new BrightFractionClassifier(), float.PositiveInfinity);
+
+        // tests/ không dùng src/Directory.Build.props — chấp nhận cả 2 cấu hình build của Vision: 0 vùng (production) hoặc đủ 5 vùng (developer).
+        Assert.True(evaluated.DebugRegions.Count is 0 or 5, $"count={evaluated.DebugRegions.Count}");
+        if (evaluated.DebugRegions.Count == 5)
+        {
+            Assert.Contains(evaluated.DebugRegions, r => r.RiskScore >= evaluated.RiskScore - 1e-6f);
+        }
+
+        Assert.Empty(skipped.DebugRegions);
+    }
 }

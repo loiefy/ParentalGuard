@@ -181,6 +181,8 @@ message VisionInferenceResult {
                              // (không optional). false = risk_score ở message này TÁI DÙNG từ lần
                              // inference gần nhất cho cùng cửa sổ (PERF-011, inference bị skip chu kỳ
                              // này), KHÔNG phải kết quả mới.
+  repeated DebugRegionScore debug_regions = 9; // 2026-10-06 (DEV-051, IMG-016) — CHỈ điền ở bản build chế độ developer:
+                                               // điểm từng vùng con vừa chấm (rỗng nếu không chấm vùng con chu kỳ này)
 
   reserved 10 to 19; // dành cho IMG-031 nếu mở lại phạm vi
 }
@@ -713,4 +715,12 @@ message DebugWindowScore {
   uint64 window_handle = 1;
   Rect bbox = 2;        // toạ độ virtual desktop lúc capture — Overlay tự bám vị trí thật của cửa sổ sau đó
   float risk_score = 3; // [0,1]
+  repeated DebugRegionScore regions = 4; // vùng con (IMG-016) vừa chấm — rỗng nếu chu kỳ này không chấm vùng con
+  bool content_changed = 5; // false = điểm tái dùng (nội dung không đổi) — Overlay giữ nguyên vùng con đã vẽ
+}
+
+// DEV-051 (2026-10-06): 1 vùng con của cửa sổ và điểm của nó — rect tính theo toạ độ TƯƠNG ĐỐI góc trên-trái cửa sổ.
+message DebugRegionScore {
+  Rect rect = 1;
+  float risk_score = 2;
 }

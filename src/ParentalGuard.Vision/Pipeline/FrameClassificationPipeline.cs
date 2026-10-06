@@ -30,6 +30,9 @@ public sealed class FrameClassificationPipeline
 
     private readonly float _subRegionGate;
 
+    // DEV-051: vị trí crop so với góc trên-trái cửa sổ (crop có thể bị cắt ở mép màn hình) — đổi vùng con sang toạ độ cửa sổ.
+    private (int X, int Y) _lastCropOffsetInWindow;
+
     public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate)
     {
         _classifier = classifier;
@@ -78,6 +81,8 @@ public sealed class FrameClassificationPipeline
             return null;
         }
 
+        _lastCropOffsetInWindow = (cropOnDesktop.X - rect.Value.X, cropOnDesktop.Y - rect.Value.Y);
+
 #if PARENTALGUARD_FAST_DETECTION
         IDisposable? fullScreenFrame = capture.AcquireNextFrame(adapterIndex, outputIndex, timeoutMs: 50);
 #else
@@ -107,6 +112,7 @@ public sealed class FrameClassificationPipeline
     {
         WindowRect crop = cropRect ?? rect;
         bool contentChanged = false;
+        var debugRegions = new List<DebugRegionScore>();
         float riskScore;
         try
         {
@@ -153,7 +159,15 @@ public sealed class FrameClassificationPipeline
                 {
                     foreach (WindowRect region in SubRegions(crop.Width, crop.Height))
                     {
-                        riskScore = Math.Max(riskScore, ClassifyRegion(crop.Width, crop.Height, region));
+                        float regionScore = ClassifyRegion(crop.Width, crop.Height, region);
+                        riskScore = Math.Max(riskScore, regionScore);
+#if PARENTALGUARD_DEVELOPER_MODE
+                        debugRegions.Add(new DebugRegionScore
+                        {
+                            Rect = new Rect { X = region.X + _lastCropOffsetInWindow.X, Y = region.Y + _lastCropOffsetInWindow.Y, Width = region.Width, Height = region.Height },
+                            RiskScore = regionScore,
+                        });
+#endif
                     }
                 }
 
@@ -170,7 +184,7 @@ public sealed class FrameClassificationPipeline
             _auditor.OnZeroed("pixel_buffer_bgra8", _pixelBuffer.Length);
         }
 
-        return new VisionInferenceResult
+        var result = new VisionInferenceResult
         {
             FrameId = frameId,
             WindowHandle = unchecked((ulong)hwnd.ToInt64()),
@@ -180,6 +194,8 @@ public sealed class FrameClassificationPipeline
             CapturedAtUnixMs = capturedAtUnixMs,
             ContentChanged = contentChanged,
         };
+        result.DebugRegions.AddRange(debugRegions);
+        return result;
     }
 
     /// <summary>Resize 1 vùng của buffer pixel hiện hành vào tensor, phân loại, zero tensor ngay (IMG-003).</summary>
