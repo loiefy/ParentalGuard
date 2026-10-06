@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.21.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.20.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
 
 ## 1. Nguyên tắc thiết kế
 
@@ -94,15 +94,12 @@
   | 3 | Xử lý hoàn toàn trên thiết bị | Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Không kết nối Internet, không chia sẻ dữ liệu với bên thứ ba. |
   | 4 | Bảo vệ cả phụ huynh | Tùy chọn bổ sung bước xác minh khi tạm dừng giám sát, áp dụng cho cả người lớn. *(Chỉ hiển thị khi tính năng "Bảo vệ cả phụ huynh" đã phát hành.)* |
   | 5 | Mã nguồn mở | Mã nguồn được công khai, cho phép bất kỳ ai kiểm chứng cách ứng dụng hoạt động. |
-- `FE-031a` **(ĐÃ CHỐT v0.21.0, 2026-10-06 — chủ dự án yêu cầu trực tiếp, supersedes phần "bắt buộc xác nhận" của `FE-031`)**: Màn hình giới thiệu lần đầu **không còn ô tick "Tôi đã đọc và hiểu"** — phụ huynh bấm Tiếp tục ngay. Đoạn giải thích dữ liệu không rời máy/ảnh không được lưu vẫn hiển thị.
-- `FE-032a` **(ĐÃ CHỐT v0.21.0, 2026-10-06 — chủ dự án yêu cầu trực tiếp, chỉnh trình bày `FE-032`)**: Các thẻ giá trị cốt lõi **không có màu nền riêng** (dùng chung nền của app), nội dung **nhỏ hơn một chút** và cân đối lại; vẫn giữ hiệu ứng khi rê chuột. Toàn bộ các bước `S1` dùng **cùng tông màu với Dashboard chính** (dải chuyển màu `FE-005e`, thanh tiêu đề cùng màu cửa sổ chính) và có **một vài hình tròn/vuông/tam giác mờ nhạt** đặt ngẫu nhiên phía sau nội dung (không làm giảm khả năng đọc — `FE-050`). Nút **Tiếp tục to hơn** một chút.
 - `FE-033` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Bước đặt mật khẩu lần đầu có đoạn giải thích ngắn gọn, rõ ràng lý do cần mật khẩu: mật khẩu giúp ngăn trẻ tự ý tắt, tạm dừng hoặc gỡ ứng dụng khi chưa có sự cho phép của người lớn; phụ huynh cần giữ kín mật khẩu.
 
 ### 3.4 S10 — Giới thiệu (About) — ĐÃ CHỐT v0.16.0, 2026-10-01
 
 - `FE-090`: Tab **Giới thiệu** trên thanh menu trái (cạnh Tổng quan/Lịch sử/Cài đặt), không gate mật khẩu. Nội dung: giới thiệu ngắn về dự án, **tên đơn vị phát triển**, **email liên hệ**, phiên bản app. Tên đơn vị và email **tạm thời để trống** (hiển thị "(đang cập nhật)"), chủ dự án điền sau.
 - `FE-091`: Trong tab Giới thiệu có mục **Ủng hộ dự án (Donate)**, hiện **tài khoản PayPal** (tạm thời để trống, hiển thị "(đang cập nhật)"). App **không** tự xử lý thanh toán — chỉ hiển thị thông tin/liên kết; liên kết mở bằng trình duyệt mặc định của hệ thống.
-- `FE-091a` **(ĐÃ CHỐT v0.21.0, 2026-10-06 — chủ dự án yêu cầu trực tiếp, chỉnh vị trí `FE-091`)**: Mục **Ủng hộ dự án (Donate)** tách khỏi tab Giới thiệu thành **1 tab riêng** trên thanh menu trái (sau tab Giới thiệu), không gate mật khẩu. Nội dung giữ nguyên `FE-091`.
 - `FE-092` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp)**: Trong tab Giới thiệu có mục **"Cách ứng dụng hoạt động và dữ liệu được lưu"**, văn phong văn viết, ngắn gọn, dễ hiểu với phụ huynh, nội dung **đúng với thực tế** của bản build:
   - Ứng dụng phân tích hình ảnh màn hình ngay trên máy bằng mô hình AI chạy ngoại tuyến; khi phát hiện nội dung nhạy cảm thì che phủ cửa sổ chứa nội dung đó.
   - Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị; không kết nối Internet; không chia sẻ dữ liệu với bên thứ ba (tiến trình nhận diện bị chặn mạng ở tầng tường lửa Windows).
@@ -161,7 +158,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.21.0 | 2026-10-06 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-031a` bỏ ô tick xác nhận ở màn hình giới thiệu lần đầu; `FE-032a` thẻ không nền riêng, nhỏ hơn, `S1` cùng tông Dashboard + hình mờ ngẫu nhiên, nút Tiếp tục to hơn; `FE-091a` Donate thành tab riêng |
 | v0.20.0 | 2026-10-05 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-005e` nền dải chuyển màu dọc; `FE-016k` nút bánh răng overlay nhỏ lại ~1/2; `FE-032` màn hình giới thiệu lần đầu (5 thẻ giá trị cốt lõi, hiệu ứng rê chuột, chỉ khi chưa có mật khẩu); `FE-033` giải thích lý do đặt mật khẩu; `FE-042` trạng thái "Máy tính đang được bảo vệ" (Vision + Overlay); `FE-064` chọn ngôn ngữ song ngữ, không cần đăng nhập; `FE-071a` biểu đồ 1 tuần/1 tháng/3 tháng/6 tháng (supersedes khoảng xem `FE-071`); `FE-080`-`FE-083` khung đăng nhập + phiên dùng chung `S3`/`S4`; `FE-092` mục "Cách ứng dụng hoạt động và dữ liệu được lưu" ở tab Giới thiệu |
 | v0.19.0 | 2026-10-01 | **MINOR — `FE-016j` (mới)**: vùng loại trừ nút đóng 160×40px (trước 160×50 tạm thời), đệm 16px ngang / 6px dọc; đóng câu hỏi mở kích thước vùng loại trừ. Kèm: danh sách whitelist `S4` giới hạn chiều cao + thanh cuộn |
 | v0.18.0 | 2026-10-01 | **MINOR — `FE-007` (mới)**: phiên bản phần mềm ở chân thanh menu, theo cấu hình build. Kèm: nền đậm hơn/cảnh mờ hơn (`FE-005d`), nút bánh răng overlay không khối nền (`FE-016i`) |

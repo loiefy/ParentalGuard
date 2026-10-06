@@ -110,6 +110,22 @@ public sealed class OverlayCoordinator : Form
         BeginInvoke(_iconManager.Start);
     }
 
+#if PARENTALGUARD_DEVELOPER_MODE
+    private DeveloperOverlay? _developerOverlay;
+
+    /// <summary>DEV-051: chế độ developer — viền + % rủi ro quanh cửa sổ Vision vừa phân tích (chỉ có ở bản build dev).</summary>
+    public void ApplyDebugWindowScore(DebugWindowScore score)
+    {
+        if (InvokeRequired)
+        {
+            BeginInvoke(() => ApplyDebugWindowScore(score));
+            return;
+        }
+
+        (_developerOverlay ??= new DeveloperOverlay()).Apply(score);
+    }
+#endif
+
     /// <summary>ADR-110 (07 mục 4.4): áp dụng cho overlay dựng SAU đó, không dựng lại overlay đang hiển thị.</summary>
     public void ApplyOverlayMessage(OverlayMessageUpdate update)
     {
@@ -379,6 +395,9 @@ public sealed class OverlayCoordinator : Form
             _debounceTimer?.Dispose();
             _windowGoneTimer.Dispose();
             _iconManager.Dispose();
+#if PARENTALGUARD_DEVELOPER_MODE
+            _developerOverlay?.Dispose();
+#endif
         }
 
         base.Dispose(disposing);

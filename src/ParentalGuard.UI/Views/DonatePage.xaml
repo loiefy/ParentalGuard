@@ -1,0 +1,30 @@
+<Page
+    x:Class="ParentalGuard.UI.Views.DonatePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- FE-091/FE-091a (2026-10-06): tab Ủng hộ dự án riêng (tách khỏi tab Giới thiệu). Cùng bố cục FE-005a. -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <Grid Padding="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20*" MaxWidth="760" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="1" Spacing="12">
+                <TextBlock x:Name="DonateHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <StackPanel Spacing="12" Margin="24,0,0,0">
+                    <TextBlock x:Name="DonateIntroText" TextWrapping="Wrap" Opacity="0.8" />
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="PayPalLabel" Opacity="0.7" VerticalAlignment="Center" />
+                        <ContentPresenter x:Name="PayPalValue" Grid.Column="1" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

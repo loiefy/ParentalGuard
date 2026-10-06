@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
 using ParentalGuard.UI.Services;
 using ParentalGuard.UI.Services.IpcClient;
 using ParentalGuard.UI.ViewModels;
@@ -19,6 +21,54 @@ public sealed partial class OnboardingPage : Page
     {
         InitializeComponent();
         Loaded += OnLoaded;
+        SizeChanged += (_, _) => DrawFaintShapes();
+        ActualThemeChanged += (_, _) => DrawFaintShapes();
+    }
+
+    /// <summary>
+    /// FE-032a: vài hình tròn/vuông/tam giác mờ nhạt rải "ngẫu nhiên" phía sau nội dung — seed cố định nên bố cục ổn
+    /// định giữa các lần mở; kích thước cố định, cửa sổ to/nhỏ chỉ hiện thêm/bớt hình (cùng nguyên tắc FE-005b).
+    /// </summary>
+    private void DrawFaintShapes()
+    {
+        ShapesCanvas.Children.Clear();
+        double width = ActualWidth;
+        double height = ActualHeight;
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        var brush = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["PgFaintShapeColor"]);
+        int seq = 1000;
+        double Next() => MainShellPage.DecorativeNoise(seq++);
+        const double cell = 260;
+        for (double y = 0; y < height; y += cell)
+        {
+            for (double x = 0; x < width; x += cell)
+            {
+                if (Next() < 0.45)
+                {
+                    continue;
+                }
+
+                double size = 40 + (Next() * 90);
+                double left = x + (Next() * (cell - size));
+                double top = y + (Next() * (cell - size));
+                Shape shape = (int)(Next() * 3) switch
+                {
+                    0 => new Ellipse { Width = size, Height = size },
+                    1 => new Rectangle { Width = size, Height = size, RadiusX = 6, RadiusY = 6 },
+                    _ => new Polygon { Points = { new(size / 2, 0), new(size, size * 0.87), new(0, size * 0.87) } },
+                };
+                shape.Fill = brush;
+                shape.RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5);
+                shape.RenderTransform = new RotateTransform { Angle = Next() * 360 };
+                Canvas.SetLeft(shape, left);
+                Canvas.SetTop(shape, top);
+                ShapesCanvas.Children.Add(shape);
+            }
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

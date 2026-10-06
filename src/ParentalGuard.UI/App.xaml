@@ -7,6 +7,24 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <!-- FE-005e/FE-032a: nền dải chuyển màu dọc dùng chung cho Dashboard chính và các bước S1 —
+                 trên sáng hơn một chút, dưới tối dần, chênh lệch vừa đủ nhận biết. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <LinearGradientBrush x:Key="PgContentBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#25252A" Offset="0" />
+                        <GradientStop Color="#1A1A1E" Offset="1" />
+                    </LinearGradientBrush>
+                    <Color x:Key="PgFaintShapeColor">#0FFFFFFF</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="PgContentBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FDFDFE" Offset="0" />
+                        <GradientStop Color="#F1F1F5" Offset="1" />
+                    </LinearGradientBrush>
+                    <Color x:Key="PgFaintShapeColor">#0C000000</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

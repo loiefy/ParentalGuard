@@ -9,19 +9,10 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
-                    <!-- FE-005e (2026-10-05): dải chuyển màu dọc — trên sáng hơn một chút, dưới tối dần, chênh lệch vừa đủ nhận biết. -->
-                    <LinearGradientBrush x:Key="PgContentBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#25252A" Offset="0" />
-                        <GradientStop Color="#1A1A1E" Offset="1" />
-                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="PgPaneBackgroundBrush" Color="#303037" />
                     <Color x:Key="PgPaneCircleColor">#3C3C45</Color>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
-                    <LinearGradientBrush x:Key="PgContentBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#FDFDFE" Offset="0" />
-                        <GradientStop Color="#F1F1F5" Offset="1" />
-                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="PgPaneBackgroundBrush" Color="#F1F1F5" />
                     <Color x:Key="PgPaneCircleColor">#E2E2E9</Color>
                 </ResourceDictionary>
@@ -77,6 +68,12 @@
                 <NavigationViewItem x:Name="AboutItem" Tag="About">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <!-- FE-091a (2026-10-06): tab Ủng hộ dự án riêng. -->
+                <NavigationViewItem x:Name="DonateItem" Tag="Donate">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xEB51;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

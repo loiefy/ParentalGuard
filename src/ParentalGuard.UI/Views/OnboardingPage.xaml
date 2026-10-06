@@ -3,5 +3,9 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Frame x:Name="StepFrame" />
+    <!-- FE-032a (2026-10-06): các bước S1 cùng tông Dashboard chính (dải chuyển màu FE-005e) + vài hình mờ ngẫu nhiên phía sau. -->
+    <Grid Background="{ThemeResource PgContentBackgroundBrush}">
+        <Canvas x:Name="ShapesCanvas" IsHitTestVisible="False" />
+        <Frame x:Name="StepFrame" />
+    </Grid>
 </Page>

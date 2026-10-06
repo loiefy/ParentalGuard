@@ -131,6 +131,11 @@ internal static class Program
             case IpcPayload.BodyOneofCase.OverlayMessageUpdate:
                 coordinator.ApplyOverlayMessage(message.OverlayMessageUpdate);
                 break;
+#if PARENTALGUARD_DEVELOPER_MODE
+            case IpcPayload.BodyOneofCase.DebugWindowScore:
+                coordinator.ApplyDebugWindowScore(message.DebugWindowScore); // DEV-051
+                break;
+#endif
             case IpcPayload.BodyOneofCase.ShowToast:
                 // BE-061b: UI Toast thật là Đợt 6 (Architecture/09, chưa viết) — Đợt 0/1 chỉ đảm bảo nhận không throw.
                 ShowToastCommand toast = message.ShowToast;

@@ -183,6 +183,16 @@ public sealed class Worker(
         async Task HandleVisionResultAsync(IpcPayload message, CancellationToken ct)
         {
             await _overlayDecisionCoordinator!.HandleVisionResultAsync(message, ct).ConfigureAwait(false);
+#if PARENTALGUARD_DEVELOPER_MODE
+            // DEV-051: chế độ developer — chuyển tiếp điểm rủi ro từng cửa sổ cho Overlay vẽ viền + %.
+            VisionInferenceResult debugResult = message.VisionResult;
+            _overlaySupervisor!.TryEnqueueBusinessMessage(payload => payload.DebugWindowScore = new DebugWindowScore
+            {
+                WindowHandle = debugResult.WindowHandle,
+                Bbox = debugResult.Bbox,
+                RiskScore = debugResult.RiskScore,
+            });
+#endif
 
             uint? newIntervalMs = _adaptiveFrameRateCoordinator!.HandleVisionResult(message.VisionResult);
             if (newIntervalMs is uint intervalMs)

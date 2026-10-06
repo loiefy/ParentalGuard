@@ -31,4 +31,15 @@
     <DefineConstants>$(DefineConstants);PARENTALGUARD_DIAGNOSTIC_LOG</DefineConstants>
   </PropertyGroup>
 
+  <!-- DEV-050..052 (2026-10-06): chế độ developer — viền đỏ cam quanh cửa sổ đang theo dõi + ô tròn % rủi ro (Service
+       gửi DebugWindowScore, Overlay vẽ). Chỉ bật/tắt ở đây hoặc lúc build, KHÔNG có tuỳ chọn runtime.
+       Mặc định BẬT cho bản dev/thử nghiệm. Bản PRODUCTION phát hành cho người dùng BẮT BUỘC build với
+       -p:ParentalGuardDeveloperMode=false (lời gọi/code vẽ bị loại khỏi binary qua #if). -->
+  <PropertyGroup>
+    <ParentalGuardDeveloperMode Condition="'$(ParentalGuardDeveloperMode)' == ''">true</ParentalGuardDeveloperMode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ParentalGuardDeveloperMode)' == 'true'">
+    <DefineConstants>$(DefineConstants);PARENTALGUARD_DEVELOPER_MODE</DefineConstants>
+  </PropertyGroup>
+
 </Project>

@@ -650,4 +650,7 @@
   <data name="AboutStoredDataNote" xml:space="preserve">
     <value>Nhật ký chỉ chứa siêu dữ liệu, được bảo vệ bằng chuỗi băm chống chỉnh sửa và được lưu tối thiểu 180 ngày.</value>
   </data>
+  <data name="NavDonate" xml:space="preserve">
+    <value>Ủng hộ dự án</value>
+  </data>
 </root>

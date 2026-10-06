@@ -1,6 +1,6 @@
 # 12 — Dev Process & Code Management Standards
 
-> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.4.1 | Trạng thái: Approved | Cập nhật: 2026-09-17
 
 ## 1. Mục đích & phạm vi
 
@@ -63,12 +63,6 @@ Bối cảnh quan trọng ảnh hưởng toàn bộ tài liệu này:
 - `DEV-042`: Dự án duy trì 1 **Dependency Map** — bảng/tài liệu truy vấn được, liệt kê mỗi hàm/function: tên, file chứa, danh sách hàm gọi nó (callers) và danh sách hàm nó gọi (callees). Mục đích: khi cần sửa 1 hàm, chỉ tra map để xác định phạm vi ảnh hưởng (impact analysis) và đọc/sửa đúng các hàm liên quan, không phải đọc lại toàn bộ codebase mỗi lần. Định dạng/công cụ sinh Dependency Map cụ thể (thủ công hay tự động hoá bằng Agent) thuộc phạm vi `Architecture/10-dev-automation-architecture.md` (HOW), không quyết ở đây.
 - `DEV-043`: Mỗi lần tạo hàm mới, xoá hàm, hoặc thay đổi quan hệ gọi (thêm/bớt lệnh gọi hàm khác), bắt buộc cập nhật lại Dependency Map trong cùng commit/PR — không coi là việc làm sau, không được merge nếu Dependency Map chưa đồng bộ với thay đổi.
 
-## 6a. Chế độ developer (mới v0.5.0, 2026-10-06 — chủ dự án yêu cầu trực tiếp)
-
-- `DEV-050`: Có **"Chế độ developer"** phục vụ debug, chỉ bật/tắt được **trong mã nguồn/cấu hình build** (không có tuỳ chọn nào trên giao diện, không bật được lúc chạy). Code của chế độ này luôn nằm trong mã nguồn.
-- `DEV-051`: Khi bật, mỗi cửa sổ ứng dụng đang được theo dõi (đã được Vision phân tích) có **đường viền hình chữ nhật màu đỏ cam, dày 2 pixel** bao quanh, bám theo vị trí cửa sổ, vẽ được cả khi cửa sổ trải qua nhiều màn hình. Ở **góc dưới bên trái** đường viền có **1 ô tròn** hiển thị **% khả năng nội dung là nhạy cảm** (risk score gần nhất). Lớp vẽ không nhận chuột/bàn phím, không che thao tác của người dùng.
-- `DEV-052`: Mặc định **bật** cho mọi bản build phát triển/thử nghiệm cho tới khi chủ dự án yêu cầu build bản production. Bản **production phát hành cho người dùng bắt buộc tắt** chế độ này (build với cấu hình tắt). Chế độ developer không thay đổi hành vi bảo vệ (ngưỡng, che, ghi log) — chỉ thêm lớp hiển thị.
-
 ## 7. Câu hỏi mở
 
 - [ ] Có bắt buộc GPG/SSH signed commits ngay từ đầu (`DEV-004`), hay để tuỳ chọn/khuyến nghị mềm giai đoạn đầu vì có thể gây friction khi mới bắt đầu code?
@@ -79,7 +73,6 @@ Bối cảnh quan trọng ảnh hưởng toàn bộ tài liệu này:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.5.0 | 2026-10-06 | **MINOR — `DEV-050`–`DEV-052` (mới, chủ dự án yêu cầu trực tiếp)**: chế độ developer bật/tắt trong code — viền đỏ cam 2px quanh cửa sổ đang theo dõi + ô tròn % rủi ro; mặc định bật cho bản dev, tắt ở bản production |
 | v0.4.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.4.0 | 2026-09-17 | **Thêm nguyên tắc viết code mới**: `DEV-026` — code tinh gọn, không viết thừa, không comment rườm rà (mục 4). `DEV-040`–`DEV-043` (mục 6 mới) — bắt buộc đánh giá fail case/exception trước khi code, cập nhật spec tương ứng cho exception mới trước khi code xử lý; bắt buộc duy trì Dependency Map (hàm ↔ file ↔ caller/callee) để hỗ trợ impact analysis, cập nhật map mỗi lần thêm/sửa/xoá hàm hoặc quan hệ gọi. Thêm câu hỏi mở về định dạng Dependency Map |
 | v0.3.0 | 2026-09-17 | Chốt câu hỏi mở: dùng chung 1 repo GitHub cho code + tài liệu (`DEV-001a` mới, thay thế phần "tuỳ chọn" cũ ở `DEV-001`). Đồng bộ với `ADR-11` mới ở `Architecture/01-tong-quan-kien-truc.md` |

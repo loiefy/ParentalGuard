@@ -41,6 +41,7 @@ message IpcPayload {
     IconLayoutSync icon_layout_sync = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
     OpenDashboardRequest open_dashboard = 67; // 2026-10-01, Overlay → Service — double-click icon trạng thái (FE-023)
     OverlayMessageUpdate overlay_message_update = 66; // Đợt 6 (ADR-110, implement Đợt 9), Service → Overlay — thông điệp overlay tuỳ biến (FE-012)
+    DebugWindowScore debug_window_score = 68; // 2026-10-06 (DEV-050/051), Service → Overlay — CHỈ gửi khi build bật chế độ developer
 
     // --- Kênh UI (80-99) ---
     // Password & Authentication (80-91, Đợt 3) — Architecture/08-password-authentication-architecture.md mục 7
@@ -703,4 +704,13 @@ enum ParentSessionResult {
   PARENT_SESSION_RESULT_SUCCESS = 1;
   PARENT_SESSION_RESULT_INVALID_TOKEN = 2;
   PARENT_SESSION_RESULT_NOT_ACTIVE = 3;
+}
+
+// --- 2026-10-06, chế độ developer (DEV-050..052) — field 68 khối Overlay ---
+// Service chỉ gửi message này khi build với ParentalGuardDeveloperMode=true (mặc định bật cho bản dev,
+// TẮT ở bản production). Overlay vẽ viền đỏ cam 2px quanh cửa sổ + ô tròn % rủi ro; không đổi hành vi bảo vệ.
+message DebugWindowScore {
+  uint64 window_handle = 1;
+  Rect bbox = 2;        // toạ độ virtual desktop lúc capture — Overlay tự bám vị trí thật của cửa sổ sau đó
+  float risk_score = 3; // [0,1]
 }

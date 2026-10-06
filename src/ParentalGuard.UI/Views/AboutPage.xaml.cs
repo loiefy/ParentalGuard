@@ -5,7 +5,7 @@ using ParentalGuard.UI.Services;
 namespace ParentalGuard.UI.Views;
 
 /// <summary>
-/// FE-090/FE-091 (Spec 03, ĐÃ CHỐT 2026-10-01): tab Giới thiệu — tên đơn vị, email, phiên bản, mục Donate (PayPal).
+/// FE-090 (Spec 03, ĐÃ CHỐT 2026-10-01): tab Giới thiệu — tên đơn vị, email, phiên bản (Donate tách tab riêng, FE-091a).
 /// Giá trị lấy từ <c>UiStrings.resx</c> (*Value) để chủ dự án điền sau không cần sửa code; trống → "(đang cập nhật)".
 /// Giá trị bắt đầu bằng http(s):// hiển thị thành liên kết mở trình duyệt mặc định; email thành liên kết mailto.
 /// </summary>
@@ -20,13 +20,9 @@ public sealed partial class AboutPage : Page
         CompanyLabel.Text = LocalizationService.Get("AboutCompanyNameLabel");
         EmailLabel.Text = LocalizationService.Get("AboutEmailLabel");
         VersionLabel.Text = LocalizationService.Get("AboutVersionLabel");
-        DonateHeaderText.Text = LocalizationService.Get("AboutDonateHeader");
-        DonateIntroText.Text = LocalizationService.Get("AboutDonateIntro");
-        PayPalLabel.Text = LocalizationService.Get("AboutPayPalLabel");
 
         CompanyValue.Content = BuildValue(LocalizationService.Get("AboutCompanyNameValue"), isEmail: false);
         EmailValue.Content = BuildValue(LocalizationService.Get("AboutEmailValue"), isEmail: true);
-        PayPalValue.Content = BuildValue(LocalizationService.Get("AboutPayPalValue"), isEmail: false);
         VersionValue.Text = AppVersionInfo.DisplayVersion;
 
         // FE-092 (2026-10-05): cách ứng dụng hoạt động và dữ liệu được lưu.
@@ -42,7 +38,8 @@ public sealed partial class AboutPage : Page
         StoredDataNoteText.Text = LocalizationService.Get("AboutStoredDataNote");
     }
 
-    private static UIElement BuildValue(string value, bool isEmail)
+    /// <summary>Dùng chung với <see cref="DonatePage"/> (FE-091a).</summary>
+    internal static UIElement BuildValue(string value, bool isEmail)
     {
         // LocalizationService trả về chính tên key khi giá trị rỗng/thiếu — coi như chưa điền.
         if (string.IsNullOrWhiteSpace(value) || value.EndsWith("Value", StringComparison.Ordinal))

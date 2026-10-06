@@ -17,6 +17,7 @@ public sealed partial class MainShellPage : Page
         AuditLogItem.Content = LocalizationService.Get("NavAuditLog");
         SettingsItem.Content = LocalizationService.Get("NavSettings");
         AboutItem.Content = LocalizationService.Get("NavAbout");
+        DonateItem.Content = LocalizationService.Get("NavDonate");
         VersionFooterText.Text = LocalizationService.GetFormatted("PaneVersionFormat", AppVersionInfo.DisplayVersion);
 
         Loaded += (_, _) =>
@@ -51,7 +52,8 @@ public sealed partial class MainShellPage : Page
         ContentFrame.Navigated += (_, e) => Nav.SelectedItem = e.SourcePageType == typeof(AuditLogPage)
             ? AuditLogItem
             : e.SourcePageType == typeof(SettingsPage) ? SettingsItem
-            : e.SourcePageType == typeof(AboutPage) ? AboutItem : DashboardItem;
+            : e.SourcePageType == typeof(AboutPage) ? AboutItem
+            : e.SourcePageType == typeof(DonatePage) ? DonateItem : DashboardItem;
     }
 
     private double _paneWidth = -1;
@@ -282,7 +284,7 @@ public sealed partial class MainShellPage : Page
     }
 
     /// <summary>Dãy giả ngẫu nhiên tất định chỉ dùng trang trí (không dùng <see cref="Random"/> — CA5394), giá trị [0, 1).</summary>
-    private static double DecorativeNoise(int i)
+    internal static double DecorativeNoise(int i)
     {
         double x = Math.Sin((i + 1) * 12.9898) * 43758.5453;
         return x - Math.Floor(x);
@@ -300,6 +302,7 @@ public sealed partial class MainShellPage : Page
             "AuditLog" => typeof(AuditLogPage),
             "Settings" => typeof(SettingsPage),
             "About" => typeof(AboutPage),
+            "Donate" => typeof(DonatePage),
             _ => typeof(DashboardPage),
         };
         if (ContentFrame.CurrentSourcePageType != pageType)

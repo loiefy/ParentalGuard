@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
+> Version: v0.10.1 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Mục đích
 
@@ -812,6 +812,11 @@ enum ParentSessionResult {
 - **Không gate**: `ConfigQuery` (UI cần đọc cấu hình để hiển thị bản làm mờ, `FE-081`), `DashboardStatusQuery`, `AuditChartQuery`. Pause/Resume/Uninstall **không** nhận phiên (`PWD-024`) — vẫn `action_token` 1-lần.
 - `AuditChartQuery.range_days` (ADR-151): Service chấp nhận `7 | 30 | 90 | 180` (giá trị khác → 7). Service luôn trả số liệu theo **ngày**; UI tự gộp theo tuần cho 90/180 (`FE-071a`).
 
+### 3.7c Chế độ developer — `DebugWindowScore` (v0.10.1, 2026-10-06 — `DEV-050`–`052`)
+
+- Field 68 khối Overlay: `DebugWindowScore {window_handle, bbox, risk_score}`, Service → Overlay, chuyển tiếp **mỗi** `VisionInferenceResult`. Chỉ biên dịch/gửi khi build với `ParentalGuardDeveloperMode=true` (`src/Directory.Build.props`, hằng `PARENTALGUARD_DEVELOPER_MODE`; mặc định bật, bản production build `-p:ParentalGuardDeveloperMode=false`).
+- Overlay vẽ 1 khung topmost, click-through (`WS_EX_TRANSPARENT`, `WM_NCHITTEST`→`HTTRANSPARENT`), `WDA_EXCLUDEFROMCAPTURE` (không lọt vào Desktop Duplication → không làm sai kết quả Vision), bám vị trí thật qua `DWMWA_EXTENDED_FRAME_BOUNDS` mỗi 200ms, bỏ qua `WM_DPICHANGED` để khung trải nhiều màn hình khác DPI giữ đúng pixel vật lý; gỡ khung khi cửa sổ đóng/thu nhỏ/ẩn hoặc 15s không có điểm mới.
+
 ### 3.7a Service-side handler binding (gap fix Đợt 8b) — `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest`
 
 Khảo sát code thật (đầu Đợt 8b) xác nhận đúng 3 message field 98/140/144 (đã định nghĩa schema từ v0.8.0, Đợt 6) chưa từng có handler ở `Service` — rơi vào nhánh `default` của `UiSessionServer.DispatchAsync` (`throw new InvalidOperationException` từ `AuthCoordinator.HandleAsync`). Đây là gap thực thi cuối cùng của nhóm "IPC message đã định nghĩa nhưng `Service` chưa implement" (cùng loại đã đóng cho `ConfigCoordinator`/`AuditLogCoordinator` ở Đợt 7, mở rộng thêm `VerifyAuditChainRequest` ở Đợt 8). Phân công handler cụ thể:
@@ -979,6 +984,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.10.1 | 2026-10-06 | PATCH — mục 3.7c: `DebugWindowScore` field 68 (chế độ developer, `DEV-050`–`052`), chỉ có ở bản build bật cờ |
 | v0.10.0 | 2026-10-05 | MINOR — mục 3.7b: `ParentSessionRequest`/`Response` (field 158/159), phiên phụ huynh per-connection idle 10 phút (ADR-149), message chấp nhận phiên + `ConfigUpdateRequest` bắt buộc phiên, `CONFIG_UPDATE_RESULT_NOT_AUTHENTICATED` (ADR-150, supersedes ADR-125), `range_days` 90/180 (ADR-151). Nguồn: `PWD-024`, `FE-080`–`083`, `FE-071a` |
 | v0.9.3 | 2026-10-01 | PATCH — `MISC-030c`: field 156/157 `ResetWhitelistRequest{action_token}`/`ResetWhitelistResponse{result, whitelist}` (khối UI 140-159), gate `manage_whitelist`; Service đặt `exclude_process_names` = `BE-073a`, xoá mục cũ người dùng, push `ControlVisionCommand`, audit `ConfigChanged{field="whitelist", action="reset"}` |
 | v0.9.2 | 2026-10-01 | PATCH — `MISC-030b`: `ConfigResponse.user_whitelisted_process_names` nay trả whitelist HIỆU DỤNG = `exclude_process_names` (danh sách cấp sẵn `BE-073a`) ∪ mục cũ người dùng thêm (không trùng, không phân biệt hoa thường) — giữ nguyên số field; `RemoveWhitelistEntryRequest` xoá khỏi cả 2 danh sách, audit `ConfigChanged{field="whitelist"}` |
