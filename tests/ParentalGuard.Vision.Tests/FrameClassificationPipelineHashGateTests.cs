@@ -78,8 +78,8 @@ public class FrameClassificationPipelineHashGateTests
         var pipeline = new FrameClassificationPipeline(classifier);
         byte[] pattern = DarkPattern();
 
-        VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
-        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200);
+        VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100)!;
+        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200)!;
 
         Assert.True(first.ContentChanged);
         Assert.False(second.ContentChanged);
@@ -95,7 +95,7 @@ public class FrameClassificationPipelineHashGateTests
         byte[] pattern = DarkPattern();
         pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
-        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200);
+        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200)!;
 
         Assert.False(second.ContentChanged);
         Assert.Equal(200, second.CapturedAtUnixMs);
@@ -109,8 +109,8 @@ public class FrameClassificationPipelineHashGateTests
         var classifier = new CountingClassifier();
         var pipeline = new FrameClassificationPipeline(classifier);
 
-        VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(DarkPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
-        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(LightPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200);
+        VisionInferenceResult first = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(DarkPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100)!;
+        VisionInferenceResult second = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(LightPattern()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200)!;
 
         Assert.True(first.ContentChanged);
         Assert.True(second.ContentChanged);
@@ -126,7 +126,7 @@ public class FrameClassificationPipelineHashGateTests
         byte[] pattern = DarkPattern();
         pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(pattern), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
 
-        VisionInferenceResult otherWindow = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 2, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200);
+        VisionInferenceResult otherWindow = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 2, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200)!;
 
         Assert.True(otherWindow.ContentChanged);
         Assert.Equal(2, classifier.CallCount);
@@ -145,9 +145,40 @@ public class FrameClassificationPipelineHashGateTests
             pipeline.EndCaptureCycle(new HashSet<IntPtr>());
         }
 
-        VisionInferenceResult afterEvict = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 300);
+        VisionInferenceResult afterEvict = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper((byte[])pattern.Clone()), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 300)!;
 
         Assert.True(afterEvict.ContentChanged);
         Assert.Equal(2, classifier.CallCount);
+    }
+
+    /// <summary>Bug 2026-10-06: khung Desktop Duplication chưa có nội dung (toàn 0) không được phân loại/gửi kết quả.</summary>
+    [Fact]
+    public void ProcessFrame_AllZeroCrop_ReturnsNull_DoesNotClassify()
+    {
+        var classifier = new CountingClassifier();
+        var pipeline = new FrameClassificationPipeline(classifier);
+
+        VisionInferenceResult? result = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(new byte[16]), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100);
+
+        Assert.Null(result);
+        Assert.Equal(0, classifier.CallCount);
+    }
+
+    /// <summary>Bug 2026-10-06: vùng bị cửa sổ khác che bị tô đen TRƯỚC hash — nội dung chỉ đổi ở vùng bị che không tính là "đổi".</summary>
+    [Fact]
+    public void ProcessFrame_ChangeOnlyInsideOccludedArea_IsTreatedAsUnchanged()
+    {
+        var classifier = new CountingClassifier();
+        var pipeline = new FrameClassificationPipeline(classifier);
+        WindowRect[] rightColumnCovered = [new WindowRect(1, 0, 1, 2)];
+        byte[] first = DarkPattern();
+        byte[] second = DarkPattern();
+        second[4] = 10; // pixel (1,0) — nằm trong vùng bị che
+
+        pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(first), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 100, occlusionMasks: rightColumnCovered);
+        VisionInferenceResult again = pipeline.ProcessFrame(new NoOpFrameCapture(), new WritesPatternCropper(second), SmallRect(), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 2, capturedAtUnixMs: 200, occlusionMasks: rightColumnCovered)!;
+
+        Assert.False(again.ContentChanged);
+        Assert.Equal(1, classifier.CallCount);
     }
 }

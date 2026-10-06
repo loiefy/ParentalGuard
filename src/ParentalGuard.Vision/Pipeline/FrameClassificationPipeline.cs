@@ -39,7 +39,13 @@ public sealed class FrameClassificationPipeline
     /// <c>AcquireNextFrame</c> timeout, hoặc cửa sổ đã đóng giữa chừng) — đây là hành vi bình
     /// thường (mục 4.1), không phải lỗi.
     /// </summary>
-    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, ulong frameId)
+    /// <param name="occluders">
+    /// Bounds (toạ độ virtual desktop) của các cửa sổ đang hiển thị nằm TRÊN <paramref name="hwnd"/> theo Z-order. Bug
+    /// real-hardware 2026-10-06: Desktop Duplication là ảnh màn hình ĐÃ GHÉP — crop theo khung cửa sổ lấy luôn nội dung
+    /// cửa sổ khác đè lên trên, rồi gán điểm (và overlay) nhầm cho cửa sổ bên dưới. Phần bị che được tô đen trước khi
+    /// phân loại; còn lộ ra dưới <see cref="MinVisibleFraction"/> thì bỏ qua chu kỳ này.
+    /// </param>
+    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, ulong frameId, IReadOnlyList<WindowRect>? occluders = null)
     {
         long capturedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -55,14 +61,24 @@ public sealed class FrameClassificationPipeline
             return null;
         }
 
+        var cropOnDesktop = new WindowRect(outputBounds.X + cropRect.Value.X, outputBounds.Y + cropRect.Value.Y, cropRect.Value.Width, cropRect.Value.Height);
+        IReadOnlyList<WindowRect> masks = OcclusionMask.ToCropLocal(cropOnDesktop, occluders ?? []);
+        if (OcclusionMask.VisibleFraction(cropRect.Value.Width, cropRect.Value.Height, masks) < MinVisibleFraction)
+        {
+            return null;
+        }
+
         IDisposable? fullScreenFrame = capture.AcquireNextFrame(adapterIndex, outputIndex, timeoutMs: 500);
         if (fullScreenFrame is null)
         {
             return null;
         }
 
-        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs, cropRect.Value);
+        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs, cropRect.Value, masks);
     }
+
+    /// <summary>Cửa sổ chỉ còn lộ ra ít hơn tỉ lệ này (phần còn lại bị cửa sổ khác che) → không đủ nội dung của chính nó để phân loại.</summary>
+    public const double MinVisibleFraction = 0.10;
 
     /// <summary>
     /// Thân xử lý thật (crop → resize/normalize → classify), tách khỏi <see cref="Process"/> để
@@ -71,7 +87,9 @@ public sealed class FrameClassificationPipeline
     /// </summary>
     /// <param name="rect">Toạ độ virtual desktop của cửa sổ — trả nguyên về <c>Bbox</c> cho Overlay.</param>
     /// <param name="cropRect">Vùng crop trong texture của output (đã trừ offset + cắt biên); mặc định = <paramref name="rect"/> (test 1 màn hình tại gốc).</param>
-    internal VisionInferenceResult ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs, WindowRect? cropRect = null)
+    /// <param name="occlusionMasks">Vùng (toạ độ trong crop) bị cửa sổ khác che — tô đen trước khi hash/phân loại.</param>
+    /// <returns><c>null</c> nếu ảnh crop đen hoàn toàn (khung Desktop Duplication chưa có nội dung — gặp ở khung đầu tiên sau khi tạo duplication): không có dữ liệu thật để phân loại.</returns>
+    internal VisionInferenceResult? ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs, WindowRect? cropRect = null, IReadOnlyList<WindowRect>? occlusionMasks = null)
     {
         WindowRect crop = cropRect ?? rect;
         bool contentChanged = false;
@@ -95,6 +113,14 @@ public sealed class FrameClassificationPipeline
             {
                 fullScreenFrame.Dispose();
             }
+
+            // Bug 2026-10-06: khung chưa có nội dung (toàn 0) — bỏ qua, không cập nhật hash/điểm của cửa sổ.
+            if (_pixelBuffer.AsSpan(0, crop.Width * crop.Height * 4).IndexOfAnyExcept((byte)0) < 0)
+            {
+                return null;
+            }
+
+            OcclusionMask.Apply(_pixelBuffer, crop.Width, crop.Height, occlusionMasks ?? []);
 
             // Mục 3.8.1/ADR-129 (v0.3.0): hash-gate NGAY SAU readback, TRƯỚC resize — dùng chung 1 tín
             // hiệu cho cả PERF-010 (Service, qua ContentChanged) và PERF-011 (skip cục bộ dưới đây).

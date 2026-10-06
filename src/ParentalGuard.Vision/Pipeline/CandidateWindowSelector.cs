@@ -82,6 +82,29 @@ public static class CandidateWindowSelector
         return ordered;
     }
 
+    /// <summary>
+    /// Bug 2026-10-06: bounds các cửa sổ đang hiển thị nằm TRÊN <paramref name="hwnd"/> (cùng định nghĩa "vật che" với
+    /// <see cref="SelectVisibleCandidates"/>) — dùng để tô đen phần bị che trước khi phân loại (<see cref="OcclusionMask"/>).
+    /// </summary>
+    public static IReadOnlyList<WindowRect> OccludersAbove(IntPtr hwnd, IReadOnlyList<WindowSnapshot> windowsInZOrder)
+    {
+        var occluders = new List<WindowRect>();
+        foreach (WindowSnapshot window in windowsInZOrder)
+        {
+            if (window.Handle == hwnd)
+            {
+                return occluders;
+            }
+
+            if (window.IsShown && window.Rect is { Width: > 0, Height: > 0 } rect)
+            {
+                occluders.Add(rect);
+            }
+        }
+
+        return occluders;
+    }
+
     /// <summary>Lấy mẫu lưới 8×8 tâm ô — còn ít nhất 1 điểm không nằm trong cửa sổ nào phía trên thì coi là còn nhìn thấy.</summary>
     internal static bool HasUncoveredArea(WindowRect rect, IReadOnlyList<WindowRect> occluders)
     {

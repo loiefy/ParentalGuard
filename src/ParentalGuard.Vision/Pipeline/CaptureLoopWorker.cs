@@ -181,9 +181,10 @@ public sealed class CaptureLoopWorker
         // BE-071a/PERF-020a (ĐÃ CHỐT 2026-10-01): giám sát MỌI cửa sổ đang hiển thị trên mọi màn hình —
         // không còn giới hạn "foreground + 1 cửa sổ/màn hình phụ" (bug real-hardware: cửa sổ vi phạm thứ 2
         // không bao giờ bị phát hiện; overlay chiếm focus khiến màn hình đơn không còn candidate nào).
+        List<WindowSnapshot> snapshots = SnapshotWindowsInZOrder(excludeProcessNames);
         IReadOnlyList<IntPtr> candidates = CandidateWindowSelector.SelectVisibleCandidates(
             fgHwnd,
-            SnapshotWindowsInZOrder(excludeProcessNames),
+            snapshots,
             coveredWindowHandles, // BE-034b: cửa sổ đang bị overlay che bị loại ngay trong lúc chọn
             _candidateRotation);
         _candidateRotation += CandidateWindowSelector.MaxCandidatesPerCycle - 1; // BE-071b: xoay vòng sang nhóm kế tiếp
@@ -208,7 +209,7 @@ public sealed class CaptureLoopWorker
             usedOutputIndexes.Add(output.Value.OutputIndex);
             usedWindowHandles.Add(hwnd);
             DebugLog($"Trước ProcessOneFrame(hwnd={hwnd}).");
-            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex, output.Value.DesktopBounds);
+            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex, output.Value.DesktopBounds, CandidateWindowSelector.OccludersAbove(hwnd, snapshots));
             DebugLog("ProcessOneFrame xong.");
         }
 
@@ -229,14 +230,14 @@ public sealed class CaptureLoopWorker
     internal static bool ShouldParkInfinitely(bool foregroundInExcludeList, int candidateCount) =>
         foregroundInExcludeList && candidateCount == 0;
 
-    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds)
+    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, IReadOnlyList<WindowRect> occluders)
     {
         ulong frameId = ++_frameId;
         VisionInferenceResult? result;
         DebugLog($"Trước _pipeline.Process(frameId={frameId}).");
         try
         {
-            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId);
+            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId, occluders);
             DebugLog($"_pipeline.Process OK (frameId={frameId}).");
         }
         catch (Exception ex)
