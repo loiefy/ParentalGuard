@@ -84,6 +84,8 @@ public sealed class CaptureLoopWorker
         _thread = new Thread(() => Run(cancellationToken))
         {
             IsBackground = true,
+            // 2026-10-06: dưới mức thường — suy luận nặng không được lấn luồng IPC trả HeartbeatAck (BE-040).
+            Priority = ThreadPriority.BelowNormal,
             Name = "ParentalGuard.Vision.CaptureInference",
         };
         _thread.Start();

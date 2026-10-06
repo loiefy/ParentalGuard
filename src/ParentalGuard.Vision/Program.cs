@@ -77,6 +77,20 @@ DebugLog("Trước client.ConnectAsync (connect pipe sớm, trước khi tải m
 await client.ConnectAsync(cts.Token).ConfigureAwait(false);
 DebugLog("client.ConnectAsync xong — đã connect + handshake thành công.");
 
+// 2026-10-06 (thử Marqo): bắt đầu vòng IPC NGAY sau handshake — trước đây chỉ bắt đầu sau khi nạp model + probe capture,
+// nên model nặng (ViT, lần đầu biên dịch shader DirectML mất vài giây) khiến Vision không trả HeartbeatAck kịp, Service
+// tưởng treo và khởi động lại liên tục (BE-040). ControlVisionCommand tới sớm vẫn được lưu vào configHolder; captureLoop
+// được gán sau khi khởi tạo xong mới được đánh thức.
+var configHolder = new VisionRuntimeConfigHolder();
+CaptureLoopWorker? captureLoopRef = null;
+Task ipcTask = client.RunForeverAsync(
+    onBusinessMessage: (message, _) => HandleBusinessMessageAsync(message, configHolder, captureLoopRef),
+    cts.Token,
+    // Architecture/03 mục 6: mất kết nối = không còn nguồn cấu hình đáng tin cậy (SEC-017) —
+    // tự park (giống monitoring_enabled=false) tới khi Service resend ControlVisionCommand
+    // ngay sau khi reconnect thành công (03 mục 4.3).
+    onDisconnected: () => configHolder.Update(VisionRuntimeConfig.CreateDefault()));
+
 DebugLog("Trước đọc model file: " + ModelPaths.OnnxModelPath);
 byte[] modelBytes = await File.ReadAllBytesAsync(ModelPaths.OnnxModelPath, cts.Token).ConfigureAwait(false);
 DebugLog($"Đọc model xong, {modelBytes.Length} bytes.");
@@ -94,6 +108,9 @@ DebugLog("Checksum OK.");
 
 OrtEnv.Instance().DisableTelemetryEvents(); // IMG-015 — hardening bắt buộc dù ONNX Runtime mặc định không cần network.
 using var sessionOptions = new SessionOptions();
+// 2026-10-06 (thử Marqo, nặng ~10× GantMan): ONNX Runtime mặc định dùng MỌI nhân cho 1 lần suy luận — phân loại liên tục
+// chiếm hết CPU, luồng IPC không kịp trả HeartbeatAck → Service tưởng Vision treo và khởi động lại liên tục (BE-040).
+sessionOptions.IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2);
 try
 {
     DebugLog("Trước AppendExecutionProvider_DML.");
@@ -146,8 +163,8 @@ catch (CaptureInitializationException ex)
 var initialOutputContext = new OutputCaptureContext(capture, new GpuWindowCropper(capture.Device));
 var pipeline = new FrameClassificationPipeline(classifier);
 
-var configHolder = new VisionRuntimeConfigHolder();
 var captureLoop = new CaptureLoopWorker(configHolder, pipeline, client, initialOutputContext);
+captureLoopRef = captureLoop;
 
 // Architecture/05 mục 3.6 (ADR-133): Thread thứ 3, đánh thức captureLoop ngay khi đổi cửa sổ
 // foreground (PERF-020) — tái dùng đúng wakeEvent hiện có qua WakeUp(), không thêm cơ chế mới.
@@ -157,17 +174,11 @@ messagePump.Start();
 
 captureLoop.Start(cts.Token);
 
-DebugLog("Trước client.RunForeverAsync (bắt đầu connect pipe nghiệp vụ).");
+captureLoop.WakeUp(); // áp dụng ControlVisionCommand (nếu đã tới trong lúc khởi tạo)
+DebugLog("Chờ vòng IPC (đã chạy từ sau handshake).");
 try
 {
-    await client.RunForeverAsync(
-        onBusinessMessage: (message, _) => HandleBusinessMessageAsync(message, configHolder, captureLoop),
-        cts.Token,
-        // Architecture/03 mục 6: mất kết nối = không còn nguồn cấu hình đáng tin cậy (SEC-017) —
-        // tự park (giống monitoring_enabled=false) tới khi Service resend ControlVisionCommand
-        // ngay sau khi reconnect thành công (03 mục 4.3).
-        onDisconnected: () => configHolder.Update(VisionRuntimeConfig.CreateDefault()))
-        .ConfigureAwait(false);
+    await ipcTask.ConfigureAwait(false);
     DebugLog("RunForeverAsync trả về bình thường.");
     return 0;
 }
@@ -182,7 +193,7 @@ catch (Exception ex)
     throw;
 }
 
-static Task HandleBusinessMessageAsync(IpcPayload message, VisionRuntimeConfigHolder configHolder, CaptureLoopWorker captureLoop)
+static Task HandleBusinessMessageAsync(IpcPayload message, VisionRuntimeConfigHolder configHolder, CaptureLoopWorker? captureLoop)
 {
     if (message.BodyCase == IpcPayload.BodyOneofCase.ControlVision)
     {
@@ -195,7 +206,7 @@ static Task HandleBusinessMessageAsync(IpcPayload message, VisionRuntimeConfigHo
         {
             CoveredWindowHandles = command.CoveredWindowHandles.ToHashSet(),
         });
-        captureLoop.WakeUp();
+        captureLoop?.WakeUp();
     }
 
     return Task.CompletedTask;
