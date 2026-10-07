@@ -17,6 +17,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -24,23 +25,29 @@
         <!-- FE-080/FE-081 (PWD-024): khung đăng nhập phụ huynh — chưa đăng nhập thì chưa tải lịch sử. -->
         <local:ParentLoginPanel Grid.Row="0" />
 
-        <InfoBar Grid.Row="1" Severity="Error" IsClosable="False"
+        <!-- MISC-011 (2026-10-07): xuất lịch sử ra PDF — chỉ hiện sau khi đã đăng nhập và tải được lịch sử. -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsGated, Mode=OneWay}">
+            <ComboBox x:Name="ExportRangeCombo" MinWidth="160" VerticalAlignment="Center" />
+            <Button x:Name="ExportPdfButton" Click="OnExportPdfClick" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <InfoBar Grid.Row="2" Severity="Error" IsClosable="False"
                  IsOpen="{x:Bind ViewModel.HasErrorMessage, Mode=OneWay}"
                  Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" />
-        <InfoBar Grid.Row="2" Severity="Success" IsClosable="False"
+        <InfoBar Grid.Row="3" Severity="Success" IsClosable="False"
                  IsOpen="{x:Bind ViewModel.HasStatusMessage, Mode=OneWay}"
                  Message="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" />
 
-        <ProgressRing Grid.Row="3" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+        <ProgressRing Grid.Row="4" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                       Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                       HorizontalAlignment="Center" VerticalAlignment="Center" />
 
         <!-- FE-040 — trạng thái rỗng tích cực. -->
-        <TextBlock x:Name="EmptyText" Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center"
+        <TextBlock x:Name="EmptyText" Grid.Row="4" HorizontalAlignment="Center" VerticalAlignment="Center"
                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" />
 
         <!-- Mục 6.3 — mỗi dòng: thời gian, event_type dịch tiếng Việt; dòng ContentBlocked kèm process_name/risk_score (MISC-030a: không còn nút "Đánh dấu sai"). -->
-        <ListView Grid.Row="3" ItemsSource="{x:Bind ViewModel.Entries, Mode=OneWay}"
+        <ListView Grid.Row="4" ItemsSource="{x:Bind ViewModel.Entries, Mode=OneWay}"
                   Visibility="{x:Bind ViewModel.ShowEntries, Mode=OneWay}" SelectionMode="None">
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:AuditLogRowViewData">
@@ -59,7 +66,7 @@
             </ListView.ItemTemplate>
         </ListView>
 
-        <Button x:Name="LoadMoreButton" Grid.Row="4" Click="OnLoadMoreClick" HorizontalAlignment="Center"
+        <Button x:Name="LoadMoreButton" Grid.Row="5" Click="OnLoadMoreClick" HorizontalAlignment="Center"
                 Visibility="{x:Bind ViewModel.HasMore, Mode=OneWay}"
                 IsEnabled="{x:Bind ViewModel.IsNotLoadingMore, Mode=OneWay}" />
     </Grid>

@@ -64,6 +64,9 @@ public partial class App : Application
         _ = ConnectAndRouteAsync();
     }
 
+    /// <summary>`MISC-011`: HWND cửa sổ chính — hộp thoại Lưu (FileSavePicker) của app unpackaged cần gắn với cửa sổ.</summary>
+    internal nint MainWindowHandle => WinRT.Interop.WindowNative.GetWindowHandle(_window);
+
     /// <summary>Gọi bởi <see cref="Views.ConnectionErrorPage"/> khi bấm "Thử lại" (mục 9).</summary>
     public Task RetryConnectAsync() => ConnectAndRouteAsync();
 

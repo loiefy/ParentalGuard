@@ -301,6 +301,12 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 - `S4`: `ToggleSwitch` trong khối cần đăng nhập. Bật → hộp xác nhận giải thích; tắt → thử thách rồi mới gửi `SetParentProtectionRequest(false)`. Huỷ hoặc thất bại → công tắc trở về giá trị Service đang lưu.
 - Thẻ 4 "Bảo vệ cả phụ huynh" ở màn hình giới thiệu (`FE-032`) hiển thị.
 
+### Xuất PDF ở `S3` (v0.4.0, 2026-10-07, `MISC-011`)
+
+- Hàng "khoảng thời gian + Xuất PDF" chỉ hiện khi `AuditLogViewModel.IsGated`. Hộp thoại Lưu (`FileSavePicker` + `InitializeWithWindow` với `App.MainWindowHandle`) mở TRƯỚC khi tải dữ liệu — huỷ thì không gửi request nào.
+- `AuditLogViewModel.BuildPdfAsync`: tải các trang 200 dòng bằng token rỗng (dùng phiên đã mở như "Tải thêm"), mới nhất trước → dừng ngay khi dòng cuối trang đã cũ hơn mốc; trần 200 trang. `InvalidToken` → báo hết phiên và khoá lại.
+- `Services/AuditPdfExporter` (PDFsharp 6, `GlobalFontSettings.UseWindowsFontsUnderWindows`): A4, font Arial nhúng tập con (tiếng Trung: Microsoft YaHei), tự sang trang và lặp lại hàng tiêu đề. PDF dựng trong bộ nhớ rồi ghi thẳng ra file người dùng chọn — không có file tạm, không có ảnh.
+
 ## 12. Changelog file này
 
 | Version | Ngày | Thay đổi |

@@ -151,6 +151,47 @@ public sealed partial class AuditLogViewModel(IAuditFacade auditFacade, IAuthPro
         }
     }
 
+    /// <summary>
+    /// `MISC-011` (2026-10-07): tải TẤT CẢ các trang trong khoảng (mới nhất trước — dừng ngay khi vượt mốc), dựng PDF.
+    /// <paramref name="rangeDays"/> null = toàn bộ. Chỉ chạy khi đã qua gate (trang kế tiếp dùng token rỗng như "Tải thêm").
+    /// Trả <c>null</c> nếu phiên không còn hiệu lực.
+    /// </summary>
+    public async Task<byte[]?> BuildPdfAsync(uint? rangeDays, string rangeText, string languageCode, Func<DateTimeOffset>? utcNow = null)
+    {
+        if (!IsGated)
+        {
+            return null;
+        }
+
+        DateTimeOffset now = (utcNow ?? (() => DateTimeOffset.UtcNow))();
+        long? cutoff = rangeDays is uint days ? now.AddDays(-days).ToUnixTimeMilliseconds() : null;
+        var collected = new List<AuditLogEntry>();
+        const uint exportPageSize = 200;
+        for (uint page = 0; page < MaxExportPages; page++)
+        {
+            AuditLogFetchResult result = await auditFacade.GetAuditLogAsync(_noToken, page, exportPageSize, CancellationToken.None).ConfigureAwait(true);
+            if (result.Outcome == AuditLogQueryOutcome.InvalidToken)
+            {
+                ErrorMessage = LocalizationService.Get("AuditLogSessionExpired");
+                onSessionRejected?.Invoke();
+                return null;
+            }
+
+            collected.AddRange(result.Entries);
+            bool passedCutoff = cutoff is long c && result.Entries.Count > 0 && result.Entries[^1].TsUnixMs < c;
+            if (!result.HasMore || passedCutoff)
+            {
+                break;
+            }
+        }
+
+        IReadOnlyList<AuditLogEntry> inRange = AuditPdfExporter.FilterRange(collected, cutoff);
+        return AuditPdfExporter.Build(inRange, rangeText, now, languageCode);
+    }
+
+    /// <summary>Giới hạn an toàn: 200 trang × 200 dòng = 40 000 sự kiện.</summary>
+    private const uint MaxExportPages = 200;
+
     /// <summary>Trả <c>true</c> nếu <c>SUCCESS</c> (dòng đã được thêm vào <see cref="Entries"/>), <c>false</c> nếu <c>InvalidToken</c>.</summary>
     private async Task<bool> LoadPageAsync(byte[] actionToken, uint page)
     {

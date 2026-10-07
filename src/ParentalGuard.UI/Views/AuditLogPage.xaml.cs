@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Microsoft.Extensions.DependencyInjection;
+using ParentalGuard.Ipc.Client;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -33,7 +34,24 @@ public sealed partial class AuditLogPage : Page
 
         EmptyText.Text = LocalizationService.Get("AuditLogEmptyText");
         LoadMoreButton.Content = LocalizationService.Get("AuditLoadMoreButton");
+        ExportPdfButton.Content = LocalizationService.Get("AuditExportPdfButton");
+        foreach ((uint? days, string key) in _exportRanges)
+        {
+            ExportRangeCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.Get(key), Tag = days });
+        }
+
+        ExportRangeCombo.SelectedIndex = 1;
     }
+
+    /// <summary>`MISC-011`: 7 ngày / 30 ngày / 3 tháng / 6 tháng / toàn bộ.</summary>
+    private static readonly (uint? Days, string Key)[] _exportRanges =
+    [
+        (7, "AuditExportRange7Days"),
+        (30, "AuditExportRange30Days"),
+        (90, "AuditExportRange3Months"),
+        (180, "AuditExportRange6Months"),
+        (null, "AuditExportRangeAll"),
+    ];
 
     public AuditLogViewModel ViewModel { get; }
 
@@ -97,5 +115,50 @@ public sealed partial class AuditLogPage : Page
     }
 
     private async void OnLoadMoreClick(object sender, RoutedEventArgs e) => await ViewModel.LoadMoreAsync();
+
+    /// <summary>`MISC-011`: dựng PDF trong bộ nhớ rồi lưu qua hộp thoại Lưu của Windows (không ghi file tạm nào).</summary>
+    private async void OnExportPdfClick(object sender, RoutedEventArgs e)
+    {
+        if (ExportRangeCombo.SelectedItem is not ComboBoxItem { Content: string rangeText } item)
+        {
+            return;
+        }
+
+        ExportPdfButton.IsEnabled = false;
+        try
+        {
+            ViewModel.ErrorMessage = null;
+            ViewModel.StatusMessage = null;
+            var picker = new Windows.Storage.Pickers.FileSavePicker
+            {
+                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.DocumentsLibrary,
+                SuggestedFileName = $"ParentalGuard-{DateTime.Now:yyyy-MM-dd}",
+            };
+            picker.FileTypeChoices.Add("PDF", [".pdf"]);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, ((App)Application.Current).MainWindowHandle);
+            Windows.Storage.StorageFile? file = await picker.PickSaveFileAsync();
+            if (file is null)
+            {
+                return;
+            }
+
+            byte[]? pdf = await ViewModel.BuildPdfAsync((uint?)item.Tag, rangeText, LocalizationService.CurrentLanguageCode);
+            if (pdf is null)
+            {
+                return;
+            }
+
+            await Windows.Storage.FileIO.WriteBytesAsync(file, pdf);
+            ViewModel.StatusMessage = LocalizationService.GetFormatted("AuditExportPdfDone", file.Path);
+        }
+        catch (Exception ex) when (ex is UiIpcConnectionException or IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
+        {
+            ViewModel.ErrorMessage = LocalizationService.GetFormatted("AuditExportPdfFailed", ex.Message);
+        }
+        finally
+        {
+            ExportPdfButton.IsEnabled = true;
+        }
+    }
 
 }
