@@ -40,8 +40,9 @@ public sealed partial class SettingsPage : Page
         WhitelistHintText.Text = LocalizationService.Get("SettingsWhitelistHint");
         ResetWhitelistButton.Content = LocalizationService.Get("SettingsWhitelistResetButton");
         PerformanceModeHeaderText.Text = LocalizationService.Get("SettingsPerformanceModeHeader");
-        BalancedRadio.Content = LocalizationService.Get("SettingsPerformanceModeBalanced");
-        MaximumProtectionRadio.Content = LocalizationService.Get("SettingsPerformanceModeMaximumProtection");
+        // PERF-050c (2026-10-07): mỗi lựa chọn kèm 1 dòng giải thích ngắn ngay bên dưới.
+        BalancedRadio.Content = RadioContent("SettingsPerformanceModeBalanced", "SettingsPerformanceModeBalancedHint");
+        MaximumProtectionRadio.Content = RadioContent("SettingsPerformanceModeMaximumProtection", "SettingsPerformanceModeMaximumProtectionHint");
         ChangePasswordHeaderText.Text = LocalizationService.Get("SettingsChangePasswordHeader");
         OldPasswordLabel.Text = LocalizationService.Get("SettingsOldPasswordLabel");
         NewPasswordLabel.Text = LocalizationService.Get("SettingsNewPasswordLabel");
@@ -95,6 +96,14 @@ public sealed partial class SettingsPage : Page
     }
 
     public SettingsViewModel ViewModel { get; }
+
+    private static StackPanel RadioContent(string titleKey, string hintKey)
+    {
+        var panel = new StackPanel { Spacing = 2 };
+        panel.Children.Add(new TextBlock { Text = LocalizationService.Get(titleKey) });
+        panel.Children.Add(new TextBlock { Text = LocalizationService.Get(hintKey), Opacity = 0.7, FontSize = 12, TextWrapping = TextWrapping.Wrap });
+        return panel;
+    }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {

@@ -29,6 +29,9 @@ public sealed partial class DashboardViewModel(
     IAuthPromptService authPromptService) : ObservableObject
 {
     private const string PauseActionContext = "pause_monitoring";
+
+    /// <summary>Chỉ để hiển thị đúng câu chữ ở `S5` ("tiếp tục giám sát") — Service vẫn nhận token "pause_monitoring" (xem AuthPromptViewModel).</summary>
+    private const string ResumeActionContext = "resume_monitoring";
     private static readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(5);
 
     // Mục 6.2.4, ADR-123 — ngưỡng UX tự quyết định, không phải số liệu bảo mật.
@@ -346,7 +349,7 @@ public sealed partial class DashboardViewModel(
         IsBusy = true;
         try
         {
-            byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(PauseActionContext, xamlRoot).ConfigureAwait(true);
+            byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(ResumeActionContext, xamlRoot).ConfigureAwait(true);
             if (actionToken is null)
             {
                 return;
@@ -382,7 +385,7 @@ public sealed partial class DashboardViewModel(
                     break;
                 }
 
-                byte[]? retryToken = await authPromptService.ShowAuthPromptAsync(PauseActionContext, xamlRoot).ConfigureAwait(true);
+                byte[]? retryToken = await authPromptService.ShowAuthPromptAsync(ResumeActionContext, xamlRoot).ConfigureAwait(true);
                 if (retryToken is null)
                 {
                     break;

@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.22.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.21.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Nguyên tắc thiết kế
 
@@ -108,8 +108,6 @@
   - Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị; không kết nối Internet; không chia sẻ dữ liệu với bên thứ ba (tiến trình nhận diện bị chặn mạng ở tầng tường lửa Windows).
   - Liệt kê **đầy đủ** dữ liệu được lưu trên máy: nhật ký sự kiện (chỉ siêu dữ liệu, có chuỗi băm chống chỉnh sửa — `MISC-010`): thời điểm phát hiện vi phạm kèm tên ứng dụng và điểm tin cậy; lịch sử tạm dừng/tiếp tục giám sát; các lần đăng nhập và thay đổi cài đặt; sự kiện an ninh (dấu hiệu can thiệp, gỡ cài đặt, khởi động lại dịch vụ). Cấu hình: các cài đặt, danh sách loại trừ; mật khẩu chỉ lưu dạng băm một chiều.
 
-- `FE-093` **(ĐÃ CHỐT v0.22.0, 2026-10-07 — chủ dự án yêu cầu trực tiếp (TODO mục 6))**: Tab Giới thiệu ghi rõ: ứng dụng **mã nguồn mở**, liên kết `https://github.com/loiefy/ParentalGuard`, **giấy phép phân phối** của dự án (tên giấy phép lấy từ file `LICENSE` của repo — hiển thị "(đang cập nhật)" cho tới khi chủ dự án chọn), và **ghi công mô hình AI**: `Marqo/nsfw-image-detection-384` — tác giả Marqo, giấy phép Apache-2.0, liên kết gốc. Danh sách đầy đủ thành phần bên thứ ba và giấy phép nằm ở `THIRD-PARTY-NOTICES.md` đóng gói cùng bản phát hành.
-
 ### 3.5 S3/S4 — Phiên đăng nhập phụ huynh — ĐÃ CHỐT v0.20.0, 2026-10-05
 
 - `FE-080` **(chủ dự án yêu cầu trực tiếp; cơ chế phiên ở `PWD-024`)**: Tab **Cài đặt** (`S4`) và tab **Lịch sử** (`S3`) có **khung đăng nhập** ở đầu trang: ô mật khẩu, nút Đăng nhập, liên kết **"Quên mật khẩu?"** (dẫn tới `S6`). Đăng nhập ở 1 tab có hiệu lực cho cả 2 tab.
@@ -134,7 +132,6 @@
 - `FE-061`: Ngôn ngữ mặc định Phase 1: **Tiếng Việt**. Kiến trúc phải sẵn sàng để thêm ngôn ngữ khác (tiếng Anh...) ở phase sau chỉ bằng cách thêm file resource mới, không cần sửa code logic.
 - `FE-062`: Nội dung thông điệp overlay do phụ huynh tự cấu hình (`FE-012`) là **ngoại lệ** — đây là dữ liệu người dùng nhập (user content), không phải chuỗi hệ thống, nên lưu riêng trong `config.db` (theo đúng cơ chế ở `02-backend-spec.md`), không nằm trong file resource ngôn ngữ. Giá trị mặc định ban đầu của trường này (trước khi phụ huynh đổi) vẫn được lấy từ file resource ngôn ngữ hiện hành, để nếu sau này đổi ngôn ngữ hệ thống, câu mặc định gợi ý cũng đổi theo tương ứng.
 - `FE-064` **(ĐÃ CHỐT v0.20.0, 2026-10-05 — chủ dự án yêu cầu trực tiếp, bổ sung `FE-063`)**: Mục chọn ngôn ngữ ở `S4` **không cần đăng nhập** (`FE-083`). Nhãn mục và tên từng ngôn ngữ hiển thị **song ngữ**: ngôn ngữ đang dùng + tiếng Anh (ví dụ "Ngôn ngữ / Language", "Tiếng Pháp (French)"); nếu ngôn ngữ đang dùng là tiếng Anh thì chỉ hiển thị tiếng Anh. Ngôn ngữ chưa có bản dịch được hiển thị nhưng chưa chọn được (ghi "sắp có / coming soon") cho tới khi bản dịch được bổ sung.
-- `FE-063a` **(ĐÃ CHỐT v0.22.0, 2026-10-07 — chủ dự án yêu cầu trực tiếp (TODO mục 5); chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: Hỗ trợ **6 ngôn ngữ**: Tiếng Việt (mặc định), Tiếng Anh, Tiếng Pháp, Tiếng Tây Ban Nha, Tiếng Bồ Đào Nha, **Tiếng Trung giản thể**. Áp dụng cho Dashboard, lớp che và icon trạng thái. Bản dịch ban đầu do AI tạo, ghi chú "chưa được người bản ngữ duyệt" trong tài liệu; chủ dự án/cộng đồng duyệt lại sau. Lựa chọn lưu ở `Service` (`config.db`, 1 giá trị cho cả máy), **không cần đăng nhập** (`FE-083`); đổi ngôn ngữ → Dashboard tự khởi động lại để áp dụng, lớp che/icon áp dụng cho lần hiển thị kế tiếp. Câu thông điệp lớp che mặc định (`FE-062`) theo ngôn ngữ đã chọn (câu do phụ huynh tự nhập giữ nguyên).
 - `FE-063`: Cài đặt ngôn ngữ (khi có nhiều lựa chọn ở phase sau) nằm trong Cài đặt nâng cao (`S4`), áp dụng toàn app ngay sau khi đổi (không cần khởi động lại nếu kỹ thuật cho phép hot-reload resource, hoặc yêu cầu khởi động lại UI nếu đơn giản hơn — quyết định cụ thể ở System Design).
 
 ## 6. Thống kê trên Dashboard (Chart) — ĐÃ CHỐT v0.3.0
@@ -164,7 +161,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.22.0 | 2026-10-07 | **MINOR**: `FE-063a` 6 ngôn ngữ (bản dịch AI, chờ duyệt), lưu ở Service, đổi ngôn ngữ không cần đăng nhập, Dashboard tự khởi động lại; `FE-093` tab Giới thiệu: mã nguồn mở, GitHub, giấy phép, ghi công Marqo (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh) |
 | v0.21.0 | 2026-10-06 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-031a` bỏ ô tick xác nhận ở màn hình giới thiệu lần đầu; `FE-032a` thẻ không nền riêng, nhỏ hơn, `S1` cùng tông Dashboard + hình mờ ngẫu nhiên, nút Tiếp tục to hơn; `FE-091a` Donate thành tab riêng |
 | v0.20.0 | 2026-10-05 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-005e` nền dải chuyển màu dọc; `FE-016k` nút bánh răng overlay nhỏ lại ~1/2; `FE-032` màn hình giới thiệu lần đầu (5 thẻ giá trị cốt lõi, hiệu ứng rê chuột, chỉ khi chưa có mật khẩu); `FE-033` giải thích lý do đặt mật khẩu; `FE-042` trạng thái "Máy tính đang được bảo vệ" (Vision + Overlay); `FE-064` chọn ngôn ngữ song ngữ, không cần đăng nhập; `FE-071a` biểu đồ 1 tuần/1 tháng/3 tháng/6 tháng (supersedes khoảng xem `FE-071`); `FE-080`-`FE-083` khung đăng nhập + phiên dùng chung `S3`/`S4`; `FE-092` mục "Cách ứng dụng hoạt động và dữ liệu được lưu" ở tab Giới thiệu |
 | v0.19.0 | 2026-10-01 | **MINOR — `FE-016j` (mới)**: vùng loại trừ nút đóng 160×40px (trước 160×50 tạm thời), đệm 16px ngang / 6px dọc; đóng câu hỏi mở kích thước vùng loại trừ. Kèm: danh sách whitelist `S4` giới hạn chiều cao + thanh cuộn |

@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -68,7 +68,6 @@
 
 ## 5. Xử lý trường hợp đa cửa sổ / đa nội dung
 
-- `IMG-020b` **(ĐÃ CHỐT v0.9.0, 2026-10-07 — theo `BE-071c`)**: Trần số cửa sổ xử lý tuần tự mỗi chu kỳ trong `IMG-020a` nâng từ 4 lên **10**.
 - `IMG-020a` **(ĐÃ CHỐT v0.6.0, 2026-10-01, supersedes `IMG-020`)**: Mỗi chu kỳ có thể có nhiều cửa sổ cần phân tích (mọi cửa sổ đang hiển thị, `BE-071a`) → xử lý **tuần tự** (không song song): cửa sổ foreground trước, rồi theo Z-order trên xuống, tối đa 4 cửa sổ/chu kỳ.
 - ~~`IMG-020`~~ **DEPRECATED v0.6.0 — superseded bởi `IMG-020a`**. Nội dung cũ: Nếu có nhiều cửa sổ cùng foreground khả dĩ (hiếm với Windows, nhưng có thể xảy ra với cấu hình đa màn hình) → xử lý tuần tự theo thứ tự ưu tiên cửa sổ đang có focus thực sự, không xử lý song song không cần thiết (tránh tăng đột biến CPU). Áp dụng cho mọi loại cửa sổ theo phạm vi mở rộng ở `BE-071` (browser, video player, hoặc ứng dụng bất kỳ), không riêng browser.
 
@@ -94,7 +93,6 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.9.0 | 2026-10-07 | **MINOR — `IMG-020b`**: trần 10 cửa sổ/chu kỳ theo `BE-071c` |
 | v0.8.0 | 2026-10-06 | **MINOR — `IMG-016a` (mới)**: vùng con thứ 6 xác định động theo vùng video/ảnh (chuyển động hoặc vùng giống ảnh chụp), không dùng model AI; viền tím nét đứt ở chế độ developer |
 | v0.7.0 | 2026-10-06 | **MINOR (chủ dự án quyết định)**: `IMG-014a` model mặc định Marqo/nsfw-image-detection-384 (Apache-2.0, ViT-tiny 384, 2 lớp) supersedes `IMG-014` (GantMan → DEPRECATED, giữ làm lựa chọn build); `IMG-016` chấm điểm = max(cả cửa sổ, 5 vùng con) |
 | v0.6.0 | 2026-10-01 | **MINOR — `IMG-020a` (mới, supersedes `IMG-020`)**: xử lý tuần tự nhiều cửa sổ đang hiển thị mỗi chu kỳ (foreground trước, rồi Z-order, tối đa 4) theo `BE-071a` (`02` v0.15.0) |

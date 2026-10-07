@@ -18,11 +18,11 @@ public readonly record struct WindowSnapshot(IntPtr Handle, WindowRect? Rect, bo
 /// </summary>
 public static class CandidateWindowSelector
 {
-    /// <summary>`BE-071a`: trần CPU — tối đa 4 cửa sổ được capture/phân loại mỗi chu kỳ.</summary>
+    /// <summary>`BE-071a`/`BE-071c`: trần CPU — tối đa 10 cửa sổ được capture/phân loại mỗi chu kỳ.</summary>
 #if PARENTALGUARD_FAST_DETECTION
     public const int MaxCandidatesPerCycle = 12; // bản debug quét nhanh: mọi cửa sổ trong 1 chu kỳ
 #else
-    public const int MaxCandidatesPerCycle = 4;
+    public const int MaxCandidatesPerCycle = 10; // BE-071c (2026-10-07): trước đây 4
 #endif
 
     /// <summary>Cửa sổ nhỏ hơn mức này (px) không đủ để hiển thị nội dung có ý nghĩa — bỏ qua (thanh công cụ nổi, popup tí hon).</summary>

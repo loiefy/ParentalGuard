@@ -24,6 +24,7 @@ public sealed partial class AuthPromptViewModel(IAuthFacade authFacade, string a
     public string PurposeText => actionContext switch
     {
         "pause_monitoring" => LocalizationService.Get("AuthPromptPurposePauseMonitoring"),
+        "resume_monitoring" => LocalizationService.Get("AuthPromptPurposeResumeMonitoring"),
         "view_audit_log" => LocalizationService.Get("AuthPromptPurposeViewAuditLog"),
         "manage_whitelist" => LocalizationService.Get("AuthPromptPurposeManageWhitelist"),
         _ => string.Empty,
@@ -43,7 +44,9 @@ public sealed partial class AuthPromptViewModel(IAuthFacade authFacade, string a
         IsBusy = true;
         try
         {
-            AuthVerifyResult result = await authFacade.AuthVerifyAsync(passwordUtf8Pinned, actionContext, cancellationToken).ConfigureAwait(true);
+            // "resume_monitoring" chỉ khác câu chữ hiển thị — Service dùng chung action_context "pause_monitoring" cho Pause/Resume.
+            string wireContext = actionContext == "resume_monitoring" ? "pause_monitoring" : actionContext;
+            AuthVerifyResult result = await authFacade.AuthVerifyAsync(passwordUtf8Pinned, wireContext, cancellationToken).ConfigureAwait(true);
             switch (result.Outcome)
             {
                 case AuthOutcome.Success:

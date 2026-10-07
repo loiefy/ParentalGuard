@@ -1,6 +1,6 @@
 # 08 — Performance & CPU Optimization Spec
 
-> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
 
 ## 1. Mục tiêu hiệu năng
 
@@ -47,8 +47,6 @@
 
 - ~~`PERF-050` (ĐÃ CHỐT v0.6.0, 2026-09-20 — xác nhận trực tiếp bởi chủ dự án): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), đủ cả 3 mức: **Cân bằng** (mặc định) / **Tiết kiệm pin** (giảm tần suất tối đa, ưu tiên hiệu năng máy hơn, đánh đổi tăng độ trễ phát hiện/giảm hiệu quả bảo vệ) / **Bảo vệ tối đa** (tăng tần suất capture/inference, chấp nhận tiêu tốn CPU cao hơn).~~ — **DEPRECATED, superseded by `PERF-050b`** (xem ngay dưới).
 - ~~`PERF-050a` (ĐÃ CHỐT v0.6.0, ràng buộc UI bắt buộc): Khi phụ huynh chọn mức "Tiết kiệm pin", UI (`S4`) bắt buộc phải hiển thị cảnh báo rõ ràng về việc giảm hiệu quả bảo vệ TRƯỚC KHI áp dụng lựa chọn.~~ — **DEPRECATED cùng `PERF-050`**: sub-requirement này chỉ có ý nghĩa khi tồn tại mức "Tiết kiệm pin"; nay mức đó bị loại bỏ hoàn toàn ở `PERF-050b` nên ràng buộc UI này không còn đối tượng áp dụng, không mang sang `PERF-050b`.
-- `PERF-050c` **(ĐÃ CHỐT v0.10.0, 2026-10-07 — chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh, TODO mục 4)**: **Giữ** 2 chế độ hiệu năng của `PERF-050b`; ngay dưới mỗi lựa chọn ở `S4` có 1 dòng giải thích ngắn: *Cân bằng* — "Quét thưa hơn khi màn hình ít thay đổi, quét dày khi nội dung đang thay đổi. Tiết kiệm CPU/pin."; *Bảo vệ tối đa* — "Luôn quét khoảng 1 giây/lần. Phát hiện nhanh nhất, tốn CPU/pin hơn.".
-- `PERF-020b` **(ĐÃ CHỐT, 2026-10-07 — theo `BE-071c`)**: Trần số cửa sổ capture/chu kỳ nâng từ 4 lên **10** (thay con số trong `PERF-020a`); chi phí được giới hạn bởi bỏ qua cửa sổ không đổi nội dung (`PERF-011`) và chấm vùng con có điều kiện (`IMG-016`).
 - `PERF-050b` (ĐÃ CHỐT v0.7.0, 2026-09-24 — supersedes `PERF-050`, `PERF-050a`; xác nhận trực tiếp bởi chủ dự án, phát sinh khi review `Architecture/10-ui-architecture.md` Đợt 6 mục 11 "Câu hỏi mở"): Cho phép phụ huynh chọn "Chế độ hiệu năng" trong Cài đặt nâng cao (`S4`), chỉ còn **2 mức** (bỏ hẳn mức "Tiết kiệm pin"):
   - **Cân bằng** (mặc định): theo chiến lược adaptive ở mục 2.
   - **Bảo vệ tối đa**: tăng tần suất capture/inference, chấp nhận tiêu tốn CPU cao hơn.
@@ -77,7 +75,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.10.0 | 2026-10-07 | **MINOR (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: `PERF-050c` giữ 2 chế độ hiệu năng + dòng giải thích dưới mỗi lựa chọn; `PERF-020b` trần 10 cửa sổ/chu kỳ theo `BE-071c` |
 | v0.9.0 | 2026-10-06 | **MINOR — `PERF-032a` (mới)**: chấp nhận model 384×384 (Marqo) + chấm vùng con, ưu tiên độ chính xác hơn CPU |
 | v0.8.0 | 2026-10-01 | **MINOR — `PERF-020a` (mới, supersedes `PERF-020`, đánh dấu DEPRECATED)**: exclude-list áp dụng cho từng cửa sổ đang hiển thị theo `BE-071a` (`02` v0.15.0); chỉ park vòng lặp khi không còn cửa sổ nào cần giám sát; trần 4 cửa sổ/chu kỳ |
 | v0.7.0 | 2026-09-24 | **MINOR — supersedes `PERF-050`/`PERF-050a`**: phát sinh khi review `Architecture/10-ui-architecture.md` (Đợt 6, Dashboard UI, mục 11 "Câu hỏi mở"). Chủ dự án quyết định trực tiếp: giữ nguyên việc "Chế độ hiệu năng" ở `S4` là `APPROVED`, nhưng **bỏ hẳn mức "Tiết kiệm pin"** — chỉ còn 2 mức "Cân bằng" (mặc định) / "Bảo vệ tối đa". Lý do: "Tiết kiệm pin" là lựa chọn có thể làm giảm hiệu quả bảo vệ trẻ em (giãn tần suất capture/inference), chủ dự án không chấp nhận đánh đổi bảo mật này dù đã có cảnh báo UI đi kèm. Thêm `PERF-050b` (mới, supersedes `PERF-050`) mô tả 2 mức còn lại; `PERF-050` (3 mức cũ) và `PERF-050a` (cảnh báo UI riêng cho "Tiết kiệm pin") đều đánh dấu `DEPRECATED` theo đúng quy tắc không sửa trực tiếp requirement đã `ĐÃ CHỐT`/`APPROVED`. Archive: `Specification/Outdated/08-performance-cpu-spec__v0.6.0__2026-09-24.md` |
