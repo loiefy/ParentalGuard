@@ -604,6 +604,7 @@ public sealed class Worker(
     private Task DispatchOverlayBusinessMessageAsync(IpcPayload message, CancellationToken cancellationToken) => message.BodyCase switch
     {
         IpcPayload.BodyOneofCase.ForceClose => _overlayDecisionCoordinator!.HandleForceCloseAsync(message, cancellationToken),
+        IpcPayload.BodyOneofCase.ForceKill => _overlayDecisionCoordinator!.HandleForceKillAsync(message, cancellationToken), // BE-034d
         IpcPayload.BodyOneofCase.IconPositionUpdate => _iconPositionCoordinator!.HandleIconPositionUpdateAsync(message, cancellationToken),
         IpcPayload.BodyOneofCase.OpenDashboard => OpenDashboardBestEffort(),
         _ => Task.CompletedTask,

@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.10.1 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.10.2 | Trạng thái: Approved | Cập nhật: 2026-10-07
 
 ## 1. Mục đích
 
@@ -984,6 +984,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.10.2 | 2026-10-07 | PATCH — `BE-034d`: `ForceKillRequest{window_handle, process_id}` field 69 (Overlay → Service). Overlay ghi PID chủ cửa sổ lúc bấm "Tắt nội dung" (MANUAL), 3 giây sau cửa sổ còn và cùng PID thì gửi. Service (`OverlayDecisionCoordinator.HandleForceKillAsync`) chỉ kết thúc tiến trình khi `ForceKillPolicy.Decide` = Allowed: có lần đóng MANUAL cho đúng window_handle trong 30 giây, tiến trình còn, SessionId ≠ 0, tên tiến trình trùng tên Vision đã ghi nhận lúc che, không thuộc danh sách bảo vệ (Explorer, tiến trình lõi Windows, ApplicationFrameHost, ParentalGuard.*). Audit `ForceKillExecuted`/`ForceKillRefused{decision}` |
 | v0.10.1 | 2026-10-06 | PATCH — mục 3.7c: `DebugWindowScore` field 68 (chế độ developer, `DEV-050`–`052`), chỉ có ở bản build bật cờ |
 | v0.10.0 | 2026-10-05 | MINOR — mục 3.7b: `ParentSessionRequest`/`Response` (field 158/159), phiên phụ huynh per-connection idle 10 phút (ADR-149), message chấp nhận phiên + `ConfigUpdateRequest` bắt buộc phiên, `CONFIG_UPDATE_RESULT_NOT_AUTHENTICATED` (ADR-150, supersedes ADR-125), `range_days` 90/180 (ADR-151). Nguồn: `PWD-024`, `FE-080`–`083`, `FE-071a` |
 | v0.9.3 | 2026-10-01 | PATCH — `MISC-030c`: field 156/157 `ResetWhitelistRequest{action_token}`/`ResetWhitelistResponse{result, whitelist}` (khối UI 140-159), gate `manage_whitelist`; Service đặt `exclude_process_names` = `BE-073a`, xoá mục cũ người dùng, push `ControlVisionCommand`, audit `ConfigChanged{field="whitelist", action="reset"}` |

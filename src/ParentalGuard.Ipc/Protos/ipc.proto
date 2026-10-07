@@ -41,6 +41,7 @@ message IpcPayload {
     IconLayoutSync icon_layout_sync = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
     OpenDashboardRequest open_dashboard = 67; // 2026-10-01, Overlay → Service — double-click icon trạng thái (FE-023)
     OverlayMessageUpdate overlay_message_update = 66; // Đợt 6 (ADR-110, implement Đợt 9), Service → Overlay — thông điệp overlay tuỳ biến (FE-012)
+    ForceKillRequest force_kill = 69; // 2026-10-07 (BE-034d), Overlay → Service — cửa sổ vẫn còn 3s sau "Tắt nội dung"
     DebugWindowScore debug_window_score = 68; // 2026-10-06 (DEV-050/051), Service → Overlay — CHỈ gửi khi build bật chế độ developer
 
     // --- Kênh UI (80-99) ---
@@ -724,4 +725,12 @@ message DebugRegionScore {
   Rect rect = 1;
   float risk_score = 2;
   bool is_content_region = 3; // IMG-016a: vùng con thứ 6 (vùng video/ảnh phát hiện động) — Overlay vẽ viền tím nét đứt
+}
+
+// --- 2026-10-07, BE-034d — buộc đóng ứng dụng vi phạm (field 69 khối Overlay) ---
+// Overlay gửi khi cửa sổ vẫn còn 3 giây sau khi người dùng bấm "Tắt nội dung" (WM_CLOSE không đóng được).
+// Service (SYSTEM) tự kiểm tra an toàn trước khi kết thúc tiến trình — xem OverlayDecisionCoordinator.
+message ForceKillRequest {
+  fixed64 window_handle = 1;
+  uint32 process_id = 2; // tiến trình sở hữu cửa sổ, Overlay đọc bằng GetWindowThreadProcessId lúc bấm nút
 }

@@ -662,4 +662,10 @@
   <data name="SettingsPerformanceModeMaximumProtectionHint" xml:space="preserve">
     <value>Luôn quét khoảng 1 giây một lần. Phát hiện nhanh nhất, tốn CPU và pin hơn.</value>
   </data>
+  <data name="AuditEventTypeForceKillExecuted" xml:space="preserve">
+    <value>Đã buộc đóng ứng dụng vi phạm</value>
+  </data>
+  <data name="AuditEventTypeForceKillRefused" xml:space="preserve">
+    <value>Từ chối buộc đóng ứng dụng (không đủ điều kiện an toàn)</value>
+  </data>
 </root>

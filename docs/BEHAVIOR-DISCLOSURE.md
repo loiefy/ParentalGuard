@@ -55,6 +55,26 @@ commercial product, and it does not collect user data for business purposes.
 - The only processing output that is retained is a numeric risk score plus the rectangular coordinates
   of the region to obscure — no image content is contained in this data.
 
+## 2a. Buộc đóng ứng dụng vi phạm / Force-closing the offending application
+
+**Tiếng Việt**:
+- Khi nút **"Tắt nội dung"** trên lớp che được bấm, ParentalGuard yêu cầu cửa sổ đó đóng lại một cách bình thường.
+- Nếu sau **3 giây** cửa sổ vẫn còn (ví dụ ứng dụng đang hỏi "Lưu thay đổi?" hoặc bỏ qua yêu cầu đóng), dịch vụ
+  ParentalGuard **buộc kết thúc tiến trình** sở hữu cửa sổ đó. Dữ liệu **chưa lưu** của ứng dụng đó sẽ bị mất; với trình
+  duyệt, toàn bộ cửa sổ/tab thuộc cùng tiến trình cũng đóng theo.
+- Không bao giờ buộc đóng tiến trình hệ thống Windows (Explorer, tiến trình lõi), tiến trình không thuộc phiên người dùng,
+  hay chính ParentalGuard. Việc tự động đóng do hết thời gian chờ **không** buộc kết thúc tiến trình. Mỗi lần buộc đóng
+  (hoặc bị từ chối vì không đủ điều kiện an toàn) đều được ghi vào nhật ký.
+
+**English**:
+- When the **"Close content"** button on the overlay is pressed, ParentalGuard asks the window to close normally.
+- If the window is still open **3 seconds** later (e.g. the app shows "Save changes?" or ignores the request), the
+  ParentalGuard service **terminates the process** that owns the window. **Unsaved** data in that application is lost; for
+  browsers, every window/tab belonging to the same process closes too.
+- Windows system processes (Explorer, core processes), processes outside the user's session, and ParentalGuard itself are
+  never terminated. The automatic close after the timeout never terminates a process. Every forced close (or refusal for
+  safety reasons) is recorded in the event log.
+
 ## 3. Watchdog kép & chống gỡ cài đặt / Dual watchdog & anti-uninstall protection
 
 **Tiếng Việt**:

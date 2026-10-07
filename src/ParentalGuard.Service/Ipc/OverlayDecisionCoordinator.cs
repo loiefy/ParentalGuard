@@ -29,10 +29,18 @@ public sealed class OverlayDecisionCoordinator(
     ChildProcessSupervisor overlaySupervisor,
     AuditLogWriter auditLog,
     Func<float> currentRiskThreshold,
-    Action? onCoveredWindowsChanged = null)
+    Action? onCoveredWindowsChanged = null,
+    Func<int, ProcessFacts?>? lookupProcess = null,
+    Action<int>? killProcess = null,
+    Func<DateTimeOffset>? utcNow = null)
 {
     private readonly object _sync = new();
     private readonly Dictionary<ulong, OverlayRect> _active = [];
+
+    // BE-034d: tên tiến trình Vision ghi nhận cho cửa sổ đang bị che, và các lần bấm "Tắt nội dung" gần đây.
+    private readonly Dictionary<ulong, string> _processNameByWindow = [];
+    private readonly Dictionary<ulong, (string ProcessName, DateTimeOffset At)> _recentManualClose = [];
+    private readonly Func<DateTimeOffset> _utcNow = utcNow ?? (() => DateTimeOffset.UtcNow);
     private readonly Dictionary<uint, uint> _mergedOverlayIdByMonitor = [];
     private uint _nextOverlayId = 1;
     private uint _nextMergedOverlayId = 1;
@@ -68,6 +76,7 @@ public sealed class OverlayDecisionCoordinator(
             }
 
             // ADR-137 (Architecture/04 mục 5.1): edge-triggered — mỗi lượt block đúng 1 record ContentBlocked.
+            _processNameByWindow[result.WindowHandle] = result.ProcessName;
             _active[result.WindowHandle] = new OverlayRect
             {
                 WindowHandle = result.WindowHandle,
@@ -100,6 +109,10 @@ public sealed class OverlayDecisionCoordinator(
         lock (_sync)
         {
             removed = _active.Remove(request.WindowHandle);
+            if (_processNameByWindow.Remove(request.WindowHandle, out string? processName) && request.Source == CloseSource.Manual && !string.IsNullOrEmpty(processName))
+            {
+                _recentManualClose[request.WindowHandle] = (processName, _utcNow());
+            }
         }
 
         if (!removed)
@@ -124,6 +137,65 @@ public sealed class OverlayDecisionCoordinator(
             "ForceCloseRequested",
             new { windowHandle = request.WindowHandle, overlayId = request.OverlayId, source },
             CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// `BE-034d` (2026-10-07): Overlay báo cửa sổ vẫn còn 3 giây sau "Tắt nội dung" → kết thúc tiến trình sở hữu nó, chỉ khi
+    /// <see cref="ForceKillPolicy.Decide"/> cho phép (đúng tiến trình Vision đã thấy, phiên người dùng, không phải tiến trình hệ
+    /// thống/ParentalGuard, trong 30 giây sau lần bấm). Mọi kết quả đều ghi audit log.
+    /// </summary>
+    public async Task HandleForceKillAsync(IpcPayload message, CancellationToken cancellationToken)
+    {
+        ForceKillRequest request = message.ForceKill;
+        (string ProcessName, DateTimeOffset At)? recent;
+        lock (_sync)
+        {
+            recent = _recentManualClose.Remove(request.WindowHandle, out var entry) ? entry : null;
+            foreach (ulong stale in _recentManualClose.Where(kv => _utcNow() - kv.Value.At > ForceKillPolicy.RequestWindow).Select(kv => kv.Key).ToList())
+            {
+                _recentManualClose.Remove(stale);
+            }
+        }
+
+        ProcessFacts? facts = (lookupProcess ?? LookupProcess)((int)request.ProcessId);
+        ForceKillDecision decision = ForceKillPolicy.Decide(recent?.ProcessName, recent is null ? TimeSpan.MaxValue : _utcNow() - recent.Value.At, facts);
+        bool killed = false;
+        if (decision == ForceKillDecision.Allowed)
+        {
+            try
+            {
+                (killProcess ?? KillProcess)((int)request.ProcessId);
+                killed = true;
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or ArgumentException)
+            {
+                // Tiến trình đã tự thoát giữa chừng hoặc không đủ quyền — ghi nhận, không làm gì thêm.
+            }
+        }
+
+        await auditLog.AppendAsync(
+            killed ? "ForceKillExecuted" : "ForceKillRefused",
+            new { windowHandle = request.WindowHandle, processName = facts?.ExecutableName ?? recent?.ProcessName ?? "", decision = decision.ToString() },
+            CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private static ProcessFacts? LookupProcess(int pid)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            return new ProcessFacts(pid, process.SessionId, process.ProcessName + ".exe");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static void KillProcess(int pid)
+    {
+        using var process = System.Diagnostics.Process.GetProcessById(pid);
+        process.Kill(entireProcessTree: false);
     }
 
     /// <summary>

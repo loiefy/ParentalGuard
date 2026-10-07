@@ -237,6 +237,8 @@ internal static class EventTypeDisplay
         ["UninstallInitiated"] = "AuditEventTypeUninstallInitiated",
         ["UninstallPartialFailure"] = "AuditEventTypeUninstallPartialFailure",
         ["WFPFiltersRemoved"] = "AuditEventTypeWfpFiltersRemoved",
+        ["ForceKillExecuted"] = "AuditEventTypeForceKillExecuted",
+        ["ForceKillRefused"] = "AuditEventTypeForceKillRefused",
     };
 
     public static string ToText(string eventType) => _keys.TryGetValue(eventType, out string? key) ? LocalizationService.Get(key) : eventType;

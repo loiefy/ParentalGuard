@@ -57,6 +57,7 @@ Giống quy trình Feature Gate đã chốt ở `TEST-002`/`TEST-003` (`11-testi
 
 | Ngày | Thay đổi |
 |---|---|
+| 2026-10-07 | Spec v0.13.0: `03` v0.10.2 + `07` v0.3.7 (buộc đóng ứng dụng vi phạm `BE-034d`), `04` v0.5.3 (interval 5000 ms) |
 | 2026-10-06 | Spec v0.12.0: `05` v0.5.1 (vùng con thứ 6 động `IMG-016a`) |
 | 2026-10-06 | Spec v0.11.0: `05` v0.5.0 (model mặc định Marqo + chấm vùng con `IMG-016`) |
 | 2026-10-06 | `05` v0.4.5: cờ build `ParentalGuardModel` chọn GantMan/Marqo/Falconsai (thử nghiệm, mặc định giữ GantMan) |

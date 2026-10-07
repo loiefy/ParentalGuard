@@ -68,7 +68,11 @@ internal static class Program
         // Handle Windows message loop tạo ngay (không cần Show()) để Invoke() từ Thread IPC hoạt
         // động được ngay cả trước khi Application.Run() bắt đầu bơm message.
         DebugLog("Trước new OverlayCoordinator.");
-        var coordinator = new OverlayCoordinator(request => SendForceClose(client, request), update => SendIconPosition(client, update), () => SendOpenDashboard(client));
+        var coordinator = new OverlayCoordinator(
+            request => SendForceClose(client, request),
+            update => SendIconPosition(client, update),
+            () => SendOpenDashboard(client),
+            request => SendForceKill(client, request));
         _ = coordinator.Handle;
         DebugLog("Coordinator OK — trước Task.Run RunIpcAsync + Application.Run.");
 
@@ -150,6 +154,14 @@ internal static class Program
     {
         IpcPayload payload = client.NewEnvelope();
         payload.ForceClose = request;
+        client.EnqueueOutbound(payload);
+    }
+
+    /// <summary>`BE-034d`: Overlay (Low IL) không đủ quyền kết thúc tiến trình của người dùng — xin Service (SYSTEM) làm.</summary>
+    private static void SendForceKill(IpcChildClient client, ForceKillRequest request)
+    {
+        IpcPayload payload = client.NewEnvelope();
+        payload.ForceKill = request;
         client.EnqueueOutbound(payload);
     }
 

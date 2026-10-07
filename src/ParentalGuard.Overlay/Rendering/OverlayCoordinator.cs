@@ -32,9 +32,15 @@ public sealed class OverlayCoordinator : Form
     private bool _pendingZOrderResync;
     private string _blockedMessage = string.Empty; // ADR-110: OverlayMessageUpdate gần nhất (RAM)
 
-    public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition, Action requestOpenDashboard)
+    /// <summary>`BE-034d`: chờ ngần này sau "Tắt nội dung" rồi mới xin Service buộc đóng nếu cửa sổ vẫn còn.</summary>
+    internal static readonly TimeSpan ForceKillDelay = TimeSpan.FromSeconds(3);
+
+    private readonly Action<ForceKillRequest>? _sendForceKill;
+
+    public OverlayCoordinator(Action<ForceCloseRequest> sendForceClose, Action<IconPositionUpdate> sendIconPosition, Action requestOpenDashboard, Action<ForceKillRequest>? sendForceKill = null)
     {
         _sendForceClose = sendForceClose;
+        _sendForceKill = sendForceKill;
         _sendIconPosition = sendIconPosition;
         _requestOpenDashboard = requestOpenDashboard;
         _iconManager = new StatusIconManager(sendIconPosition, requestOpenDashboard);
@@ -232,6 +238,11 @@ public sealed class OverlayCoordinator : Form
 
     private void HandleCloseButtonClicked(ulong windowHandle, uint overlayId, CloseSource source)
     {
+        if (source == CloseSource.Manual)
+        {
+            ScheduleForceKill([windowHandle]);
+        }
+
         _sendForceClose(new ForceCloseRequest
         {
             WindowHandle = windowHandle,
@@ -280,6 +291,11 @@ public sealed class OverlayCoordinator : Form
     /// <summary>`BE-089`/`BE-089b`: 1 <c>ForceCloseRequest</c> riêng cho mỗi handle trong batch, cùng <paramref name="overlayId"/> và <paramref name="source"/> (mục 3.3).</summary>
     private void HandleMergedCloseTriggered(uint overlayId, IReadOnlyList<ulong> mergedWindowHandles, CloseSource source)
     {
+        if (source == CloseSource.Manual)
+        {
+            ScheduleForceKill(mergedWindowHandles);
+        }
+
         long clickedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         foreach (ulong handle in mergedWindowHandles)
         {
@@ -293,6 +309,39 @@ public sealed class OverlayCoordinator : Form
         }
 
         RemoveMergedOverlay(mergedWindowHandles);
+    }
+
+    /// <summary>
+    /// `BE-034d` (2026-10-07): ghi lại PID chủ cửa sổ NGAY lúc bấm (cửa sổ còn sống), 3 giây sau cửa sổ vẫn còn (ứng dụng bỏ
+    /// qua <c>WM_CLOSE</c>/đang hỏi "Lưu thay đổi?") và vẫn cùng PID → xin Service buộc đóng. Auto-timeout không đi đường này.
+    /// </summary>
+    private void ScheduleForceKill(IReadOnlyList<ulong> windowHandles)
+    {
+        if (_sendForceKill is null)
+        {
+            return;
+        }
+
+        var targets = windowHandles.Select(h => (Handle: h, Pid: OverlayWindowInterop.GetOwningProcessId(h))).Where(t => t.Pid != 0).ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        var timer = new System.Windows.Forms.Timer { Interval = (int)ForceKillDelay.TotalMilliseconds };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            timer.Dispose();
+            foreach ((ulong handle, uint pid) in targets)
+            {
+                if (OverlayWindowInterop.WindowExists(handle) && OverlayWindowInterop.GetOwningProcessId(handle) == pid)
+                {
+                    _sendForceKill(new ForceKillRequest { WindowHandle = handle, ProcessId = pid });
+                }
+            }
+        };
+        timer.Start();
     }
 
     private void RemoveOverlay(ulong windowHandle)

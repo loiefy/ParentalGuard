@@ -20,6 +20,17 @@ internal static class OverlayWindowInterop
     [DllImport("user32.dll")]
     private static extern bool IsWindow(IntPtr hWnd);
 
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    /// <summary>`BE-034d`: PID tiến trình sở hữu cửa sổ — 0 nếu cửa sổ không còn.</summary>
+    internal static uint GetOwningProcessId(ulong windowHandle)
+    {
+        GetWindowThreadProcessId(new IntPtr(unchecked((long)windowHandle)), out uint pid);
+        return pid;
+    }
+
     /// <summary>`BE-034` điều kiện (3): cửa sổ vi phạm còn tồn tại không (vd đã đóng bằng nút X gốc, FE-016).</summary>
     internal static bool WindowExists(ulong windowHandle) => IsWindow(new IntPtr(unchecked((long)windowHandle)));
 
