@@ -16,6 +16,13 @@ public sealed partial class AuthPromptDialog : ContentDialog
     {
         ViewModel = new AuthPromptViewModel(authFacade, actionContext);
         InitializeComponent();
+
+        // FE-063a: chuỗi lấy từ resource theo ngôn ngữ đang chọn (trước đây viết cứng tiếng Việt trong XAML).
+        Title = Services.LocalizationService.Get("AuthPromptTitle");
+        PrimaryButtonText = Services.LocalizationService.Get("AuthPromptSubmitButton");
+        CloseButtonText = Services.LocalizationService.Get("AuthPromptCancelButton");
+        PasswordInput.PlaceholderText = Services.LocalizationService.Get("PasswordPlaceholder");
+        ForgotPasswordLink.Content = Services.LocalizationService.Get("AuthPromptForgotPasswordLink");
     }
 
     public AuthPromptViewModel ViewModel { get; }

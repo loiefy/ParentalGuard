@@ -32,781 +32,719 @@
   </resheader>
 
   <!-- Mục 9 — màn hình lỗi kết nối toàn cửa sổ lúc khởi động. -->
+    <!-- FE-063a (2026-10-07): bản dịch do AI tạo, CHƯA được người bản ngữ duyệt. Khoá thiếu rơi về bản tiếng Việt gốc. -->
   <data name="ConnectionErrorTitle" xml:space="preserve">
-    <value>Không thể kết nối tới ParentalGuard Service</value>
+    <value>Não foi possível ligar ao serviço ParentalGuard</value>
   </data>
   <data name="ConnectionErrorMessage" xml:space="preserve">
-    <value>Service có thể chưa chạy hoặc đang khởi động.</value>
+    <value>O serviço pode ainda não estar em execução ou estar a iniciar.</value>
   </data>
   <data name="ConnectionErrorRetryButton" xml:space="preserve">
-    <value>Thử lại</value>
+    <value>Tentar novamente</value>
   </data>
-
-  <!-- S1 Onboarding — bước 1 Giới thiệu (FE-031). -->
   <data name="OnboardingWelcomeTitle" xml:space="preserve">
-    <value>Chào mừng đến với ParentalGuard</value>
+    <value>Bem-vindo ao ParentalGuard</value>
   </data>
   <data name="OnboardingWelcomeBody" xml:space="preserve">
-    <value>ParentalGuard giám sát nội dung trên màn hình hoàn toàn cục bộ — dữ liệu không rời khỏi máy tính này, và ảnh chụp màn hình không bao giờ được lưu lại dưới bất kỳ hình thức nào.</value>
+    <value>O ParentalGuard monitoriza o conteúdo do ecrã inteiramente neste computador — nenhum dado sai desta máquina e as capturas de ecrã nunca são guardadas, sob nenhuma forma.</value>
   </data>
   <data name="OnboardingWelcomeAcknowledge" xml:space="preserve">
-    <value>Tôi đã đọc và hiểu</value>
+    <value>Li e compreendi</value>
   </data>
-
-  <!-- S1 Onboarding — bước 2 Đặt mật khẩu (PWD-001-003). -->
   <data name="OnboardingSetPasswordTitle" xml:space="preserve">
-    <value>Đặt mật khẩu quản trị</value>
+    <value>Definir a palavra-passe dos pais</value>
   </data>
   <data name="OnboardingPasswordLabel" xml:space="preserve">
-    <value>Mật khẩu</value>
+    <value>Palavra-passe</value>
   </data>
   <data name="OnboardingConfirmPasswordLabel" xml:space="preserve">
-    <value>Xác nhận mật khẩu</value>
+    <value>Confirmar palavra-passe</value>
   </data>
   <data name="OnboardingPasswordMismatch" xml:space="preserve">
-    <value>Mật khẩu xác nhận không khớp.</value>
+    <value>As palavras-passe não coincidem.</value>
   </data>
   <data name="OnboardingPasswordTooLong" xml:space="preserve">
-    <value>Mật khẩu không được vượt quá 50 ký tự.</value>
+    <value>A palavra-passe não pode ter mais de 50 caracteres.</value>
   </data>
   <data name="OnboardingPasswordEmpty" xml:space="preserve">
-    <value>Vui lòng nhập mật khẩu.</value>
+    <value>Introduza uma palavra-passe.</value>
   </data>
   <data name="OnboardingAlreadyConfigured" xml:space="preserve">
-    <value>Đã có mật khẩu được thiết lập.</value>
+    <value>Já foi definida uma palavra-passe.</value>
   </data>
   <data name="PasswordStrengthWeak" xml:space="preserve">
-    <value>Yếu</value>
+    <value>Fraca</value>
   </data>
   <data name="PasswordStrengthMedium" xml:space="preserve">
-    <value>Trung bình</value>
+    <value>Média</value>
   </data>
   <data name="PasswordStrengthStrong" xml:space="preserve">
-    <value>Mạnh</value>
+    <value>Forte</value>
   </data>
-
-  <!-- S1 Onboarding — bước 3 Recovery Key (PWD-030/030a). -->
   <data name="OnboardingRecoveryKeyTitle" xml:space="preserve">
-    <value>Lưu lại Recovery Key</value>
+    <value>Guarde a sua chave de recuperação</value>
   </data>
   <data name="OnboardingRecoveryKeyBody" xml:space="preserve">
-    <value>Recovery Key dùng để khôi phục quyền truy cập nếu bạn quên mật khẩu. Đây là lần DUY NHẤT key này được hiển thị — hãy lưu lại ở nơi an toàn.</value>
+    <value>A chave de recuperação permite recuperar o acesso se esquecer a palavra-passe. Esta é a ÚNICA vez que é mostrada — guarde-a num local seguro.</value>
   </data>
   <data name="OnboardingRecoveryKeyCopyButton" xml:space="preserve">
-    <value>Sao chép</value>
+    <value>Copiar</value>
   </data>
   <data name="OnboardingRecoveryKeyConfirmCheckbox" xml:space="preserve">
-    <value>Tôi đã lưu lại Recovery Key</value>
+    <value>Guardei a chave de recuperação</value>
   </data>
   <data name="OnboardingTokenExpired" xml:space="preserve">
-    <value>Thiết lập chưa hoàn tất, vui lòng thực hiện lại từ bước đặt mật khẩu.</value>
+    <value>A configuração não foi concluída. Recomece a partir do passo da palavra-passe.</value>
   </data>
-
   <data name="ContinueButton" xml:space="preserve">
-    <value>Tiếp tục</value>
+    <value>Continuar</value>
   </data>
-
-  <!-- S5 Auth Modal (mục 6.5). -->
   <data name="AuthPromptPasswordLabel" xml:space="preserve">
-    <value>Mật khẩu</value>
+    <value>Palavra-passe</value>
   </data>
   <data name="AuthPromptSubmitButton" xml:space="preserve">
-    <value>Xác nhận</value>
+    <value>Confirmar</value>
   </data>
   <data name="AuthPromptCancelButton" xml:space="preserve">
-    <value>Huỷ</value>
+    <value>Cancelar</value>
   </data>
   <data name="AuthPromptWrongPassword" xml:space="preserve">
-    <value>Sai mật khẩu.</value>
+    <value>Palavra-passe incorreta.</value>
   </data>
   <data name="AuthPromptLockedOutFormat" xml:space="preserve">
-    <value>Đã khoá tạm thời do nhập sai nhiều lần. Vui lòng thử lại sau {0}.</value>
+    <value>Bloqueado temporariamente após demasiadas tentativas falhadas. Tente novamente dentro de {0}.</value>
   </data>
   <data name="AuthPromptForgotPasswordLink" xml:space="preserve">
-    <value>Quên mật khẩu?</value>
+    <value>Esqueceu-se da palavra-passe?</value>
   </data>
   <data name="AuthPromptPurposePauseMonitoring" xml:space="preserve">
-    <value>Xác nhận mật khẩu để tạm dừng giám sát</value>
+    <value>Introduza a palavra-passe para pausar a monitorização</value>
   </data>
   <data name="AuthPromptPurposeViewAuditLog" xml:space="preserve">
-    <value>Xác nhận mật khẩu để xem lịch sử</value>
+    <value>Introduza a palavra-passe para ver o histórico</value>
   </data>
   <data name="AuthPromptPurposeManageWhitelist" xml:space="preserve">
-    <value>Xác nhận mật khẩu để thay đổi danh sách loại trừ</value>
+    <value>Introduza a palavra-passe para alterar a lista de exclusão</value>
   </data>
-
-  <!-- Main Shell placeholder pages (giai đoạn 3-4 mới implement đầy đủ S3/S4). -->
   <data name="NavDashboard" xml:space="preserve">
-    <value>Tổng quan</value>
+    <value>Visão geral</value>
   </data>
   <data name="NavAuditLog" xml:space="preserve">
-    <value>Lịch sử</value>
+    <value>Histórico</value>
   </data>
   <data name="NavSettings" xml:space="preserve">
-    <value>Cài đặt</value>
+    <value>Definições</value>
   </data>
   <data name="PaneVersionFormat" xml:space="preserve">
-    <value>Phiên bản {0}</value>
+    <value>Versão {0}</value>
   </data>
   <data name="NavAbout" xml:space="preserve">
-    <value>Giới thiệu</value>
+    <value>Acerca de</value>
   </data>
-
-  <!-- FE-090/FE-091 (2026-10-01): tab Giới thiệu + Donate. Giá trị *Value để trống = hiển thị "(đang cập nhật)";
-       chủ dự án điền sau trực tiếp tại đây (không cần sửa code). -->
   <data name="AboutHeader" xml:space="preserve">
-    <value>Về chúng tôi</value>
+    <value>Sobre nós</value>
   </data>
   <data name="AboutIntro" xml:space="preserve">
-    <value>ParentalGuard là dự án cộng đồng giúp bảo vệ trẻ em khỏi nội dung không phù hợp. Ứng dụng chạy hoàn toàn trên máy của bạn — không gửi hình ảnh hay dữ liệu cá nhân ra ngoài.</value>
+    <value>O ParentalGuard é um projeto comunitário que ajuda a proteger as crianças de conteúdos impróprios. Funciona inteiramente no seu computador — não envia imagens nem dados pessoais para lado nenhum.</value>
   </data>
   <data name="AboutCompanyNameLabel" xml:space="preserve">
-    <value>Đơn vị phát triển</value>
-  </data>
-  <data name="AboutCompanyNameValue" xml:space="preserve">
-    <value></value>
+    <value>Programador</value>
   </data>
   <data name="AboutEmailLabel" xml:space="preserve">
-    <value>Email liên hệ</value>
-  </data>
-  <data name="AboutEmailValue" xml:space="preserve">
-    <value></value>
+    <value>E-mail de contacto</value>
   </data>
   <data name="AboutVersionLabel" xml:space="preserve">
-    <value>Phiên bản</value>
+    <value>Versão</value>
   </data>
   <data name="AboutDonateHeader" xml:space="preserve">
-    <value>Ủng hộ dự án (Donate)</value>
+    <value>Apoiar o projeto (donativo)</value>
   </data>
   <data name="AboutDonateIntro" xml:space="preserve">
-    <value>ParentalGuard miễn phí. Nếu thấy hữu ích, bạn có thể ủng hộ để dự án tiếp tục được duy trì và phát triển.</value>
+    <value>O ParentalGuard é gratuito. Se lhe for útil, pode apoiá-lo para que o projeto continue a ser mantido e melhorado.</value>
   </data>
   <data name="AboutPayPalLabel" xml:space="preserve">
     <value>PayPal</value>
   </data>
-  <data name="AboutPayPalValue" xml:space="preserve">
-    <value></value>
-  </data>
   <data name="AboutNotYetAvailable" xml:space="preserve">
-    <value>(đang cập nhật)</value>
+    <value>(brevemente)</value>
   </data>
   <data name="PlaceholderInDevelopment" xml:space="preserve">
-    <value>Đang phát triển</value>
+    <value>Em desenvolvimento</value>
   </data>
-
-  <!-- S2 Dashboard (mục 6.2) — thẻ trạng thái. -->
   <data name="DashboardStatusChecking" xml:space="preserve">
-    <value>Đang kiểm tra trạng thái…</value>
+    <value>A verificar o estado…</value>
   </data>
   <data name="DashboardStatusActive" xml:space="preserve">
-    <value>Máy tính đang được bảo vệ</value>
+    <value>Este computador está protegido</value>
   </data>
   <data name="DashboardStatusPaused" xml:space="preserve">
-    <value>Tạm dừng — còn {0}</value>
+    <value>Em pausa — faltam {0}</value>
   </data>
   <data name="DashboardStatusError" xml:space="preserve">
-    <value>Gián đoạn</value>
+    <value>Interrompido</value>
   </data>
   <data name="DashboardActionTokenExpired" xml:space="preserve">
-    <value>Phiên xác thực đã hết hạn, vui lòng thử lại.</value>
+    <value>A confirmação expirou. Tente novamente.</value>
   </data>
   <data name="DashboardConnectionLostMessage" xml:space="preserve">
-    <value>Mất kết nối tới Service, đang thử lại...</value>
+    <value>Ligação ao serviço perdida, a tentar novamente...</value>
   </data>
-
-  <!-- S2 Dashboard — nút Pause/Resume + picker thời lượng (PAUSE-002). -->
   <data name="DashboardPauseButton" xml:space="preserve">
-    <value>Tạm dừng giám sát</value>
+    <value>Pausar a monitorização</value>
   </data>
   <data name="DashboardResumeButton" xml:space="preserve">
-    <value>Tiếp tục ngay</value>
+    <value>Retomar agora</value>
   </data>
   <data name="DashboardPauseDurationLabel" xml:space="preserve">
-    <value>Thời lượng tạm dừng</value>
+    <value>Duração da pausa</value>
   </data>
   <data name="PauseDuration15Min" xml:space="preserve">
-    <value>15 phút</value>
+    <value>15 minutos</value>
   </data>
   <data name="PauseDuration30Min" xml:space="preserve">
-    <value>30 phút</value>
+    <value>30 minutos</value>
   </data>
   <data name="PauseDuration1Hour" xml:space="preserve">
-    <value>1 giờ</value>
+    <value>1 hora</value>
   </data>
   <data name="PauseDuration4Hours" xml:space="preserve">
-    <value>4 giờ</value>
+    <value>4 horas</value>
   </data>
   <data name="PauseDurationEndOfDay" xml:space="preserve">
-    <value>Đến hết ngày hôm nay</value>
+    <value>Até ao fim do dia</value>
   </data>
-
-  <!-- S2 Dashboard — banner PAUSE-021. -->
   <data name="DashboardAnomalyBannerTitle" xml:space="preserve">
-    <value>Tần suất tạm dừng bất thường</value>
+    <value>Frequência de pausas invulgar</value>
   </data>
   <data name="DashboardAnomalyBannerMessage" xml:space="preserve">
-    <value>Tạm dừng được kích hoạt bất thường nhiều lần hôm nay. Nếu không phải bạn thực hiện, hãy đổi mật khẩu ngay.</value>
+    <value>A monitorização foi pausada com uma frequência invulgar hoje. Se não foi o utilizador, altere a palavra-passe imediatamente.</value>
   </data>
   <data name="DashboardAnomalyAckButton" xml:space="preserve">
-    <value>Đã xem</value>
+    <value>Entendido</value>
   </data>
-
-  <!-- S2 Dashboard — health check (MISC-050/FE-041). -->
   <data name="DashboardHealthTitle" xml:space="preserve">
-    <value>Kiểm tra tình trạng</value>
+    <value>Verificação do estado</value>
   </data>
   <data name="DashboardHealthWatchdogOk" xml:space="preserve">
-    <value>✓ Watchdog hoạt động bình thường</value>
+    <value>✓ O Watchdog está a funcionar normalmente</value>
   </data>
   <data name="DashboardHealthWatchdogDown" xml:space="preserve">
-    <value>✗ Watchdog không phản hồi</value>
+    <value>✗ O Watchdog não responde</value>
   </data>
   <data name="DashboardHealthVisionOk" xml:space="preserve">
-    <value>✓ Vision Engine hoạt động bình thường</value>
+    <value>✓ O Vision Engine está a funcionar normalmente</value>
   </data>
   <data name="DashboardHealthVisionPipelineError" xml:space="preserve">
-    <value>⚠ Vision Engine đang gặp lỗi xử lý ảnh — đang tự khôi phục. Nếu kéo dài, hãy khởi động lại máy.</value>
+    <value>⚠ O Vision Engine tem um erro de processamento de imagem e está a recuperar. Se persistir, reinicie o computador.</value>
   </data>
   <data name="DashboardHealthVisionCpuFallback" xml:space="preserve">
-    <value>⚠ Vision Engine đang chạy chế độ CPU dự phòng (chậm hơn bình thường)</value>
+    <value>⚠ O Vision Engine está em modo CPU de recurso (mais lento do que o normal)</value>
   </data>
   <data name="DashboardHealthChecking" xml:space="preserve">
-    <value>… Đang kiểm tra</value>
+    <value>… A verificar</value>
   </data>
   <data name="DashboardHealthVisionDown" xml:space="preserve">
-    <value>✗ Vision Engine mất kết nối</value>
+    <value>✗ O Vision Engine está desligado</value>
   </data>
   <data name="DashboardHealthOverlayOk" xml:space="preserve">
-    <value>✓ Overlay hoạt động bình thường</value>
+    <value>✓ O Overlay está a funcionar normalmente</value>
   </data>
   <data name="DashboardHealthOverlayDown" xml:space="preserve">
-    <value>✗ Overlay mất kết nối</value>
+    <value>✗ O Overlay está desligado</value>
   </data>
   <data name="DashboardHealthDiskSpaceLow" xml:space="preserve">
-    <value>⚠ Dung lượng ổ đĩa chứa nhật ký sắp hết</value>
+    <value>⚠ A unidade que guarda o registo está quase cheia</value>
   </data>
   <data name="DashboardHealthFallbackConfig" xml:space="preserve">
-    <value>⚠ Đang dùng cấu hình mặc định do sự cố, vui lòng kiểm tra</value>
+    <value>⚠ A usar definições predefinidas devido a um problema — verifique</value>
   </data>
-
-  <!-- S2 Dashboard — biểu đồ (FE-070-072). -->
   <data name="DashboardChartTitle" xml:space="preserve">
-    <value>Số lần chặn theo ngày</value>
+    <value>Bloqueios por dia</value>
   </data>
   <data name="DashboardChart7DaysButton" xml:space="preserve">
-    <value>7 ngày</value>
+    <value>7 dias</value>
   </data>
   <data name="DashboardChart30DaysButton" xml:space="preserve">
-    <value>30 ngày</value>
+    <value>30 dias</value>
   </data>
   <data name="DashboardChartEmptyText" xml:space="preserve">
-    <value>Chưa phát hiện nội dung nào cần chặn</value>
+    <value>Ainda não foi necessário bloquear nenhum conteúdo</value>
   </data>
   <data name="DashboardChartBarTooltipFormat" xml:space="preserve">
-    <value>{0}: {1} lần chặn</value>
+    <value>{0}: {1} bloqueios</value>
   </data>
   <data name="DashboardChartSummaryFormat" xml:space="preserve">
-    <value>{0} ngày qua: {1} lần chặn</value>
+    <value>Últimos {0} dias: {1} bloqueios</value>
   </data>
-
-  <!-- S3 Lịch sử / Audit log (mục 6.3). -->
   <data name="AuditLogEmptyText" xml:space="preserve">
-    <value>Chưa phát hiện nội dung nào cần chặn</value>
+    <value>Ainda não foi necessário bloquear nenhum conteúdo</value>
   </data>
   <data name="AuditLogSessionExpired" xml:space="preserve">
-    <value>Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</value>
+    <value>A sessão expirou. Inicie sessão novamente.</value>
   </data>
   <data name="AuditLoadMoreButton" xml:space="preserve">
-    <value>Tải thêm</value>
+    <value>Carregar mais</value>
   </data>
   <data name="AuditProcessNameFormat" xml:space="preserve">
-    <value>Ứng dụng: {0}</value>
+    <value>Aplicação: {0}</value>
   </data>
   <data name="AuditRiskScoreFormat" xml:space="preserve">
-    <value>Điểm rủi ro: {0:0.00}</value>
+    <value>Pontuação de risco: {0:0.00}</value>
   </data>
-
-  <!-- S3 — mapping event_type → text hiển thị (Architecture/04-data-architecture.md mục 5.1). -->
   <data name="AuditEventTypeServiceStarted" xml:space="preserve">
-    <value>Khởi động dịch vụ</value>
+    <value>Serviço iniciado</value>
   </data>
   <data name="AuditEventTypeMonitoringToggled" xml:space="preserve">
-    <value>Bật/tắt giám sát</value>
+    <value>Monitorização ligada/desligada</value>
   </data>
   <data name="AuditEventTypePauseActivated" xml:space="preserve">
-    <value>Tạm dừng giám sát</value>
+    <value>Monitorização pausada</value>
   </data>
   <data name="AuditEventTypePauseResumed" xml:space="preserve">
-    <value>Tiếp tục giám sát</value>
+    <value>Monitorização retomada</value>
   </data>
   <data name="AuditEventTypePauseFrequencyAnomalyDetected" xml:space="preserve">
-    <value>Phát hiện tần suất tạm dừng bất thường</value>
+    <value>Frequência de pausas invulgar detetada</value>
   </data>
   <data name="AuditEventTypeContentBlocked" xml:space="preserve">
-    <value>Nội dung bị chặn</value>
+    <value>Conteúdo bloqueado</value>
   </data>
   <data name="AuditEventTypeForceCloseRequested" xml:space="preserve">
-    <value>Đóng cửa sổ vi phạm</value>
+    <value>Janela infratora fechada</value>
   </data>
   <data name="AuditEventTypeAuthAttempt" xml:space="preserve">
-    <value>Xác thực mật khẩu</value>
+    <value>Verificação da palavra-passe</value>
   </data>
   <data name="AuditEventTypeProcessRestarted" xml:space="preserve">
-    <value>Khởi động lại tiến trình</value>
+    <value>Processo reiniciado</value>
   </data>
   <data name="AuditEventTypeConfigChanged" xml:space="preserve">
-    <value>Thay đổi cấu hình</value>
+    <value>Definições alteradas</value>
   </data>
   <data name="AuditEventTypeConfigFallbackTriggered" xml:space="preserve">
-    <value>Chuyển sang cấu hình an toàn dự phòng</value>
+    <value>Mudança para definições de segurança de recurso</value>
   </data>
   <data name="AuditEventTypeAttackPatternDetected" xml:space="preserve">
-    <value>Phát hiện mẫu tấn công</value>
+    <value>Padrão de ataque detetado</value>
   </data>
   <data name="AuditEventTypeAuditChainBrokenDetected" xml:space="preserve">
-    <value>Phát hiện nhật ký bị đứt chuỗi</value>
+    <value>Cadeia do registo quebrada detetada</value>
   </data>
   <data name="AuditEventTypeSoftwareUpdated" xml:space="preserve">
-    <value>Cập nhật phần mềm</value>
+    <value>Software atualizado</value>
   </data>
   <data name="AuditEventTypeVisionNetworkBlocked" xml:space="preserve">
-    <value>Chặn kết nối mạng trái phép</value>
+    <value>Ligação de rede não autorizada bloqueada</value>
   </data>
   <data name="AuditEventTypeAuthBruteForceThresholdReached" xml:space="preserve">
-    <value>Cảnh báo dò mật khẩu</value>
+    <value>Aviso de tentativas de adivinhar a palavra-passe</value>
   </data>
   <data name="AuditEventTypeTamperDetected" xml:space="preserve">
-    <value>Phát hiện can thiệp trái phép</value>
+    <value>Adulteração detetada</value>
   </data>
   <data name="AuditEventTypeUninstallInitiated" xml:space="preserve">
-    <value>Bắt đầu gỡ cài đặt</value>
+    <value>Desinstalação iniciada</value>
   </data>
   <data name="AuditEventTypeUninstallPartialFailure" xml:space="preserve">
-    <value>Gỡ cài đặt gặp lỗi một phần</value>
+    <value>A desinstalação falhou em parte</value>
   </data>
   <data name="AuditEventTypeWfpFiltersRemoved" xml:space="preserve">
-    <value>Gỡ bộ lọc mạng</value>
+    <value>Filtros de rede removidos</value>
   </data>
-
-  <!-- S4 Cài đặt nâng cao (Architecture/10 mục 6.4) — Thông điệp overlay (FE-012/FE-012a). -->
   <data name="SettingsOverlayMessageLabel" xml:space="preserve">
-    <value>Thông điệp hiển thị trên overlay chặn nội dung</value>
+    <value>Mensagem mostrada no ecrã de bloqueio</value>
   </data>
-  <!-- FE-012/FE-062 (Architecture/10 mục 7): PHẢI khớp chính xác OverlayStrings.resx DefaultBlockedMessage của ParentalGuard.Overlay. -->
   <data name="DefaultOverlayMessage" xml:space="preserve">
-    <value>Nội dung nhạy cảm được phát hiện, hãy thoát nội dung để bảo vệ chính bạn.</value>
+    <value>Foi detetado conteúdo sensível. Saia deste conteúdo para se proteger.</value>
   </data>
   <data name="SettingsSaveButton" xml:space="preserve">
-    <value>Lưu</value>
+    <value>Guardar</value>
   </data>
   <data name="SettingsResetToDefaultButton" xml:space="preserve">
-    <value>Khôi phục mặc định</value>
+    <value>Repor predefinição</value>
   </data>
   <data name="SettingsOverlayMessageSaved" xml:space="preserve">
-    <value>Đã lưu thông điệp overlay.</value>
+    <value>Mensagem de bloqueio guardada.</value>
   </data>
   <data name="SettingsOverlayMessageInvalidCharacters" xml:space="preserve">
-    <value>Thông điệp chứa ký tự không được phép.</value>
+    <value>A mensagem contém caracteres não permitidos.</value>
   </data>
   <data name="SettingsOverlayMessageTooLong" xml:space="preserve">
-    <value>Thông điệp vượt quá 255 ký tự.</value>
+    <value>A mensagem excede 255 caracteres.</value>
   </data>
-
-  <!-- S4 — Quản lý whitelist (MISC-030). -->
   <data name="SettingsWhitelistHeader" xml:space="preserve">
-    <value>Danh sách ứng dụng được loại trừ khỏi giám sát</value>
+    <value>Aplicações excluídas da monitorização</value>
   </data>
   <data name="SettingsWhitelistHint" xml:space="preserve">
-    <value>Danh sách do ParentalGuard cấp sẵn. Bạn chỉ có thể xoá bớt (ứng dụng bị xoá sẽ được giám sát trở lại), không thể thêm ứng dụng mới.</value>
+    <value>Esta lista é fornecida pelo ParentalGuard. Só pode remover entradas (as aplicações removidas voltam a ser monitorizadas); não pode adicionar aplicações novas.</value>
   </data>
   <data name="SettingsWhitelistResetButton" xml:space="preserve">
-    <value>Khôi phục cài đặt gốc</value>
+    <value>Repor lista original</value>
   </data>
   <data name="SettingsWhitelistResetDone" xml:space="preserve">
-    <value>Đã khôi phục danh sách về cài đặt gốc.</value>
+    <value>A lista original foi reposta.</value>
   </data>
   <data name="SettingsWhitelistRemoveButton" xml:space="preserve">
-    <value>Xoá</value>
+    <value>Remover</value>
   </data>
   <data name="SettingsWhitelistRemovedFormat" xml:space="preserve">
-    <value>Đã xoá "{0}" khỏi danh sách loại trừ.</value>
+    <value>"{0}" foi removido da lista de exclusão.</value>
   </data>
-
-  <!-- S4 — Chế độ hiệu năng (PERF-050b, ADR-125). -->
   <data name="SettingsPerformanceModeHeader" xml:space="preserve">
-    <value>Chế độ hiệu năng</value>
+    <value>Modo de desempenho</value>
   </data>
   <data name="SettingsPerformanceModeBalanced" xml:space="preserve">
-    <value>Cân bằng</value>
+    <value>Equilibrado</value>
   </data>
   <data name="SettingsPerformanceModeMaximumProtection" xml:space="preserve">
-    <value>Bảo vệ tối đa</value>
+    <value>Proteção máxima</value>
   </data>
   <data name="SettingsPerformanceModeSaveFailed" xml:space="preserve">
-    <value>Không thể lưu chế độ hiệu năng, vui lòng thử lại.</value>
+    <value>Não foi possível guardar o modo de desempenho. Tente novamente.</value>
   </data>
-
-  <!-- S4 — Đổi mật khẩu (PWD-040/041). -->
   <data name="SettingsChangePasswordHeader" xml:space="preserve">
-    <value>Đổi mật khẩu</value>
+    <value>Alterar palavra-passe</value>
   </data>
   <data name="SettingsOldPasswordLabel" xml:space="preserve">
-    <value>Mật khẩu hiện tại</value>
+    <value>Palavra-passe atual</value>
   </data>
   <data name="SettingsNewPasswordLabel" xml:space="preserve">
-    <value>Mật khẩu mới</value>
+    <value>Nova palavra-passe</value>
   </data>
   <data name="SettingsConfirmNewPasswordLabel" xml:space="preserve">
-    <value>Xác nhận mật khẩu mới</value>
+    <value>Confirmar nova palavra-passe</value>
   </data>
   <data name="SettingsRegenerateRecoveryKeyCheckbox" xml:space="preserve">
-    <value>Sinh Recovery Key mới?</value>
+    <value>Gerar uma nova chave de recuperação?</value>
   </data>
   <data name="SettingsChangePasswordButton" xml:space="preserve">
-    <value>Đổi mật khẩu</value>
+    <value>Alterar palavra-passe</value>
   </data>
   <data name="SettingsForgotOldPasswordLink" xml:space="preserve">
-    <value>Quên mật khẩu cũ? Dùng Recovery Key</value>
+    <value>Esqueceu-se da palavra-passe atual? Use a chave de recuperação</value>
   </data>
   <data name="SettingsChangePasswordSuccess" xml:space="preserve">
-    <value>Đã đổi mật khẩu thành công.</value>
+    <value>Palavra-passe alterada com sucesso.</value>
   </data>
   <data name="SettingsChangePasswordWrongOldPassword" xml:space="preserve">
-    <value>Mật khẩu hiện tại không đúng.</value>
+    <value>A palavra-passe atual está incorreta.</value>
   </data>
   <data name="SettingsChangePasswordLockedOut" xml:space="preserve">
-    <value>Tài khoản tạm thời bị khoá do nhập sai quá nhiều lần.</value>
+    <value>Bloqueado temporariamente após demasiadas tentativas falhadas.</value>
   </data>
   <data name="SettingsRecoveryKeyAcknowledgeButton" xml:space="preserve">
-    <value>Đã lưu</value>
+    <value>Guardada</value>
   </data>
-
-  <!-- S6 Recovery (Architecture/10 mục 6.6, PWD-032/033). -->
   <data name="RecoveryTitle" xml:space="preserve">
-    <value>Khôi phục qua Recovery Key</value>
+    <value>Recuperar com a chave de recuperação</value>
   </data>
   <data name="RecoveryBody" xml:space="preserve">
-    <value>Nhập Recovery Key đã lưu lúc thiết lập ban đầu và đặt mật khẩu mới.</value>
+    <value>Introduza a chave de recuperação guardada durante a configuração e escolha uma nova palavra-passe.</value>
   </data>
   <data name="RecoveryKeyLabel" xml:space="preserve">
-    <value>Recovery Key</value>
+    <value>Chave de recuperação</value>
   </data>
   <data name="RecoveryKeyEmpty" xml:space="preserve">
-    <value>Vui lòng nhập Recovery Key.</value>
+    <value>Introduza a chave de recuperação.</value>
   </data>
   <data name="RecoverySubmitButton" xml:space="preserve">
-    <value>Khôi phục</value>
+    <value>Recuperar</value>
   </data>
   <data name="RecoveryCancelLink" xml:space="preserve">
-    <value>Huỷ, quay lại</value>
+    <value>Cancelar e voltar</value>
   </data>
   <data name="RecoveryWrongKey" xml:space="preserve">
-    <value>Recovery Key không đúng.</value>
+    <value>A chave de recuperação está incorreta.</value>
   </data>
   <data name="RecoveryLockedOutFormat" xml:space="preserve">
-    <value>Đã khoá tạm thời do nhập sai nhiều lần. Vui lòng thử lại sau {0}.</value>
+    <value>Bloqueado temporariamente após demasiadas tentativas falhadas. Tente novamente dentro de {0}.</value>
   </data>
   <data name="ParentLoginTitle" xml:space="preserve">
-    <value>Đăng nhập phụ huynh</value>
+    <value>Início de sessão dos pais</value>
   </data>
   <data name="ParentLoginHint" xml:space="preserve">
-    <value>Nhập mật khẩu phụ huynh để xem lịch sử và thay đổi cài đặt. Phiên đăng nhập tự kết thúc sau 10 phút không thao tác hoặc khi đóng cửa sổ.</value>
+    <value>Introduza a palavra-passe dos pais para ver o histórico e alterar as definições. A sessão termina automaticamente após 10 minutos de inatividade ou quando a janela é fechada.</value>
   </data>
   <data name="ParentLoginButton" xml:space="preserve">
-    <value>Đăng nhập</value>
+    <value>Iniciar sessão</value>
   </data>
   <data name="ParentLoggedInText" xml:space="preserve">
-    <value>Đã đăng nhập phụ huynh. Phiên tự kết thúc sau 10 phút không thao tác.</value>
+    <value>Sessão dos pais iniciada. A sessão termina após 10 minutos de inatividade.</value>
   </data>
   <data name="ParentLogoutButton" xml:space="preserve">
-    <value>Đăng xuất</value>
+    <value>Terminar sessão</value>
   </data>
   <data name="ParentLoginFailed" xml:space="preserve">
-    <value>Không thể đăng nhập, vui lòng thử lại.</value>
+    <value>Não foi possível iniciar sessão. Tente novamente.</value>
   </data>
   <data name="ParentSessionExpired" xml:space="preserve">
-    <value>Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.</value>
+    <value>A sessão expirou. Inicie sessão novamente.</value>
   </data>
   <data name="LanguageCode" xml:space="preserve">
-    <value>vi</value>
+    <value>pt</value>
   </data>
   <data name="SettingsLanguageHeader" xml:space="preserve">
-    <value>Ngôn ngữ</value>
-  </data>
-  <data name="SettingsLanguageHeaderEnglish" xml:space="preserve">
-    <value>Language</value>
+    <value>Idioma</value>
   </data>
   <data name="SettingsLanguageHint" xml:space="preserve">
-    <value>Thay đổi ngôn ngữ không yêu cầu đăng nhập. Ứng dụng sẽ tự khởi động lại để áp dụng.</value>
+    <value>Mudar o idioma não requer início de sessão. A aplicação reinicia para o aplicar. Esta tradução foi gerada por IA e ainda não foi revista.</value>
   </data>
   <data name="LanguageName_vi" xml:space="preserve">
-    <value>Tiếng Việt</value>
+    <value>Vietnamita</value>
   </data>
   <data name="LanguageName_en" xml:space="preserve">
-    <value>Tiếng Anh</value>
+    <value>Inglês</value>
   </data>
   <data name="LanguageName_fr" xml:space="preserve">
-    <value>Tiếng Pháp</value>
+    <value>Francês</value>
   </data>
   <data name="LanguageName_es" xml:space="preserve">
-    <value>Tiếng Tây Ban Nha</value>
+    <value>Espanhol</value>
   </data>
   <data name="LanguageName_pt" xml:space="preserve">
-    <value>Tiếng Bồ Đào Nha</value>
+    <value>Português</value>
   </data>
   <data name="LanguageName_zh_Hans" xml:space="preserve">
-    <value>Tiếng Trung (giản thể)</value>
+    <value>Chinês (simplificado)</value>
   </data>
   <data name="LanguageComingSoon" xml:space="preserve">
-    <value>sắp có</value>
-  </data>
-  <data name="LanguageComingSoonEnglish" xml:space="preserve">
-    <value>coming soon</value>
+    <value>brevemente</value>
   </data>
   <data name="DashboardStatusPausedTitle" xml:space="preserve">
-    <value>Giám sát đang tạm dừng</value>
+    <value>A monitorização está em pausa</value>
   </data>
   <data name="DashboardChartTitleDaily" xml:space="preserve">
-    <value>Số lần chặn theo ngày</value>
+    <value>Bloqueios por dia</value>
   </data>
   <data name="DashboardChartTitleWeekly" xml:space="preserve">
-    <value>Số lần chặn theo tuần</value>
+    <value>Bloqueios por semana</value>
   </data>
   <data name="DashboardChart1WeekButton" xml:space="preserve">
-    <value>1 tuần</value>
+    <value>1 semana</value>
   </data>
   <data name="DashboardChart1MonthButton" xml:space="preserve">
-    <value>1 tháng</value>
+    <value>1 mês</value>
   </data>
   <data name="DashboardChart3MonthsButton" xml:space="preserve">
-    <value>3 tháng</value>
+    <value>3 meses</value>
   </data>
   <data name="DashboardChart6MonthsButton" xml:space="preserve">
-    <value>6 tháng</value>
+    <value>6 meses</value>
   </data>
   <data name="DashboardChartWeekTooltipFormat" xml:space="preserve">
-    <value>{0} – {1}: {2} lần chặn</value>
+    <value>{0} – {1}: {2} bloqueios</value>
   </data>
   <data name="OnboardingCard1Title" xml:space="preserve">
-    <value>Bảo vệ trẻ em khỏi nội dung nhạy cảm</value>
+    <value>Protege as crianças de conteúdos sensíveis</value>
   </data>
   <data name="OnboardingCard1Body" xml:space="preserve">
-    <value>Tự động nhận diện và che phủ nội dung khiêu dâm theo thời gian thực.</value>
+    <value>Deteta e cobre automaticamente conteúdo pornográfico em tempo real.</value>
   </data>
   <data name="OnboardingCard2Title" xml:space="preserve">
-    <value>Chỉ phụ huynh mới có quyền gỡ ứng dụng</value>
+    <value>Só os pais podem desinstalar a aplicação</value>
   </data>
   <data name="OnboardingCard2Body" xml:space="preserve">
-    <value>Việc gỡ cài đặt, tạm dừng giám sát và thay đổi thiết lập đều yêu cầu mật khẩu của phụ huynh.</value>
+    <value>Desinstalar, pausar a monitorização e alterar definições exigem a palavra-passe dos pais.</value>
   </data>
   <data name="OnboardingCard3Title" xml:space="preserve">
-    <value>Xử lý hoàn toàn trên thiết bị</value>
+    <value>Tudo é processado no dispositivo</value>
   </data>
   <data name="OnboardingCard3Body" xml:space="preserve">
-    <value>Không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Không kết nối Internet, không chia sẻ dữ liệu với bên thứ ba.</value>
+    <value>Não são guardadas imagens, áudio nem conteúdo do ecrã. Sem ligação à Internet e sem partilha de dados com terceiros.</value>
   </data>
   <data name="OnboardingCard4Title" xml:space="preserve">
-    <value>Bảo vệ cả phụ huynh</value>
+    <value>Protege também em relação aos pais</value>
   </data>
   <data name="OnboardingCard4Body" xml:space="preserve">
-    <value>Tùy chọn bổ sung bước xác minh khi tạm dừng giám sát, áp dụng cho cả người lớn.</value>
+    <value>Um passo de verificação adicional opcional ao pausar a monitorização, que também se aplica aos adultos.</value>
   </data>
   <data name="OnboardingCard5Title" xml:space="preserve">
-    <value>Mã nguồn mở</value>
+    <value>Código aberto</value>
   </data>
   <data name="OnboardingCard5Body" xml:space="preserve">
-    <value>Mã nguồn được công khai, cho phép bất kỳ ai kiểm chứng cách ứng dụng hoạt động.</value>
+    <value>O código-fonte é público, para que qualquer pessoa possa verificar como a aplicação funciona.</value>
   </data>
   <data name="OnboardingSetPasswordExplanation" xml:space="preserve">
-    <value>Mật khẩu này giúp ngăn trẻ tự ý tắt, tạm dừng hoặc gỡ ParentalGuard khi chưa có sự cho phép của người lớn. Hãy giữ kín mật khẩu và không chia sẻ cho trẻ.</value>
+    <value>Esta palavra-passe impede que as crianças desliguem, pausem ou desinstalem o ParentalGuard sem autorização de um adulto. Mantenha-a em segredo e não a partilhe com as crianças.</value>
   </data>
   <data name="AboutHowItWorksHeader" xml:space="preserve">
-    <value>Cách ứng dụng hoạt động và dữ liệu được lưu</value>
+    <value>Como a aplicação funciona e que dados guarda</value>
   </data>
   <data name="AboutHowItWorksOperation" xml:space="preserve">
-    <value>ParentalGuard phân tích hình ảnh hiển thị trên màn hình ngay trên máy tính này bằng một mô hình trí tuệ nhân tạo chạy ngoại tuyến. Khi phát hiện nội dung nhạy cảm, ứng dụng che phủ cửa sổ chứa nội dung đó.</value>
+    <value>O ParentalGuard analisa o que é mostrado no ecrã diretamente neste computador, com um modelo de IA que funciona offline. Quando deteta conteúdo sensível, cobre a janela que o contém.</value>
   </data>
   <data name="AboutHowItWorksPrivacy" xml:space="preserve">
-    <value>Ứng dụng không lưu trữ hình ảnh, âm thanh hay nội dung hiển thị trên màn hình. Ứng dụng không kết nối Internet và không chia sẻ dữ liệu với bên thứ ba; tiến trình nhận diện bị chặn truy cập mạng ở tầng tường lửa của Windows.</value>
+    <value>A aplicação não guarda imagens, áudio nem conteúdo do ecrã. Não se liga à Internet nem partilha dados com terceiros; o processo de deteção tem o acesso à rede bloqueado na firewall do Windows.</value>
   </data>
   <data name="AboutStoredDataIntro" xml:space="preserve">
-    <value>Dữ liệu được lưu trên máy gồm:</value>
+    <value>Dados guardados neste computador:</value>
   </data>
   <data name="AboutStoredDataViolations" xml:space="preserve">
-    <value>Nhật ký phát hiện vi phạm: thời điểm, tên ứng dụng và mức độ tin cậy của kết quả nhận diện.</value>
+    <value>Registo de deteções: hora, nome da aplicação e nível de confiança do resultado.</value>
   </data>
   <data name="AboutStoredDataPause" xml:space="preserve">
-    <value>Lịch sử tạm dừng và tiếp tục giám sát.</value>
+    <value>Histórico de pausas e retomas da monitorização.</value>
   </data>
   <data name="AboutStoredDataAuth" xml:space="preserve">
-    <value>Lịch sử đăng nhập và thay đổi cài đặt.</value>
+    <value>Histórico de inícios de sessão e alterações de definições.</value>
   </data>
   <data name="AboutStoredDataSecurity" xml:space="preserve">
-    <value>Sự kiện hệ thống và an ninh: khởi động dịch vụ, dấu hiệu can thiệp, gỡ cài đặt.</value>
+    <value>Eventos de sistema e segurança: início do serviço, sinais de adulteração, desinstalação.</value>
   </data>
   <data name="AboutStoredDataConfig" xml:space="preserve">
-    <value>Các thiết lập của ứng dụng và danh sách ứng dụng được loại trừ. Mật khẩu chỉ được lưu dưới dạng mã băm một chiều, không thể khôi phục ngược.</value>
+    <value>As definições da aplicação e a lista de aplicações excluídas. A palavra-passe só é guardada como hash unidirecional e não pode ser recuperada.</value>
   </data>
   <data name="AboutStoredDataNote" xml:space="preserve">
-    <value>Nhật ký chỉ chứa siêu dữ liệu, được bảo vệ bằng chuỗi băm chống chỉnh sửa và được lưu tối thiểu 180 ngày.</value>
+    <value>O registo contém apenas metadados, está protegido por uma cadeia de hash à prova de adulteração e é mantido durante pelo menos 180 dias.</value>
   </data>
   <data name="NavDonate" xml:space="preserve">
-    <value>Ủng hộ dự án</value>
+    <value>Apoiar o projeto</value>
   </data>
   <data name="AuthPromptPurposeResumeMonitoring" xml:space="preserve">
-    <value>Xác nhận mật khẩu để tiếp tục giám sát</value>
+    <value>Introduza a palavra-passe para retomar a monitorização</value>
   </data>
   <data name="SettingsPerformanceModeBalancedHint" xml:space="preserve">
-    <value>Quét thưa hơn khi màn hình ít thay đổi, quét dày khi nội dung đang thay đổi. Tiết kiệm CPU và pin.</value>
+    <value>Analisa com menos frequência quando o ecrã quase não muda e com mais quando o conteúdo está a mudar. Poupa CPU e bateria.</value>
   </data>
   <data name="SettingsPerformanceModeMaximumProtectionHint" xml:space="preserve">
-    <value>Luôn quét khoảng 1 giây một lần. Phát hiện nhanh nhất, tốn CPU và pin hơn.</value>
+    <value>Analisa sempre cerca de uma vez por segundo. Deteção mais rápida, gasta mais CPU e bateria.</value>
   </data>
   <data name="AuditEventTypeForceKillExecuted" xml:space="preserve">
-    <value>Đã buộc đóng ứng dụng vi phạm</value>
+    <value>Aplicação infratora fechada à força</value>
   </data>
   <data name="AuditEventTypeForceKillRefused" xml:space="preserve">
-    <value>Từ chối buộc đóng ứng dụng (không đủ điều kiện an toàn)</value>
+    <value>Fecho forçado recusado (condições de segurança não cumpridas)</value>
   </data>
   <data name="AboutOpenSourceHeader" xml:space="preserve">
-    <value>Mã nguồn mở và giấy phép</value>
+    <value>Código aberto e licenças</value>
   </data>
   <data name="AboutOpenSourceIntro" xml:space="preserve">
-    <value>ParentalGuard là phần mềm mã nguồn mở, miễn phí. Mọi người đều có thể xem, kiểm chứng và đóng góp cho mã nguồn.</value>
+    <value>O ParentalGuard é software livre e gratuito. Qualquer pessoa pode ver, verificar e contribuir para o código-fonte.</value>
   </data>
   <data name="AboutSourceCodeLabel" xml:space="preserve">
-    <value>Mã nguồn</value>
-  </data>
-  <data name="AboutSourceCodeValue" xml:space="preserve">
-    <value>https://github.com/loiefy/ParentalGuard</value>
+    <value>Código-fonte</value>
   </data>
   <data name="AboutProjectLicenseLabel" xml:space="preserve">
-    <value>Giấy phép</value>
-  </data>
-  <data name="AboutProjectLicenseValue" xml:space="preserve">
-    <value></value>
+    <value>Licença</value>
   </data>
   <data name="AboutModelCreditLabel" xml:space="preserve">
-    <value>Mô hình AI</value>
+    <value>Modelo de IA</value>
   </data>
   <data name="AboutModelCreditText" xml:space="preserve">
-    <value>nsfw-image-detection-384 — tác giả Marqo, giấy phép Apache-2.0.</value>
-  </data>
-  <data name="AboutModelCreditUrl" xml:space="preserve">
-    <value>https://huggingface.co/Marqo/nsfw-image-detection-384</value>
+    <value>nsfw-image-detection-384 — de Marqo, licença Apache-2.0.</value>
   </data>
   <data name="AboutThirdPartyNotice" xml:space="preserve">
-    <value>Danh sách đầy đủ thành phần bên thứ ba và giấy phép nằm trong tệp THIRD-PARTY-NOTICES.md ở thư mục cài đặt.</value>
+    <value>A lista completa de componentes de terceiros e respetivas licenças está em THIRD-PARTY-NOTICES.md, na pasta de instalação.</value>
   </data>
   <data name="ChallengeTitle" xml:space="preserve">
-    <value>Thử thách xác minh</value>
+    <value>Desafio de verificação</value>
   </data>
   <data name="ChallengeIntro" xml:space="preserve">
-    <value>Chế độ "Bảo vệ cả phụ huynh" đang bật. Vui lòng trả lời đúng cả 5 phép tính dưới đây trong 60 giây.</value>
+    <value>O modo "Proteger também em relação aos pais" está ativo. Responda corretamente às 5 contas abaixo em 60 segundos.</value>
   </data>
   <data name="ChallengeSubmitButton" xml:space="preserve">
-    <value>Gửi câu trả lời</value>
+    <value>Enviar respostas</value>
   </data>
   <data name="ChallengeCancelButton" xml:space="preserve">
-    <value>Huỷ</value>
+    <value>Cancelar</value>
   </data>
   <data name="ChallengeCountdown" xml:space="preserve">
-    <value>Thời gian còn lại: {0} giây</value>
+    <value>Tempo restante: {0} segundos</value>
   </data>
   <data name="ChallengeWrong" xml:space="preserve">
-    <value>Có câu trả lời chưa đúng. Đây là bộ câu hỏi mới — còn {0} lần thử trước khi bị khoá.</value>
+    <value>Há respostas erradas. Eis um novo conjunto — restam {0} tentativas antes do bloqueio.</value>
   </data>
   <data name="ChallengeExpired" xml:space="preserve">
-    <value>Đã hết thời gian. Đây là bộ câu hỏi mới — còn {0} lần thử trước khi bị khoá.</value>
+    <value>O tempo esgotou. Eis um novo conjunto — restam {0} tentativas antes do bloqueio.</value>
   </data>
   <data name="ChallengeLockedOut" xml:space="preserve">
-    <value>Bạn đã trả lời sai 3 lần liên tiếp. Thử thách tạm khoá đến {0}.</value>
+    <value>Errou 3 vezes seguidas. O desafio está bloqueado até às {0}.</value>
   </data>
   <data name="DashboardChallengeRequired" xml:space="preserve">
-    <value>Cần hoàn thành thử thách xác minh trước. Vui lòng thực hiện lại thao tác.</value>
+    <value>Primeiro é necessário concluir o desafio de verificação. Repita a ação.</value>
   </data>
   <data name="SettingsParentProtectionHeader" xml:space="preserve">
-    <value>Bảo vệ cả phụ huynh</value>
+    <value>Proteger também em relação aos pais</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Khi bật, việc tạm dừng giám sát cần cả mật khẩu và một thử thách ngắn gồm 5 phép tính trong 60 giây. Tắt chế độ này cũng cần vượt qua thử thách.</value>
+    <value>Quando ativo, pausar a monitorização exige a palavra-passe e um pequeno desafio de 5 contas em 60 segundos. Desativar este modo também exige passar o desafio.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
-    <value>Đang bật</value>
+    <value>Ativo</value>
   </data>
   <data name="SettingsParentProtectionOff" xml:space="preserve">
-    <value>Đang tắt</value>
+    <value>Inativo</value>
   </data>
   <data name="SettingsParentProtectionConfirmTitle" xml:space="preserve">
-    <value>Bật chế độ Bảo vệ cả phụ huynh?</value>
+    <value>Ativar "Proteger também em relação aos pais"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Sau khi bật, kể cả khi đã biết mật khẩu, phụ huynh cũng không thể tạm dừng giám sát ngay mà phải hoàn thành đúng 5 phép tính trong 60 giây. Trả lời sai 3 lần liên tiếp sẽ bị khoá thử thách 5 phút. Muốn tắt chế độ này cũng phải vượt qua thử thách.</value>
+    <value>Depois de ativo, nem um pai que saiba a palavra-passe consegue pausar a monitorização de imediato — tem de resolver 5 contas em 60 segundos. Três erros seguidos bloqueiam o desafio durante 5 minutos. Desativar este modo também exige passar o desafio.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
-    <value>Bật chế độ</value>
+    <value>Ativar</value>
   </data>
   <data name="SettingsParentProtectionSaveFailed" xml:space="preserve">
-    <value>Không lưu được thay đổi. Vui lòng thử lại.</value>
+    <value>Não foi possível guardar a alteração. Tente novamente.</value>
   </data>
   <data name="AuditExportPdfButton" xml:space="preserve">
-    <value>Xuất PDF</value>
+    <value>Exportar PDF</value>
   </data>
   <data name="AuditExportRange7Days" xml:space="preserve">
-    <value>7 ngày gần nhất</value>
+    <value>Últimos 7 dias</value>
   </data>
   <data name="AuditExportRange30Days" xml:space="preserve">
-    <value>30 ngày gần nhất</value>
+    <value>Últimos 30 dias</value>
   </data>
   <data name="AuditExportRange3Months" xml:space="preserve">
-    <value>3 tháng gần nhất</value>
+    <value>Últimos 3 meses</value>
   </data>
   <data name="AuditExportRange6Months" xml:space="preserve">
-    <value>6 tháng gần nhất</value>
+    <value>Últimos 6 meses</value>
   </data>
   <data name="AuditExportRangeAll" xml:space="preserve">
-    <value>Toàn bộ lịch sử</value>
+    <value>Todo o histórico</value>
   </data>
   <data name="AuditExportPdfDone" xml:space="preserve">
-    <value>Đã lưu báo cáo PDF: {0}</value>
+    <value>Relatório PDF guardado: {0}</value>
   </data>
   <data name="AuditExportPdfFailed" xml:space="preserve">
-    <value>Không xuất được PDF: {0}</value>
+    <value>Não foi possível exportar o PDF: {0}</value>
   </data>
   <data name="AuditPdfTitle" xml:space="preserve">
-    <value>ParentalGuard — Báo cáo lịch sử hoạt động</value>
+    <value>ParentalGuard — Relatório do histórico de atividade</value>
   </data>
   <data name="AuditPdfRange" xml:space="preserve">
-    <value>Khoảng thời gian: {0}</value>
+    <value>Período: {0}</value>
   </data>
   <data name="AuditPdfExportedAt" xml:space="preserve">
-    <value>Thời điểm xuất: {0}</value>
+    <value>Exportado em: {0}</value>
   </data>
   <data name="AuditPdfBlockedTotal" xml:space="preserve">
-    <value>Tổng số lần chặn nội dung: {0}</value>
+    <value>Total de bloqueios de conteúdo: {0}</value>
   </data>
   <data name="AuditPdfEventTotal" xml:space="preserve">
-    <value>Tổng số sự kiện: {0}</value>
+    <value>Total de eventos: {0}</value>
   </data>
   <data name="AuditPdfColumnTime" xml:space="preserve">
-    <value>Thời gian</value>
+    <value>Hora</value>
   </data>
   <data name="AuditPdfColumnEvent" xml:space="preserve">
-    <value>Loại sự kiện</value>
+    <value>Evento</value>
   </data>
   <data name="AuditPdfColumnApp" xml:space="preserve">
-    <value>Ứng dụng</value>
+    <value>Aplicação</value>
   </data>
   <data name="AuditPdfColumnScore" xml:space="preserve">
-    <value>Điểm tin cậy</value>
+    <value>Confiança</value>
   </data>
   <data name="AuthPromptTitle" xml:space="preserve">
-    <value>Xác nhận mật khẩu</value>
+    <value>Confirmar palavra-passe</value>
   </data>
   <data name="PasswordPlaceholder" xml:space="preserve">
-    <value>Mật khẩu</value>
+    <value>Palavra-passe</value>
   </data>
   <data name="LanguageChangeFailed" xml:space="preserve">
-    <value>Không đổi được ngôn ngữ. Vui lòng thử lại.</value>
+    <value>Não foi possível mudar o idioma. Tente novamente.</value>
   </data>
 </root>

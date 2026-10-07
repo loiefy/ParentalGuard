@@ -15,8 +15,8 @@ public static class LanguageCatalog
     /// <summary>Thứ tự hiển thị — danh sách chủ dự án yêu cầu (Việt, Anh, Pháp, Tây Ban Nha, Bồ Đào Nha, Trung Quốc).</summary>
     public static readonly IReadOnlyList<string> Codes = ["vi", "en", "fr", "es", "pt", "zh-Hans"];
 
-    /// <summary>Ngôn ngữ đã có file resource dịch đầy đủ — mở rộng khi bổ sung bản dịch (`FE-063`).</summary>
-    public static readonly IReadOnlySet<string> AvailableCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "vi" };
+    /// <summary>`FE-063a` (2026-10-07): cả 6 ngôn ngữ đã có bản dịch (5 bản ngoài tiếng Việt do AI tạo, chưa duyệt).</summary>
+    public static readonly IReadOnlySet<string> AvailableCodes = new HashSet<string>(Codes, StringComparer.OrdinalIgnoreCase);
 
     public static bool IsEnglish(string currentCode) => currentCode.StartsWith("en", StringComparison.OrdinalIgnoreCase);
 

@@ -169,15 +169,15 @@ public class ParentSessionServiceTests
     }
 
     [Fact]
-    public void LanguageCatalog_Vietnamese_IsBilingual_OnlyVietnameseAvailable()
+    public void LanguageCatalog_Vietnamese_IsBilingual_AllSixAvailable()
     {
         IReadOnlyList<LanguageOption> options = LanguageCatalog.Build("vi", code => "L-" + code, "sắp có", "coming soon");
 
         Assert.Equal(["vi", "en", "fr", "es", "pt", "zh-Hans"], options.Select(o => o.Code));
         Assert.Equal("L-vi (Vietnamese)", options[0].DisplayName);
         Assert.True(options[0].IsAvailable);
-        Assert.Equal("L-fr (French) — sắp có / coming soon", options[2].DisplayName);
-        Assert.All(options.Skip(1), o => Assert.False(o.IsAvailable));
+        Assert.Equal("L-fr (French)", options[2].DisplayName); // FE-063a: cả 6 ngôn ngữ đã có bản dịch
+        Assert.All(options, o => Assert.True(o.IsAvailable));
         Assert.Equal("Ngôn ngữ / Language", LanguageCatalog.BuildHeader("vi", "Ngôn ngữ", "Language"));
     }
 
@@ -187,7 +187,7 @@ public class ParentSessionServiceTests
         IReadOnlyList<LanguageOption> options = LanguageCatalog.Build("en", code => "L-" + code, "sắp có", "coming soon");
 
         Assert.Equal("Vietnamese", options[0].DisplayName);
-        Assert.Equal("French — coming soon", options[2].DisplayName);
+        Assert.Equal("French", options[2].DisplayName);
         Assert.Equal("Language", LanguageCatalog.BuildHeader("en", "Ngôn ngữ", "Language"));
     }
 

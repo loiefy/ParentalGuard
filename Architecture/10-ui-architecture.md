@@ -305,7 +305,15 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 - Hàng "khoảng thời gian + Xuất PDF" chỉ hiện khi `AuditLogViewModel.IsGated`. Hộp thoại Lưu (`FileSavePicker` + `InitializeWithWindow` với `App.MainWindowHandle`) mở TRƯỚC khi tải dữ liệu — huỷ thì không gửi request nào.
 - `AuditLogViewModel.BuildPdfAsync`: tải các trang 200 dòng bằng token rỗng (dùng phiên đã mở như "Tải thêm"), mới nhất trước → dừng ngay khi dòng cuối trang đã cũ hơn mốc; trần 200 trang. `InvalidToken` → báo hết phiên và khoá lại.
-- `Services/AuditPdfExporter` (PDFsharp 6, `GlobalFontSettings.UseWindowsFontsUnderWindows`): A4, font Arial nhúng tập con (tiếng Trung: Microsoft YaHei), tự sang trang và lặp lại hàng tiêu đề. PDF dựng trong bộ nhớ rồi ghi thẳng ra file người dùng chọn — không có file tạm, không có ảnh.
+- `Services/AuditPdfExporter` (PDFsharp 6) + `Services/PdfFontResolver`: A4, font nhúng tập con lấy từ thư mục Fonts của Windows — Arial (chữ Latin có dấu), Microsoft YaHei cho tiếng Trung (YaHei chỉ có dạng `.ttc`, resolver tách font số 0 thành TTF vì PDFsharp không đọc `.ttc`). Tự sang trang, lặp lại hàng tiêu đề. PDF dựng trong bộ nhớ rồi ghi thẳng ra file người dùng chọn — không có file tạm, không có ảnh.
+
+### Đa ngôn ngữ (v0.4.0, 2026-10-07, `FE-063a`)
+
+- Resource: `UiStrings.{en,fr,es,pt,zh-Hans}.resx` và `OverlayStrings.{…}.resx` (satellite assembly). Bản dịch do AI tạo, chưa được người bản ngữ duyệt (ghi trong file và trong dòng gợi ý ở `S4`). Khoá thiếu rơi về bản gốc tiếng Việt.
+- Nguồn sự thật là `config.db` của Service (`language`). UI khởi động bằng `vi` (không theo ngôn ngữ Windows), đọc `ConfigQuery.language` ngay sau khi kết nối rồi đặt `CultureInfo.DefaultThreadCurrentUICulture`/`CurrentUICulture` TRƯỚC khi dựng trang.
+- Đổi ngôn ngữ ở `S4` (không cần đăng nhập) → `SetLanguageRequest` → UI tự khởi động lại: mở tiến trình mới với `--restart-after=<pid>` (chờ tiến trình cũ thoát hẳn tối đa 10 giây, vì pipe UI chỉ nhận 1 kết nối và mutex chống 2 phiên), rồi đóng cửa sổ để `OnWindowClosed` dọn dẹp như đóng thường.
+- Overlay nhận `LanguageUpdate` (field 70) lúc kết nối và lúc đổi → đặt `DefaultThreadCurrentUICulture` + culture của luồng UI WinForms; lớp che mới và tooltip lần cập nhật kế tiếp dùng ngôn ngữ mới.
+- `AuthPromptDialog` không còn chuỗi tiếng Việt viết cứng trong XAML. Test UI/Overlay cố định culture `vi` bằng module initializer để kết quả không phụ thuộc ngôn ngữ của máy chạy test.
 
 ## 12. Changelog file này
 

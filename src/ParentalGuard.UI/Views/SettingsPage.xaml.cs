@@ -17,6 +17,7 @@ public sealed partial class SettingsPage : Page
     private readonly ParentSessionService _parentSession;
     private bool _performanceModeInitialized;
     private bool _suppressParentProtectionToggle = true;
+    private bool _languagePickerReady;
 
     public SettingsPage()
     {
@@ -84,6 +85,39 @@ public sealed partial class SettingsPage : Page
                 LanguageCombo.SelectedItem = item;
             }
         }
+
+        LanguageCombo.SelectionChanged += OnLanguageSelectionChanged;
+        _languagePickerReady = true;
+    }
+
+    /// <summary>`FE-063a`/`FE-083`: không cần đăng nhập — Service lưu lựa chọn rồi UI tự khởi động lại để áp dụng.</summary>
+    private async void OnLanguageSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_languagePickerReady || LanguageCombo.SelectedItem is not ComboBoxItem { Tag: string code }
+            || string.Equals(code, LocalizationService.CurrentLanguageCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        LanguageCombo.IsEnabled = false;
+        bool accepted = false;
+        try
+        {
+            IServiceProvider services = ((App)Application.Current).Services;
+            accepted = await services.GetRequiredService<IParentProtectionFacade>().SetLanguageAsync(code, CancellationToken.None);
+        }
+        catch (ParentalGuard.Ipc.Client.UiIpcConnectionException)
+        {
+        }
+
+        if (accepted)
+        {
+            ((App)Application.Current).RestartForLanguageChange();
+            return;
+        }
+
+        LanguageCombo.IsEnabled = true;
+        LanguageHintText.Text = LocalizationService.Get("LanguageChangeFailed");
     }
 
     private void OnParentSessionChanged(object? sender, EventArgs e) => ApplyLockState();

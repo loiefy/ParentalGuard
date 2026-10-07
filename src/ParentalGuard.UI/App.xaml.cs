@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using ParentalGuard.Ipc.Client;
@@ -30,8 +32,15 @@ public partial class App : Application
     /// <summary>Composition root tối giản (mục 2.2 — "container đơn giản khởi tạo 1 lần"), truy cập qua <c>(App)Application.Current</c>.</summary>
     public IServiceProvider Services { get; private set; } = null!;
 
+    /// <summary>`FE-063a`: tham số dòng lệnh khi UI tự khởi động lại sau khi đổi ngôn ngữ — chờ phiên cũ thoát hẳn.</summary>
+    private const string RestartAfterArgPrefix = "--restart-after=";
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        WaitForPreviousInstanceIfRestarting();
+
+        // FE-063a: mặc định tiếng Việt (không theo ngôn ngữ Windows) tới khi đọc được lựa chọn đã lưu ở Service.
+        ApplyLanguage("vi");
         _singleInstanceGuard = new SingleInstanceGuard();
         if (!_singleInstanceGuard.IsFirstInstance)
         {
@@ -66,6 +75,65 @@ public partial class App : Application
 
     /// <summary>`MISC-011`: HWND cửa sổ chính — hộp thoại Lưu (FileSavePicker) của app unpackaged cần gắn với cửa sổ.</summary>
     internal nint MainWindowHandle => WinRT.Interop.WindowNative.GetWindowHandle(_window);
+
+    private static void ApplyLanguage(string code)
+    {
+        CultureInfo culture;
+        try
+        {
+            culture = CultureInfo.GetCultureInfo(LanguageCatalog.Codes.Contains(code) ? code : "vi");
+        }
+        catch (CultureNotFoundException)
+        {
+            culture = CultureInfo.GetCultureInfo("vi");
+        }
+
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+    }
+
+    /// <summary>
+    /// `FE-063a`: đổi ngôn ngữ xong → mở phiên UI mới (chờ phiên này thoát hẳn: pipe UI chỉ nhận 1 kết nối, mutex chống 2 phiên)
+    /// rồi đóng cửa sổ — <see cref="OnWindowClosed"/> dọn dẹp và ngắt kết nối như khi đóng bình thường.
+    /// </summary>
+    internal void RestartForLanguageChange()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(Environment.ProcessPath!, RestartAfterArgPrefix + Environment.ProcessId.ToString(CultureInfo.InvariantCulture))
+            {
+                UseShellExecute = false,
+            });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return; // không mở được phiên mới — giữ phiên hiện tại; ngôn ngữ mới áp dụng ở lần mở sau
+        }
+
+        _window?.Close();
+    }
+
+    private static void WaitForPreviousInstanceIfRestarting()
+    {
+        string? arg = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith(RestartAfterArgPrefix, StringComparison.Ordinal));
+        if (arg is null || !int.TryParse(arg.AsSpan(RestartAfterArgPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int pid))
+        {
+            return;
+        }
+
+        try
+        {
+            using Process previous = Process.GetProcessById(pid);
+            previous.WaitForExit(TimeSpan.FromSeconds(10));
+        }
+        catch (ArgumentException)
+        {
+            // đã thoát
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
 
     /// <summary>Gọi bởi <see cref="Views.ConnectionErrorPage"/> khi bấm "Thử lại" (mục 9).</summary>
     public Task RetryConnectAsync() => ConnectAndRouteAsync();
@@ -125,6 +193,10 @@ public partial class App : Application
             // Kết nối mới = phiên phía Service (gắn với kết nối cũ) đã mất — ADR-149.
             Services.GetRequiredService<ParentSessionService>().MarkLoggedOut();
             await uiIpcClient.ConnectAsync(CancellationToken.None).ConfigureAwait(true);
+
+            // FE-063a: ngôn ngữ lưu ở Service (dùng chung cho cả máy) — áp TRƯỚC khi dựng các trang.
+            ConfigSnapshot config = await Services.GetRequiredService<IConfigFacade>().GetConfigAsync(CancellationToken.None).ConfigureAwait(true);
+            ApplyLanguage(config.Language);
             var authFacade = Services.GetRequiredService<IAuthFacade>();
             bool passwordConfigured = await authFacade.GetAuthStatusAsync(CancellationToken.None).ConfigureAwait(true);
             if (passwordConfigured)

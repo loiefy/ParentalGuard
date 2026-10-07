@@ -9,7 +9,7 @@ namespace ParentalGuard.UI.Services;
 /// <summary>
 /// `MISC-011` (2026-10-07) — xuất lịch sử ra PDF hoàn toàn ngoại tuyến bằng PDFsharp (MIT). Nội dung: tiêu đề, khoảng thời
 /// gian, thời điểm xuất, tổng số lần chặn, bảng sự kiện (thời gian, loại sự kiện, ứng dụng, điểm tin cậy). Không có ảnh.
-/// Font lấy từ font hệ thống Windows (nhúng tập con vào PDF) — tiếng Việt dùng Arial; tiếng Trung dùng Microsoft YaHei nếu có.
+/// Font lấy từ thư mục Fonts của Windows qua <see cref="PdfFontResolver"/> (nhúng tập con vào PDF).
 /// </summary>
 public static class AuditPdfExporter
 {
@@ -19,10 +19,7 @@ public static class AuditPdfExporter
 
     static AuditPdfExporter()
     {
-        if (OperatingSystem.IsWindows() && GlobalFontSettings.FontResolver is null)
-        {
-            GlobalFontSettings.UseWindowsFontsUnderWindows = true;
-        }
+        GlobalFontSettings.FontResolver ??= new PdfFontResolver();
     }
 
     /// <summary>Lọc <paramref name="entries"/> theo <paramref name="cutoffUnixMs"/> (null = toàn bộ) — tách riêng để test được.</summary>
@@ -33,7 +30,7 @@ public static class AuditPdfExporter
     {
         ArgumentNullException.ThrowIfNull(entries);
 
-        string family = languageCode.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? "Microsoft YaHei" : "Arial";
+        string family = languageCode.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? PdfFontResolver.CjkFamily : PdfFontResolver.LatinFamily;
         using var document = new PdfDocument();
         document.Info.Title = LocalizationService.Get("AuditPdfTitle");
         document.Info.Creator = "ParentalGuard";
@@ -111,7 +108,7 @@ public static class AuditPdfExporter
         }
         catch (InvalidOperationException)
         {
-            return new XFont("Arial", size, style);
+            return new XFont(PdfFontResolver.LatinFamily, size, style);
         }
     }
 
