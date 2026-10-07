@@ -41,7 +41,8 @@ message IpcPayload {
     IconLayoutSync icon_layout_sync = 65; // Đợt 2, Service → Overlay — đẩy lại toàn bộ vị trí icon đã lưu lúc connect
     OpenDashboardRequest open_dashboard = 67; // 2026-10-01, Overlay → Service — double-click icon trạng thái (FE-023)
     OverlayMessageUpdate overlay_message_update = 66; // Đợt 6 (ADR-110, implement Đợt 9), Service → Overlay — thông điệp overlay tuỳ biến (FE-012)
-    ForceKillRequest force_kill = 69; // 2026-10-07 (BE-034d), Overlay → Service — cửa sổ vẫn còn 3s sau "Tắt nội dung"
+    ForceKillRequest force_kill = 69;
+    LanguageUpdate language_update = 70; // 2026-10-07 (FE-063a), Service → Overlay — ngôn ngữ hiển thị lớp che/icon // 2026-10-07 (BE-034d), Overlay → Service — cửa sổ vẫn còn 3s sau "Tắt nội dung"
     DebugWindowScore debug_window_score = 68; // 2026-10-06 (DEV-050/051), Service → Overlay — CHỈ gửi khi build bật chế độ developer
 
     // --- Kênh UI (80-99) ---
@@ -104,6 +105,18 @@ message IpcPayload {
     // 2026-10-05 (PWD-024, FE-080) — phiên đăng nhập phụ huynh dùng chung S3/S4, Architecture/03 mục 3.7b
     ParentSessionRequest parent_session_req = 158;
     ParentSessionResponse parent_session_resp = 159;
+
+    // --- Kênh UI mở rộng (160-179), 2026-10-07 ---
+    // PAUSE-040..043 — Bảo vệ cả phụ huynh (thử thách do Service sinh và chấm)
+    ChallengeStartRequest challenge_start_req = 160;
+    ChallengeStartResponse challenge_start_resp = 161;
+    ChallengeSubmitRequest challenge_submit_req = 162;
+    ChallengeSubmitResponse challenge_submit_resp = 163;
+    SetParentProtectionRequest set_parent_protection_req = 164;
+    SetParentProtectionResponse set_parent_protection_resp = 165;
+    // FE-063a — ngôn ngữ (không cần đăng nhập, FE-083)
+    SetLanguageRequest set_language_req = 166;
+    SetLanguageResponse set_language_resp = 167;
   }
 }
 
@@ -426,6 +439,7 @@ enum PauseResult {
   PAUSE_RESULT_SUCCESS = 1;
   PAUSE_RESULT_INVALID_TOKEN = 2; // hết hạn / sai action_context / đã dùng / không tồn tại
   PAUSE_RESULT_ALREADY_PAUSED = 3; // idempotent guard
+  PAUSE_RESULT_CHALLENGE_REQUIRED = 4; // PAUSE-041 — "Bảo vệ cả phụ huynh" đang bật, chưa vượt thử thách (token KHÔNG bị tiêu thụ)
 }
 
 message ResumeMonitoringRequest {
@@ -592,6 +606,8 @@ message ConfigResponse { // field 149
   repeated string user_whitelisted_process_names = 2;
   PerformanceMode performance_mode = 3; // PERF-050b — Service luôn trả về giá trị cụ thể
                                          // (BALANCED/MAXIMUM_PROTECTION), không bao giờ UNSPECIFIED
+  bool parent_protection_enabled = 4; // PAUSE-040 (2026-10-07)
+  string language = 5; // FE-063a (2026-10-07) — "vi" | "en" | "fr" | "es" | "pt" | "zh-Hans"
 }
 
 // PERF-050b — tập giá trị ĐÓNG, cố định bởi chính hợp đồng IPC này (khác event_type ở AuditLogEntry,
@@ -733,4 +749,62 @@ message DebugRegionScore {
 message ForceKillRequest {
   fixed64 window_handle = 1;
   uint32 process_id = 2; // tiến trình sở hữu cửa sổ, Overlay đọc bằng GetWindowThreadProcessId lúc bấm nút
+}
+
+// --- 2026-10-07, PAUSE-040..043 "Bảo vệ cả phụ huynh" + FE-063a ngôn ngữ (khối UI 160-167, Overlay field 70) ---
+
+message ChallengeStartRequest {} // field 160 — sinh bộ câu hỏi mới cho kết nối hiện tại
+
+message ChallengeStartResponse { // field 161
+  ChallengeResult result = 1;          // SUCCESS hoặc LOCKED_OUT
+  repeated string questions = 2;       // vd "37 + 48" — UI chỉ hiển thị, không biết đáp án
+  int64 expires_at_unix_ms = 3;        // hết hạn trả lời (60 giây)
+  int64 locked_until_unix_ms = 4;      // khi LOCKED_OUT
+}
+
+message ChallengeSubmitRequest { // field 162
+  repeated int32 answers = 1;
+}
+
+message ChallengeSubmitResponse { // field 163
+  ChallengeResult result = 1;          // PASSED / WRONG / EXPIRED / LOCKED_OUT / NO_CHALLENGE
+  int64 locked_until_unix_ms = 2;
+  uint32 failures_before_lockout = 3;  // còn bao nhiêu lần sai trước khi bị khoá
+}
+
+enum ChallengeResult {
+  CHALLENGE_RESULT_UNSPECIFIED = 0;
+  CHALLENGE_RESULT_SUCCESS = 1;
+  CHALLENGE_RESULT_PASSED = 2;
+  CHALLENGE_RESULT_WRONG = 3;
+  CHALLENGE_RESULT_EXPIRED = 4;
+  CHALLENGE_RESULT_LOCKED_OUT = 5;
+  CHALLENGE_RESULT_NO_CHALLENGE = 6;
+}
+
+message SetParentProtectionRequest { // field 164 — cần phiên phụ huynh (PWD-024); TẮT cần đã vượt thử thách
+  bool enabled = 1;
+}
+
+message SetParentProtectionResponse { // field 165
+  SetParentProtectionResult result = 1;
+}
+
+enum SetParentProtectionResult {
+  SET_PARENT_PROTECTION_RESULT_UNSPECIFIED = 0;
+  SET_PARENT_PROTECTION_RESULT_SUCCESS = 1;
+  SET_PARENT_PROTECTION_RESULT_NOT_AUTHENTICATED = 2;
+  SET_PARENT_PROTECTION_RESULT_CHALLENGE_REQUIRED = 3;
+}
+
+message SetLanguageRequest { // field 166 — KHÔNG cần đăng nhập (FE-083)
+  string language = 1;
+}
+
+message SetLanguageResponse { // field 167
+  bool accepted = 1; // false nếu mã ngôn ngữ không thuộc danh sách hỗ trợ
+}
+
+message LanguageUpdate { // field 70, Service → Overlay — gửi lúc đổi và lúc Overlay (re)connect
+  string language = 1;
 }

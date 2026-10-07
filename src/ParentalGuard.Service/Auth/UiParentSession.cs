@@ -43,4 +43,28 @@ public sealed class UiParentSession(MonotonicClock clock)
     }
 
     public void Close() => _idleExpiresAtUnixMs = null;
+
+    // --- PAUSE-041/042 (2026-10-07): thử thách "Bảo vệ cả phụ huynh" của ĐÚNG kết nối này ---
+    private (int[] Answers, long ExpiresAtUnixMs)? _pendingChallenge;
+    private long? _challengePassedUntilUnixMs;
+
+    internal void SetPendingChallenge(int[] answers, long expiresAtUnixMs) => _pendingChallenge = (answers, expiresAtUnixMs);
+
+    /// <summary>Lấy và xoá bộ câu hỏi đang chờ — mỗi bộ chỉ được trả lời 1 lần.</summary>
+    internal (int[] Answers, long ExpiresAtUnixMs)? TakePendingChallenge()
+    {
+        var pending = _pendingChallenge;
+        _pendingChallenge = null;
+        return pending;
+    }
+
+    internal void MarkChallengePassed(long validUntilUnixMs) => _challengePassedUntilUnixMs = validUntilUnixMs;
+
+    /// <summary>`PAUSE-042`: kết quả "đã vượt qua" dùng đúng 1 lần, trong thời hạn hiệu lực.</summary>
+    public bool TryConsumeChallengePass()
+    {
+        bool valid = _challengePassedUntilUnixMs is long until && clock.UtcNowUnixMs < until;
+        _challengePassedUntilUnixMs = null;
+        return valid;
+    }
 }

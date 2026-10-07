@@ -23,7 +23,9 @@ public sealed partial class SettingsViewModel(
     IConfigFacade configFacade,
     IAuthFacade authFacade,
     IAuthPromptService authPromptService,
-    Action? onSessionRejected = null) : ObservableObject, IDisposable
+    Action? onSessionRejected = null,
+    IParentProtectionFacade? parentProtectionFacade = null,
+    IParentChallengePromptService? challengePrompt = null) : ObservableObject, IDisposable
 {
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
@@ -97,6 +99,19 @@ public sealed partial class SettingsViewModel(
 
     public bool HasPerformanceModeError => !string.IsNullOrEmpty(PerformanceModeError);
 
+    // --- Bảo vệ cả phụ huynh (PAUSE-040..043, 2026-10-07) ---
+    [ObservableProperty]
+    public partial bool ParentProtectionEnabled { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasParentProtectionError))]
+    public partial string? ParentProtectionError { get; set; }
+
+    public bool HasParentProtectionError => !string.IsNullOrEmpty(ParentProtectionError);
+
+    /// <summary>`FE-063a`: mã ngôn ngữ Service đang lưu (đọc lúc vào tab).</summary>
+    public string Language { get; private set; } = "vi";
+
     // --- Đổi mật khẩu (PWD-040/041) ---
     [ObservableProperty]
     public partial bool RegenerateRecoveryKey { get; set; } = true;
@@ -142,6 +157,8 @@ public sealed partial class SettingsViewModel(
             OverlayMessage = OverlayMessageValidation.ToDisplay(snapshot.OverlayMessage);
             _lastSavedOverlayMessage = snapshot.OverlayMessage;
             PerformanceMode = snapshot.PerformanceMode;
+            ParentProtectionEnabled = snapshot.ParentProtectionEnabled;
+            Language = snapshot.Language;
             WhitelistedProcessNames = new ObservableCollection<string>(snapshot.WhitelistedProcessNames);
         }
         catch (UiIpcConnectionException ex)
@@ -242,6 +259,50 @@ public sealed partial class SettingsViewModel(
     }
 
     /// <summary>Nút Xoá 1 dòng whitelist (mục 6.4, `MISC-030`) → `S5` (`manage_whitelist`).</summary>
+    /// <summary>
+    /// `PAUSE-040`/`PAUSE-042`: bật chỉ cần phiên phụ huynh (hộp xác nhận giải thích do View hiện trước); TẮT phải vượt thử
+    /// thách trước. Trả <c>true</c> nếu Service đã lưu giá trị mới.
+    /// </summary>
+    public async Task<bool> SetParentProtectionAsync(bool enable, XamlRoot xamlRoot)
+    {
+        ParentProtectionError = null;
+        if (parentProtectionFacade is null || enable == ParentProtectionEnabled)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (!enable && (challengePrompt is null || !await challengePrompt.ShowChallengeAsync(xamlRoot).ConfigureAwait(true)))
+            {
+                return false;
+            }
+
+            SetParentProtectionOutcome outcome = await parentProtectionFacade.SetParentProtectionAsync(enable, CancellationToken.None).ConfigureAwait(true);
+            switch (outcome)
+            {
+                case SetParentProtectionOutcome.Success:
+                    ParentProtectionEnabled = enable;
+                    return true;
+                case SetParentProtectionOutcome.NotAuthenticated:
+                    ParentProtectionError = LocalizationService.Get("ParentSessionExpired");
+                    onSessionRejected?.Invoke();
+                    return false;
+                case SetParentProtectionOutcome.ChallengeRequired:
+                    ParentProtectionError = LocalizationService.Get("DashboardChallengeRequired");
+                    return false;
+                default:
+                    ParentProtectionError = LocalizationService.Get("SettingsParentProtectionSaveFailed");
+                    return false;
+            }
+        }
+        catch (UiIpcConnectionException ex)
+        {
+            ParentProtectionError = ex.Message;
+            return false;
+        }
+    }
+
     public async Task RemoveWhitelistEntryAsync(string processName, XamlRoot xamlRoot)
     {
         WhitelistError = null;

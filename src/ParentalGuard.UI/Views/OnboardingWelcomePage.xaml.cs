@@ -17,7 +17,7 @@ namespace ParentalGuard.UI.Views;
 public sealed partial class OnboardingWelcomePage : Page
 {
     /// <summary>Thẻ "Bảo vệ cả phụ huynh" chỉ hiện khi tính năng đó đã phát hành (`FE-032`, mục 9 TODO).</summary>
-    private const bool ParentProtectionFeatureAvailable = false;
+    private const bool ParentProtectionFeatureAvailable = true;
 
     private static readonly (string Glyph, string Key, bool Visible)[] _cards =
     [

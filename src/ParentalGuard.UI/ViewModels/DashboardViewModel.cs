@@ -26,7 +26,9 @@ public enum DashboardCardState
 public sealed partial class DashboardViewModel(
     IDashboardFacade dashboardFacade,
     IPauseFacade pauseFacade,
-    IAuthPromptService authPromptService) : ObservableObject
+    IAuthPromptService authPromptService,
+    IConfigFacade? configFacade = null,
+    IParentChallengePromptService? challengePrompt = null) : ObservableObject
 {
     private const string PauseActionContext = "pause_monitoring";
 
@@ -280,13 +282,21 @@ public sealed partial class DashboardViewModel(
         return remaining > TimeSpan.Zero ? remaining.ToString(@"hh\:mm") : "00:00";
     }
 
-    /// <summary>Mục 6.2.2 — mở `S5` (`pause_monitoring`) TRƯỚC khi gửi <c>PauseMonitoringRequest</c> thật.</summary>
+    /// <summary>
+    /// Mục 6.2.2 — mở `S5` (`pause_monitoring`) TRƯỚC khi gửi <c>PauseMonitoringRequest</c> thật. `PAUSE-041` (2026-10-07):
+    /// "Bảo vệ cả phụ huynh" đang bật → thử thách TRƯỚC `S5` (action_token chỉ sống 15 giây, không đủ để làm thử thách sau).
+    /// </summary>
     public async Task PauseAsync(XamlRoot xamlRoot)
     {
         ErrorMessage = null;
         IsBusy = true;
         try
         {
+            if (!await PassChallengeIfRequiredAsync(xamlRoot).ConfigureAwait(true))
+            {
+                return;
+            }
+
             byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(PauseActionContext, xamlRoot).ConfigureAwait(true);
             if (actionToken is null)
             {
@@ -303,6 +313,18 @@ public sealed partial class DashboardViewModel(
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>`PAUSE-041`: <c>true</c> nếu chế độ đang tắt hoặc đã vượt thử thách.</summary>
+    private async Task<bool> PassChallengeIfRequiredAsync(XamlRoot xamlRoot)
+    {
+        if (configFacade is null || challengePrompt is null)
+        {
+            return true;
+        }
+
+        ConfigSnapshot config = await configFacade.GetConfigAsync(CancellationToken.None).ConfigureAwait(true);
+        return !config.ParentProtectionEnabled || await challengePrompt.ShowChallengeAsync(xamlRoot).ConfigureAwait(true);
     }
 
     /// <summary>
@@ -322,6 +344,10 @@ public sealed partial class DashboardViewModel(
                 // nhận, không chờ lượt poll — poll ngay sau đó chỉ để đồng bộ lại các chỉ số khác.
                 ApplyPausedLocally(result.PauseExpiresAtUnixMs);
                 await PollAsync().ConfigureAwait(true);
+                break;
+            case PauseOutcome.ChallengeRequired:
+                // Chế độ vừa được bật ở nơi khác, hoặc kết quả thử thách đã hết hạn 2 phút — bấm Tạm dừng lại từ đầu.
+                ErrorMessage = LocalizationService.Get("DashboardChallengeRequired");
                 break;
             case PauseOutcome.InvalidToken:
                 ErrorMessage = LocalizationService.Get("DashboardActionTokenExpired");

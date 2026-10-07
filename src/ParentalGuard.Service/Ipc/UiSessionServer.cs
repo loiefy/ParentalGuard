@@ -35,8 +35,11 @@ public sealed class UiSessionServer(
     AuditLogCoordinator auditLogCoordinator,
     DashboardCoordinator dashboardCoordinator,
     AuditLogWriter auditLog,
-    ILogger logger)
+    ILogger logger,
+    ParentChallengeCoordinator? parentChallengeCoordinator = null)
 {
+    private readonly ParentChallengeCoordinator challengeCoordinator = parentChallengeCoordinator ?? new ParentChallengeCoordinator(authCoordinator.Clock);
+
     /// <summary>
     /// Khung <c>Hello</c> đầu tiên của UI chưa có khoá phiên nào để ký ("chữ ký rỗng", mục 5.3) —
     /// cụ thể hoá bằng 1 khoá hằng số 32-byte-zero biết trước cả 2 phía, thay vì thêm 1 chế độ
@@ -181,6 +184,14 @@ public sealed class UiSessionServer(
     /// </summary>
     private Task<IpcPayload> DispatchAsync(IpcPayload request, AuditLogViewSession auditViewSession, UiParentSession parentSession, CancellationToken token) => request.BodyCase switch
     {
+        // PAUSE-041 (2026-10-07): "Bảo vệ cả phụ huynh" đang bật → tạm dừng phải đã vượt thử thách trên kết nối này; kiểm tra
+        // TRƯỚC khi chuyển cho PauseCoordinator để action_token KHÔNG bị tiêu thụ khi bị từ chối.
+        IpcPayload.BodyOneofCase.PauseMonitoringReq when configCoordinator.ParentProtectionEnabled && !parentSession.TryConsumeChallengePass() =>
+            Task.FromResult(ChallengeRequired(request)),
+        IpcPayload.BodyOneofCase.ChallengeStartReq or
+        IpcPayload.BodyOneofCase.ChallengeSubmitReq => challengeCoordinator.HandleAsync(request, parentSession),
+        IpcPayload.BodyOneofCase.SetParentProtectionReq or
+        IpcPayload.BodyOneofCase.SetLanguageReq => configCoordinator.HandleAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.PauseMonitoringReq or
         IpcPayload.BodyOneofCase.ResumeMonitoringReq or
         IpcPayload.BodyOneofCase.PauseStatusQuery or
@@ -197,6 +208,13 @@ public sealed class UiSessionServer(
         IpcPayload.BodyOneofCase.AuditChartQuery => dashboardCoordinator.HandleAsync(request, token),
         _ => authCoordinator.HandleAsync(request, token),
     };
+
+    private IpcPayload ChallengeRequired(IpcPayload request)
+    {
+        IpcPayload response = IpcEnvelope.NewEnvelope(ProcessType.Service, _messageIds.Next(), correlationId: request.MessageId);
+        response.PauseMonitoringResp = new PauseMonitoringResponse { Result = PauseResult.ChallengeRequired };
+        return response;
+    }
 
     /// <summary>Architecture/03 mục 4.2 điều kiện 3a — điều kiện 3b (chữ ký code-signing) chưa implement, cùng gap đã ghi nhận ở <c>ChildProcessSupervisor.VerifyClientIdentity</c> (Đợt 9, `DEV-012`).</summary>
     private bool VerifyClientIdentity(NamedPipeServerStream pipe, out string? actualExecutablePath)

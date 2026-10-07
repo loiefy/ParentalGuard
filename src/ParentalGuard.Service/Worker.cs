@@ -114,6 +114,8 @@ public sealed class Worker(
                 payload => _iconPositionCoordinator!.ConfigureInitialPush(payload),
                 // FE-012/ADR-110 (07 mục 4.4): thông điệp overlay tuỳ biến — rỗng = Overlay dùng câu mặc định cục bộ.
                 payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = monitoringStateHolder.Current.OverlayMessage },
+                // FE-063a: ngôn ngữ đã chọn — gửi lại mỗi lần Overlay (re)connect.
+                payload => payload.LanguageUpdate = new LanguageUpdate { Language = monitoringStateHolder.Current.Language },
             ],
             config.IpcHmacKey,
             _auditLog,
@@ -236,7 +238,10 @@ public sealed class Worker(
             () => _visionSupervisor!.TryEnqueueBusinessMessage(
                 payload => payload.ControlVision = BuildControlVisionCommand(monitoringStateHolder.Current, !_pauseCoordinator!.IsPaused, _adaptiveFrameRateCoordinator!.CurrentIntervalMs)),
             overlayMessage => _overlaySupervisor!.TryEnqueueBusinessMessage(
-                payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = overlayMessage }));
+                payload => payload.OverlayMessageUpdate = new OverlayMessageUpdate { Text = overlayMessage }),
+            // FE-063a (2026-10-07): đổi ngôn ngữ → Overlay áp dụng cho lớp che/icon dựng sau đó.
+            language => _overlaySupervisor!.TryEnqueueBusinessMessage(
+                payload => payload.LanguageUpdate = new LanguageUpdate { Language = language }));
         _auditLogCoordinator = new AuditLogCoordinator(_authCoordinator, _auditLog, clock, InstallPaths.ConfigDbPath);
 
         // Đợt 8/9 (gap fix — 10-ui-architecture.md mục 6.2, Architecture/03 mục 3.7a ADR-145): tạo SAU

@@ -17,7 +17,12 @@ public sealed class ConfigFacade(UiIpcClient client) : IConfigFacade
     private static ConfigSnapshot MapConfigResponse(IpcPayload response)
     {
         ConfigResponse resp = response.ConfigResp;
-        return new ConfigSnapshot(resp.OverlayMessage, [.. resp.UserWhitelistedProcessNames], MapPerformanceMode(resp.PerformanceMode));
+        return new ConfigSnapshot(
+            resp.OverlayMessage,
+            [.. resp.UserWhitelistedProcessNames],
+            MapPerformanceMode(resp.PerformanceMode),
+            resp.ParentProtectionEnabled,
+            string.IsNullOrEmpty(resp.Language) ? "vi" : resp.Language);
     }
 
     public Task<ConfigUpdateOutcome> UpdateOverlayMessageAsync(string overlayMessage, PerformanceModeOption currentPerformanceMode, CancellationToken cancellationToken) =>

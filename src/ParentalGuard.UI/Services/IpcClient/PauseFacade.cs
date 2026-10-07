@@ -38,6 +38,7 @@ public sealed class PauseFacade(UiIpcClient client) : IPauseFacade
             PauseResult.Success => PauseOutcome.Success,
             PauseResult.InvalidToken => PauseOutcome.InvalidToken,
             PauseResult.AlreadyPaused => PauseOutcome.AlreadyPaused,
+            PauseResult.ChallengeRequired => PauseOutcome.ChallengeRequired,
             _ => throw new UiIpcConnectionException($"Unexpected PauseResult: {resp.Result}."),
         };
         return new PauseMonitoringResult(outcome, resp.PauseExpiresAtUnixMs);

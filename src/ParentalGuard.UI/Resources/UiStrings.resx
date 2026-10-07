@@ -698,4 +698,55 @@
   <data name="AboutThirdPartyNotice" xml:space="preserve">
     <value>Danh sách đầy đủ thành phần bên thứ ba và giấy phép nằm trong tệp THIRD-PARTY-NOTICES.md ở thư mục cài đặt.</value>
   </data>
+  <data name="ChallengeTitle" xml:space="preserve">
+    <value>Thử thách xác minh</value>
+  </data>
+  <data name="ChallengeIntro" xml:space="preserve">
+    <value>Chế độ "Bảo vệ cả phụ huynh" đang bật. Vui lòng trả lời đúng cả 5 phép tính dưới đây trong 60 giây.</value>
+  </data>
+  <data name="ChallengeSubmitButton" xml:space="preserve">
+    <value>Gửi câu trả lời</value>
+  </data>
+  <data name="ChallengeCancelButton" xml:space="preserve">
+    <value>Huỷ</value>
+  </data>
+  <data name="ChallengeCountdown" xml:space="preserve">
+    <value>Thời gian còn lại: {0} giây</value>
+  </data>
+  <data name="ChallengeWrong" xml:space="preserve">
+    <value>Có câu trả lời chưa đúng. Đây là bộ câu hỏi mới — còn {0} lần thử trước khi bị khoá.</value>
+  </data>
+  <data name="ChallengeExpired" xml:space="preserve">
+    <value>Đã hết thời gian. Đây là bộ câu hỏi mới — còn {0} lần thử trước khi bị khoá.</value>
+  </data>
+  <data name="ChallengeLockedOut" xml:space="preserve">
+    <value>Bạn đã trả lời sai 3 lần liên tiếp. Thử thách tạm khoá đến {0}.</value>
+  </data>
+  <data name="DashboardChallengeRequired" xml:space="preserve">
+    <value>Cần hoàn thành thử thách xác minh trước. Vui lòng thực hiện lại thao tác.</value>
+  </data>
+  <data name="SettingsParentProtectionHeader" xml:space="preserve">
+    <value>Bảo vệ cả phụ huynh</value>
+  </data>
+  <data name="SettingsParentProtectionHint" xml:space="preserve">
+    <value>Khi bật, việc tạm dừng giám sát cần cả mật khẩu và một thử thách ngắn gồm 5 phép tính trong 60 giây. Tắt chế độ này cũng cần vượt qua thử thách.</value>
+  </data>
+  <data name="SettingsParentProtectionOn" xml:space="preserve">
+    <value>Đang bật</value>
+  </data>
+  <data name="SettingsParentProtectionOff" xml:space="preserve">
+    <value>Đang tắt</value>
+  </data>
+  <data name="SettingsParentProtectionConfirmTitle" xml:space="preserve">
+    <value>Bật chế độ Bảo vệ cả phụ huynh?</value>
+  </data>
+  <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
+    <value>Sau khi bật, kể cả khi đã biết mật khẩu, phụ huynh cũng không thể tạm dừng giám sát ngay mà phải hoàn thành đúng 5 phép tính trong 60 giây. Trả lời sai 3 lần liên tiếp sẽ bị khoá thử thách 5 phút. Muốn tắt chế độ này cũng phải vượt qua thử thách.</value>
+  </data>
+  <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
+    <value>Bật chế độ</value>
+  </data>
+  <data name="SettingsParentProtectionSaveFailed" xml:space="preserve">
+    <value>Không lưu được thay đổi. Vui lòng thử lại.</value>
+  </data>
 </root>

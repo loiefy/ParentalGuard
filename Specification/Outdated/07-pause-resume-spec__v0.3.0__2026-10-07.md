@@ -1,6 +1,6 @@
 # 07 — Pause / Resume Mechanism Spec
 
-> Version: v0.3.1 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.3.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
 
 ## 1. Mục đích
 
@@ -31,7 +31,7 @@ Cho phép phụ huynh tạm dừng giám sát trong tình huống hợp lệ (v�
 - `PAUSE-040`: Mục **"Bảo vệ cả phụ huynh"** ở `S4` (cần đăng nhập — `FE-080`), mặc định **tắt**. Khi bật, hiện thông báo giải thích: dù có mật khẩu, phụ huynh cũng không thể tạm dừng giám sát ngay — phải hoàn thành 1 thử thách ngắn.
 - `PAUSE-041`: Khi chế độ đang bật, **tạm dừng giám sát** = nhập đúng mật khẩu (`PAUSE-001`) **và** vượt qua thử thách: **5 phép tính** (cộng/trừ/nhân, số có 1–2 chữ số) trong **60 giây**, phải đúng **5/5**. Sai hoặc hết giờ → làm lại với bộ câu hỏi mới; **thất bại 3 lần liên tiếp → khoá thử thách 5 phút**.
 - `PAUSE-042`: Câu hỏi do `Service` sinh ngẫu nhiên và `Service` tự chấm (giao diện không tự chấm), kết quả "đã vượt qua" chỉ có hiệu lực cho đúng 1 lần tạm dừng trong 2 phút. **Tắt** chế độ này cũng phải vượt qua thử thách (tránh lách bằng cách tắt rồi tạm dừng). Bật chế độ không cần thử thách.
-- `PAUSE-043`: Chế độ này chỉ áp dụng cho **tạm dừng** và **tắt chế độ**; tiếp tục giám sát sớm (`PAUSE-004`) và gỡ cài đặt giữ nguyên như cũ. Cảnh báo tần suất tạm dừng (`PAUSE-021`) vẫn tính bình thường. Thẻ "Bảo vệ cả phụ huynh" ở màn hình giới thiệu lần đầu (`FE-032`) nay luôn được hiển thị vì tính năng đã có (thẻ chỉ giới thiệu tính năng, không phụ thuộc chế độ đang bật hay tắt). Vì mã xác thực tạm dừng chỉ có hiệu lực 15 giây, thử thách được làm **trước** bước nhập mật khẩu.
+- `PAUSE-043`: Chế độ này chỉ áp dụng cho **tạm dừng** và **tắt chế độ**; tiếp tục giám sát sớm (`PAUSE-004`) và gỡ cài đặt giữ nguyên như cũ. Cảnh báo tần suất tạm dừng (`PAUSE-021`) vẫn tính bình thường. Khi chế độ đang bật, thẻ "Bảo vệ cả phụ huynh" ở màn hình giới thiệu lần đầu (`FE-032`) được hiển thị cho cài đặt mới.
 
 ## 5. Ràng buộc kỹ thuật
 
@@ -46,7 +46,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.3.1 | 2026-10-07 | **PATCH (làm rõ câu chữ)**: `PAUSE-043` — thẻ giới thiệu `FE-032` luôn hiển thị (bản cũ viết nhầm "khi chế độ đang bật"); ghi rõ thứ tự thử thách trước mật khẩu. Archive: `Outdated/07-pause-resume-spec__v0.3.0__2026-10-07.md` |
 | v0.3.0 | 2026-10-07 | **MINOR (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: mục 4a "Bảo vệ cả phụ huynh" — `PAUSE-040`–`PAUSE-043` (thử thách 5 phép tính/60 giây, Service sinh và chấm, khoá 5 phút sau 3 lần thất bại; áp dụng cho tạm dừng và tắt chế độ) |
 | v0.2.2 | 2026-09-20 | **Vá gap quy trình `PROPOSED → APPROVED`**: `architecture-writer` phát hiện `PAUSE-021` vẫn còn tag `(PROPOSED)` trong văn bản dù toàn file đã đóng dấu `Approved` từ v0.2.1 và mục 6 ghi "không còn câu hỏi mở" (2 tầng trạng thái file vs requirement không khớp nhau). Chủ dự án xác nhận trực tiếp 2026-09-20: DUYỆT `PAUSE-021`, giữ nguyên ngưỡng đã có sẵn trong spec **> 5 lần/ngày** làm con số chính thức (trước đó chỉ ghi là "ví dụ minh hoạ"). Đổi tag từ `(PROPOSED)` sang `(ĐÃ CHỐT v0.2.2, APPROVED)`. Rà soát toàn file: không còn requirement `PAUSE-0xx` nào khác sót tag `PROPOSED`. Archive: `Specification/Outdated/07-pause-resume-spec__v0.2.1__2026-09-20.md` |
 | v0.2.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |

@@ -149,6 +149,8 @@ public partial class App : Application
         services.AddSingleton<IAuditFacade, AuditFacade>();
         services.AddSingleton<IConfigFacade, ConfigFacade>();
         services.AddSingleton<IParentSessionFacade, ParentSessionFacade>();
+        services.AddSingleton<IParentProtectionFacade, ParentProtectionFacade>();
+        services.AddSingleton<IParentChallengePromptService, ParentChallengePromptService>();
         services.AddSingleton<ParentSessionService>(sp => new ParentSessionService(sp.GetRequiredService<IAuthFacade>(), sp.GetRequiredService<IParentSessionFacade>()));
         services.AddSingleton<NavigationService>();
         return services.BuildServiceProvider();

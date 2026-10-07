@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.3.0 | Trạng thái: Approved | Cập nhật: 2026-10-05
+> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -293,10 +293,19 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 - [ ] Icon/màu sắc chính xác cho 3 trạng thái Dashboard (mục 6.2.1) — chi tiết asset, cùng tinh thần câu hỏi mở tương tự đã có ở `07-overlay-architecture.md` mục 6 cho icon `Overlay`, để `feature-dev`/thiết kế UI quyết định theo Design System (`03-frontend-ui-spec.md` mục 4).
 - [ ] **(Mới, Đợt 8) Có nên thêm "Tính toàn vẹn audit log" làm 1 mục riêng trong danh sách Health Check (`MISC-050`, mục 6.2 điểm 4) hay không** — danh sách hiện tại (Watchdog/Vision/Overlay/dung lượng đĩa/`using_fallback_config`) khớp **đúng nguyên văn** liệt kê ở `Specification/10-additional-mechanisms-spec.md` mục 5 (`MISC-050`), không có "tính toàn vẹn audit log" trong đó. Đợt 8 chỉ thiết kế phần chắc chắn nằm trong phạm vi `MISC-010` đã duyệt: hành động **on-demand** trong `S3` (mục 6.3, ADR-136/141) — khi phát hiện chain đứt (dù qua boot-time hay on-demand), sự kiện `AuditChainBrokenDetected` vẫn hiển thị **thụ động** như 1 dòng bình thường trong chính `S3` (không cần field `DashboardStatusResponse` mới). Việc có nên NHÂN ĐÔI cảnh báo này lên `S2` Dashboard (chủ động, không cần vào `S3` mới thấy) — vì đây là 1 trong những sự kiện nghiêm trọng nhất hệ thống có thể phát hiện — là 1 quyết định UX/phạm vi Health Check **mở rộng ngoài danh sách đã duyệt ở spec**, chưa tự chốt, cần chủ dự án xác nhận có muốn mở rộng `MISC-050` hay giữ nguyên phạm vi hiện tại.
 
+
+### Bảo vệ cả phụ huynh — phía UI (v0.4.0, 2026-10-07, `PAUSE-040`–`043`)
+
+- `IParentProtectionFacade` (thử thách, bật/tắt chế độ, đổi ngôn ngữ) + `IParentChallengePromptService` (seam test) → `ParentChallengeDialog` dựng bằng code: 5 ô nhập, đếm ngược 60 giây (hết giờ tự nộp), sai → Service cấp bộ mới, bị khoá → hiện giờ mở khoá và tắt nút Gửi. Ô trống/không phải số gửi giá trị chắc chắn sai (vẫn tính 1 lần thất bại).
+- `S2` `DashboardViewModel.PauseAsync`: đọc `ConfigQuery.parent_protection_enabled` → nếu bật thì thử thách TRƯỚC `S5`; Service trả `CHALLENGE_REQUIRED` → báo lỗi, không tự lặp.
+- `S4`: `ToggleSwitch` trong khối cần đăng nhập. Bật → hộp xác nhận giải thích; tắt → thử thách rồi mới gửi `SetParentProtectionRequest(false)`. Huỷ hoặc thất bại → công tắc trở về giá trị Service đang lưu.
+- Thẻ 4 "Bảo vệ cả phụ huynh" ở màn hình giới thiệu (`FE-032`) hiển thị.
+
 ## 12. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.4.0 | 2026-10-07 | MINOR — Bảo vệ cả phụ huynh phía UI: facade, hộp thoại thử thách, luồng thử thách trước `S5`, công tắc `S4`, thẻ giới thiệu 4 |
 | v0.3.0 | 2026-10-05 | MINOR — mục 6.8: `ParentSessionService` + khung đăng nhập dùng chung `S3`/`S4` (`PWD-024`, `FE-080`–`083`), giới thiệu lần đầu 5 thẻ (`FE-032`), giải thích mật khẩu (`FE-033`), ngôn ngữ song ngữ (`FE-064`), biểu đồ 4 khoảng + gộp tuần (`FE-071a`), "Máy tính đang được bảo vệ" (`FE-042`), nền dải chuyển màu (`FE-005e`), mục "Cách ứng dụng hoạt động" ở `S10` (`FE-092`) |
 | v0.2.14 | 2026-10-01 | PATCH — whitelist `S4`: `ListView` `MaxHeight=260` + viền mờ, cuộn dọc khi dài |
 | v0.2.13 | 2026-10-01 | PATCH — (1) nền vùng nội dung #1F1F23 (trước #26262B), các lớp cảnh chỉ lệch nền 2–5 mức màu để chữ nổi rõ. (2) `FE-007`: `VersionPrefix` (mặc định 0.9.0) khai báo 1 lần ở `src/Directory.Build.props` cho cả 6 exe, ghi đè được bằng `-p:Version=`; `AppVersionInfo` đọc `AssemblyInformationalVersion` (+"(Debug)" khi build Debug) — hiển thị ở `NavigationView.PaneFooter` (ẩn khi pane thu gọn) và tab Giới thiệu |

@@ -16,6 +16,17 @@ public sealed record MonitoringStateData(
     string OverlayMessage,
     IReadOnlyList<string> UserWhitelistedProcessNames)
 {
+    /// <summary>`PAUSE-040` (2026-10-07): chế độ "Bảo vệ cả phụ huynh" — mặc định tắt.</summary>
+    public bool ParentProtectionEnabled { get; init; }
+
+    /// <summary>`FE-063a` (2026-10-07): ngôn ngữ hiển thị cho cả máy — mặc định tiếng Việt.</summary>
+    public string Language { get; init; } = DefaultLanguage;
+
+    public const string DefaultLanguage = "vi";
+
+    /// <summary>`FE-063a`: đúng 6 ngôn ngữ hỗ trợ.</summary>
+    public static readonly IReadOnlySet<string> SupportedLanguages = new HashSet<string>(StringComparer.Ordinal) { "vi", "en", "fr", "es", "pt", "zh-Hans" };
+
     /// <summary>Placeholder — con số thật do benchmark quyết định ở BE-090/Đợt 1 (mục 3.3).</summary>
     public const float DefaultRiskThreshold = 0.7f;
 

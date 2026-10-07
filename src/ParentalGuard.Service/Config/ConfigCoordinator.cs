@@ -20,8 +20,12 @@ public sealed class ConfigCoordinator(
     AuthCoordinator authCoordinator,
     AuditLogWriter auditLog,
     Action pushControlVisionCommand,
-    Action<string>? pushOverlayMessage = null)
+    Action<string>? pushOverlayMessage = null,
+    Action<string>? pushLanguage = null)
 {
+    /// <summary>`PAUSE-041`: chế độ "Bảo vệ cả phụ huynh" đang bật — tạm dừng cần vượt thử thách.</summary>
+    public bool ParentProtectionEnabled => monitoringStateHolder.Current.ParentProtectionEnabled;
+
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -37,6 +41,8 @@ public sealed class ConfigCoordinator(
         IpcPayload.BodyOneofCase.ConfigUpdateReq => HandleConfigUpdateAsync(request, parentSession, cancellationToken),
         IpcPayload.BodyOneofCase.RemoveWhitelistReq => HandleRemoveWhitelistAsync(request, parentSession, cancellationToken),
         IpcPayload.BodyOneofCase.ResetWhitelistReq => HandleResetWhitelistAsync(request, parentSession, cancellationToken),
+        IpcPayload.BodyOneofCase.SetParentProtectionReq => HandleSetParentProtectionAsync(request, parentSession, cancellationToken),
+        IpcPayload.BodyOneofCase.SetLanguageReq => HandleSetLanguageAsync(request, cancellationToken),
         _ => throw new InvalidOperationException($"ConfigCoordinator received unexpected message: {request.BodyCase}."),
     };
 
@@ -49,6 +55,8 @@ public sealed class ConfigCoordinator(
         // MISC-030b (ĐÃ CHỐT 2026-10-01): whitelist hiển thị ở S4 = danh sách chủ dự án cấp sẵn trong spec
         // (BE-073a, exclude_process_names) + mục cũ do người dùng thêm trước khi MISC-030a bỏ đường thêm.
         resp.UserWhitelistedProcessNames.AddRange(EffectiveWhitelist(state));
+        resp.ParentProtectionEnabled = state.ParentProtectionEnabled;
+        resp.Language = state.Language;
         response.ConfigResp = resp;
         return Task.FromResult(response);
     }
@@ -215,6 +223,90 @@ public sealed class ConfigCoordinator(
             var resp = new ResetWhitelistResponse { Result = ResetWhitelistResult.Success };
             resp.Whitelist.AddRange(EffectiveWhitelist(updated));
             response.ResetWhitelistResp = resp;
+            return response;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// `PAUSE-040`/`PAUSE-042` (2026-10-07): bật cần phiên phụ huynh; TẮT cần phiên phụ huynh VÀ đã vượt thử thách trên
+    /// kết nối này (chống lách: tắt chế độ rồi tạm dừng không cần thử thách).
+    /// </summary>
+    private async Task<IpcPayload> HandleSetParentProtectionAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken)
+    {
+        bool enable = request.SetParentProtectionReq.Enabled;
+        IpcPayload response = NewResponse(request);
+        if (!parentSession.TryTouch())
+        {
+            response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.NotAuthenticated };
+            return response;
+        }
+
+        if (!enable && monitoringStateHolder.Current.ParentProtectionEnabled && !parentSession.TryConsumeChallengePass())
+        {
+            response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.ChallengeRequired };
+            return response;
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            MonitoringStateData current = monitoringStateHolder.Current;
+            if (current.ParentProtectionEnabled != enable)
+            {
+                MonitoringStateData updated = current with { ParentProtectionEnabled = enable };
+                if (!TryPersist(updated))
+                {
+                    response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.Unspecified };
+                    return response;
+                }
+
+                monitoringStateHolder.Update(updated);
+                await auditLog.AppendAsync("ConfigChanged", new { field = "parent_protection", enabled = enable }, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.Success };
+            return response;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>`FE-063a`/`FE-083` (2026-10-07): đổi ngôn ngữ KHÔNG cần đăng nhập — chỉ chấp nhận 6 mã hỗ trợ, đẩy xuống Overlay.</summary>
+    private async Task<IpcPayload> HandleSetLanguageAsync(IpcPayload request, CancellationToken cancellationToken)
+    {
+        string language = request.SetLanguageReq.Language;
+        IpcPayload response = NewResponse(request);
+        if (!MonitoringStateData.SupportedLanguages.Contains(language))
+        {
+            response.SetLanguageResp = new SetLanguageResponse { Accepted = false };
+            return response;
+        }
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            MonitoringStateData current = monitoringStateHolder.Current;
+            if (current.Language != language)
+            {
+                MonitoringStateData updated = current with { Language = language };
+                if (!TryPersist(updated))
+                {
+                    response.SetLanguageResp = new SetLanguageResponse { Accepted = false };
+                    return response;
+                }
+
+                monitoringStateHolder.Update(updated);
+                pushLanguage?.Invoke(language);
+                await auditLog.AppendAsync("ConfigChanged", new { field = "language", value = language }, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            response.SetLanguageResp = new SetLanguageResponse { Accepted = true };
             return response;
         }
         finally

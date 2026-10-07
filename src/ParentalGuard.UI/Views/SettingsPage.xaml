@@ -118,6 +118,20 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- PAUSE-040..043 (2026-10-07) — Bảo vệ cả phụ huynh: tạm dừng phải vượt thử thách; tắt chế độ cũng vậy. -->
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="ParentProtectionHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Spacing="8" Margin="24,0,0,0">
+                        <TextBlock x:Name="ParentProtectionHintText" TextWrapping="Wrap" Opacity="0.7" />
+                        <ToggleSwitch x:Name="ParentProtectionToggle" Toggled="OnParentProtectionToggled" />
+                        <InfoBar Severity="Error" IsClosable="False"
+                                 IsOpen="{x:Bind ViewModel.HasParentProtectionError, Mode=OneWay}"
+                                 Message="{x:Bind ViewModel.ParentProtectionError, Mode=OneWay}" />
+                    </StackPanel>
+                </StackPanel>
+
                 <!-- Mục 6.4 — Đổi mật khẩu (PWD-040/041), tự gate qua old_password (không qua S5). -->
                 <!-- FE-005a: đường kẻ mờ phân cách các phần cài đặt. -->
                 <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />

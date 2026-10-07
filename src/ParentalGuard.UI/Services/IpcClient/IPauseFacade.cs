@@ -29,6 +29,9 @@ public enum PauseOutcome
     Success,
     InvalidToken,
     AlreadyPaused,
+
+    /// <summary>`PAUSE-041` (2026-10-07): "Bảo vệ cả phụ huynh" đang bật mà chưa vượt thử thách — token KHÔNG bị tiêu thụ.</summary>
+    ChallengeRequired,
 }
 
 public sealed record PauseMonitoringResult(PauseOutcome Outcome, long PauseExpiresAtUnixMs);

@@ -317,6 +317,8 @@ public sealed class ConfigDb : IDisposable
             PerformanceMode = ToJsonValue(state.PerformanceMode),
             OverlayMessage = state.OverlayMessage,
             UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
+            ParentProtectionEnabled = state.ParentProtectionEnabled,
+            Language = state.Language,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -351,6 +353,8 @@ public sealed class ConfigDb : IDisposable
             PerformanceMode = ToJsonValue(state.PerformanceMode),
             OverlayMessage = state.OverlayMessage,
             UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
+            ParentProtectionEnabled = state.ParentProtectionEnabled,
+            Language = state.Language,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -393,7 +397,11 @@ public sealed class ConfigDb : IDisposable
             json.UsingFallbackConfig,
             ParsePerformanceMode(json.PerformanceMode),
             json.OverlayMessage,
-            json.UserWhitelistedProcessNames);
+            json.UserWhitelistedProcessNames)
+        {
+            ParentProtectionEnabled = json.ParentProtectionEnabled,
+            Language = MonitoringStateData.SupportedLanguages.Contains(json.Language ?? "") ? json.Language! : MonitoringStateData.DefaultLanguage,
+        };
     }
 
     /// <summary>PERF-050b (Architecture/04 mục 3.3, ADR-127) — string trong JSON (khớp `04` §2), enum ở domain model.</summary>
@@ -626,6 +634,14 @@ public sealed class ConfigDb : IDisposable
         /// <summary>Đợt 6 (`MISC-030`), field bổ sung Đợt 7 (gap fix `MarkFalsePositiveRequest`/`RemoveWhitelistEntryRequest`) — Architecture/04 mục 3.3.</summary>
         [JsonPropertyName("user_whitelisted_process_names")]
         public List<string> UserWhitelistedProcessNames { get; set; } = [];
+
+        /// <summary>`PAUSE-040` (2026-10-07) — thiếu (config.db cũ) = false.</summary>
+        [JsonPropertyName("parent_protection_enabled")]
+        public bool ParentProtectionEnabled { get; set; }
+
+        /// <summary>`FE-063a` (2026-10-07) — thiếu/không hợp lệ = "vi".</summary>
+        [JsonPropertyName("language")]
+        public string? Language { get; set; } = "vi";
     }
 
     private sealed class PauseStateJson

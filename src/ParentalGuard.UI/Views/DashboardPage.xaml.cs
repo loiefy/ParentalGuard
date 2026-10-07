@@ -27,7 +27,9 @@ public sealed partial class DashboardPage : Page
         ViewModel = new DashboardViewModel(
             services.GetRequiredService<IDashboardFacade>(),
             services.GetRequiredService<IPauseFacade>(),
-            services.GetRequiredService<NavigationService>());
+            services.GetRequiredService<NavigationService>(),
+            services.GetRequiredService<IConfigFacade>(),
+            services.GetRequiredService<IParentChallengePromptService>());
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         ApplyStaticLabels();

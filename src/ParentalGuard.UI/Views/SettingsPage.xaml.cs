@@ -16,6 +16,7 @@ public sealed partial class SettingsPage : Page
     private readonly NavigationService _navigationService;
     private readonly ParentSessionService _parentSession;
     private bool _performanceModeInitialized;
+    private bool _suppressParentProtectionToggle = true;
 
     public SettingsPage()
     {
@@ -30,7 +31,9 @@ public sealed partial class SettingsPage : Page
             services.GetRequiredService<IConfigFacade>(),
             services.GetRequiredService<IAuthFacade>(),
             _parentSession,
-            _parentSession.MarkLoggedOut);
+            _parentSession.MarkLoggedOut,
+            services.GetRequiredService<IParentProtectionFacade>(),
+            services.GetRequiredService<IParentChallengePromptService>());
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         OverlayMessageLabel.Text = LocalizationService.Get("SettingsOverlayMessageLabel");
@@ -43,6 +46,10 @@ public sealed partial class SettingsPage : Page
         // PERF-050c (2026-10-07): mỗi lựa chọn kèm 1 dòng giải thích ngắn ngay bên dưới.
         BalancedRadio.Content = RadioContent("SettingsPerformanceModeBalanced", "SettingsPerformanceModeBalancedHint");
         MaximumProtectionRadio.Content = RadioContent("SettingsPerformanceModeMaximumProtection", "SettingsPerformanceModeMaximumProtectionHint");
+        ParentProtectionHeaderText.Text = LocalizationService.Get("SettingsParentProtectionHeader");
+        ParentProtectionHintText.Text = LocalizationService.Get("SettingsParentProtectionHint");
+        ParentProtectionToggle.OnContent = LocalizationService.Get("SettingsParentProtectionOn");
+        ParentProtectionToggle.OffContent = LocalizationService.Get("SettingsParentProtectionOff");
         ChangePasswordHeaderText.Text = LocalizationService.Get("SettingsChangePasswordHeader");
         OldPasswordLabel.Text = LocalizationService.Get("SettingsOldPasswordLabel");
         NewPasswordLabel.Text = LocalizationService.Get("SettingsNewPasswordLabel");
@@ -114,6 +121,7 @@ public sealed partial class SettingsPage : Page
         await ViewModel.InitializeAsync(CancellationToken.None);
         PerformanceModeRadios.SelectedIndex = ViewModel.PerformanceMode == PerformanceModeOption.MaximumProtection ? 1 : 0;
         _performanceModeInitialized = true;
+        SetParentProtectionToggleSilently(ViewModel.ParentProtectionEnabled);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -164,6 +172,60 @@ public sealed partial class SettingsPage : Page
         }
 
         ViewModel.OverlayMessage = text;
+    }
+
+    private void SetParentProtectionToggleSilently(bool isOn)
+    {
+        _suppressParentProtectionToggle = true;
+        ParentProtectionToggle.IsOn = isOn;
+        _suppressParentProtectionToggle = false;
+    }
+
+    /// <summary>
+    /// `PAUSE-040`: bật → hộp xác nhận giải thích trước; `PAUSE-042`: tắt → thử thách (trong ViewModel). Huỷ/thất bại → trả công
+    /// tắc về đúng trạng thái Service đang lưu.
+    /// </summary>
+    private async void OnParentProtectionToggled(object sender, RoutedEventArgs e)
+    {
+        if (_suppressParentProtectionToggle)
+        {
+            return;
+        }
+
+        bool enable = ParentProtectionToggle.IsOn;
+        ParentProtectionToggle.IsEnabled = false;
+        try
+        {
+            if (enable)
+            {
+                var confirm = new ContentDialog
+                {
+                    XamlRoot = XamlRoot,
+                    Title = LocalizationService.Get("SettingsParentProtectionConfirmTitle"),
+                    Content = new TextBlock { Text = LocalizationService.Get("SettingsParentProtectionConfirmBody"), TextWrapping = TextWrapping.Wrap },
+                    PrimaryButtonText = LocalizationService.Get("SettingsParentProtectionConfirmButton"),
+                    CloseButtonText = LocalizationService.Get("ChallengeCancelButton"),
+                    DefaultButton = ContentDialogButton.Close,
+                };
+                if (Application.Current.Resources.TryGetValue("DefaultContentDialogStyle", out object style))
+                {
+                    confirm.Style = (Style)style;
+                }
+
+                if (await confirm.ShowAsync() != ContentDialogResult.Primary)
+                {
+                    SetParentProtectionToggleSilently(ViewModel.ParentProtectionEnabled);
+                    return;
+                }
+            }
+
+            await ViewModel.SetParentProtectionAsync(enable, XamlRoot);
+            SetParentProtectionToggleSilently(ViewModel.ParentProtectionEnabled);
+        }
+        finally
+        {
+            ParentProtectionToggle.IsEnabled = true;
+        }
     }
 
     private async void OnSaveOverlayMessageClick(object sender, RoutedEventArgs e) => await ViewModel.SaveOverlayMessageAsync(CancellationToken.None);
