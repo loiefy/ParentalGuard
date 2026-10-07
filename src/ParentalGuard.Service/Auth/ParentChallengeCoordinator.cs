@@ -113,25 +113,25 @@ public sealed class ParentChallengeCoordinator(MonotonicClock clock)
         switch (RandomNumberGenerator.GetInt32(3))
         {
             case 0:
-            {
-                int a = RandomNumberGenerator.GetInt32(10, 100);
-                int b = RandomNumberGenerator.GetInt32(10, 100);
-                return ($"{a} + {b}", a + b);
-            }
+                {
+                    int a = RandomNumberGenerator.GetInt32(10, 100);
+                    int b = RandomNumberGenerator.GetInt32(10, 100);
+                    return ($"{a} + {b}", a + b);
+                }
 
             case 1:
-            {
-                int a = RandomNumberGenerator.GetInt32(20, 100);
-                int b = RandomNumberGenerator.GetInt32(10, a);
-                return ($"{a} - {b}", a - b);
-            }
+                {
+                    int a = RandomNumberGenerator.GetInt32(20, 100);
+                    int b = RandomNumberGenerator.GetInt32(10, a);
+                    return ($"{a} - {b}", a - b);
+                }
 
             default:
-            {
-                int a = RandomNumberGenerator.GetInt32(3, 13);
-                int b = RandomNumberGenerator.GetInt32(3, 13);
-                return ($"{a} × {b}", a * b);
-            }
+                {
+                    int a = RandomNumberGenerator.GetInt32(3, 13);
+                    int b = RandomNumberGenerator.GetInt32(3, 13);
+                    return ($"{a} × {b}", a * b);
+                }
         }
     }
 
