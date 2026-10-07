@@ -39,6 +39,37 @@
 
                 <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
+                <!-- FE-093 (2026-10-07): mã nguồn mở, GitHub, giấy phép dự án, ghi công mô hình AI. -->
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="OpenSourceHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <StackPanel Spacing="10" Margin="24,0,0,0">
+                        <TextBlock x:Name="OpenSourceIntroText" TextWrapping="Wrap" Opacity="0.85" />
+                        <Grid ColumnSpacing="16" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock x:Name="SourceCodeLabel" Grid.Row="0" Opacity="0.7" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="SourceCodeValue" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ProjectLicenseLabel" Grid.Row="1" Opacity="0.7" VerticalAlignment="Center" />
+                            <ContentPresenter x:Name="ProjectLicenseValue" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                            <TextBlock x:Name="ModelCreditLabel" Grid.Row="2" Opacity="0.7" VerticalAlignment="Top" />
+                            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                                <TextBlock x:Name="ModelCreditText" TextWrapping="Wrap" />
+                                <ContentPresenter x:Name="ModelCreditLink" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="ThirdPartyNoticeText" TextWrapping="Wrap" Opacity="0.7" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
                 <!-- FE-092 (2026-10-05): cách ứng dụng hoạt động và dữ liệu được lưu — phải khớp đúng thực tế bản build. -->
                 <StackPanel Spacing="12">
                     <TextBlock x:Name="HowItWorksHeaderText" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />

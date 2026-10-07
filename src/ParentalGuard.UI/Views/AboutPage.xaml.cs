@@ -25,6 +25,18 @@ public sealed partial class AboutPage : Page
         EmailValue.Content = BuildValue(LocalizationService.Get("AboutEmailValue"), isEmail: true);
         VersionValue.Text = AppVersionInfo.DisplayVersion;
 
+        // FE-093 (2026-10-07): mã nguồn mở, giấy phép, ghi công mô hình AI (Apache-2.0 yêu cầu ghi công).
+        OpenSourceHeaderText.Text = LocalizationService.Get("AboutOpenSourceHeader");
+        OpenSourceIntroText.Text = LocalizationService.Get("AboutOpenSourceIntro");
+        SourceCodeLabel.Text = LocalizationService.Get("AboutSourceCodeLabel");
+        SourceCodeValue.Content = BuildValue(LocalizationService.Get("AboutSourceCodeValue"), isEmail: false);
+        ProjectLicenseLabel.Text = LocalizationService.Get("AboutProjectLicenseLabel");
+        ProjectLicenseValue.Content = BuildValue(LocalizationService.Get("AboutProjectLicenseValue"), isEmail: false);
+        ModelCreditLabel.Text = LocalizationService.Get("AboutModelCreditLabel");
+        ModelCreditText.Text = LocalizationService.Get("AboutModelCreditText");
+        ModelCreditLink.Content = BuildValue(LocalizationService.Get("AboutModelCreditUrl"), isEmail: false);
+        ThirdPartyNoticeText.Text = LocalizationService.Get("AboutThirdPartyNotice");
+
         // FE-092 (2026-10-05): cách ứng dụng hoạt động và dữ liệu được lưu.
         HowItWorksHeaderText.Text = LocalizationService.Get("AboutHowItWorksHeader");
         HowItWorksOperationText.Text = LocalizationService.Get("AboutHowItWorksOperation");

@@ -71,4 +71,9 @@
        BẮT BUỘC: publish ParentalGuard.Vision SAU CÙNG trong số 6 executable (xem
        publish/E2E-TESTING.md) để Target bên đó luôn có tiếng nói cuối cùng. -->
 
+  <!-- FE-093 (2026-10-07): đóng gói thông báo bên thứ ba + toàn văn giấy phép cùng bản cài (Apache-2.0/BSD-3 yêu cầu). -->
+  <ItemGroup>
+    <None Include="..\..\THIRD-PARTY-NOTICES.md" Link="THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\third-party-licenses\*.txt" Link="third-party-licenses\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

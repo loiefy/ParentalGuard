@@ -668,4 +668,34 @@
   <data name="AuditEventTypeForceKillRefused" xml:space="preserve">
     <value>Từ chối buộc đóng ứng dụng (không đủ điều kiện an toàn)</value>
   </data>
+  <data name="AboutOpenSourceHeader" xml:space="preserve">
+    <value>Mã nguồn mở và giấy phép</value>
+  </data>
+  <data name="AboutOpenSourceIntro" xml:space="preserve">
+    <value>ParentalGuard là phần mềm mã nguồn mở, miễn phí. Mọi người đều có thể xem, kiểm chứng và đóng góp cho mã nguồn.</value>
+  </data>
+  <data name="AboutSourceCodeLabel" xml:space="preserve">
+    <value>Mã nguồn</value>
+  </data>
+  <data name="AboutSourceCodeValue" xml:space="preserve">
+    <value>https://github.com/loiefy/ParentalGuard</value>
+  </data>
+  <data name="AboutProjectLicenseLabel" xml:space="preserve">
+    <value>Giấy phép</value>
+  </data>
+  <data name="AboutProjectLicenseValue" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="AboutModelCreditLabel" xml:space="preserve">
+    <value>Mô hình AI</value>
+  </data>
+  <data name="AboutModelCreditText" xml:space="preserve">
+    <value>nsfw-image-detection-384 — tác giả Marqo, giấy phép Apache-2.0.</value>
+  </data>
+  <data name="AboutModelCreditUrl" xml:space="preserve">
+    <value>https://huggingface.co/Marqo/nsfw-image-detection-384</value>
+  </data>
+  <data name="AboutThirdPartyNotice" xml:space="preserve">
+    <value>Danh sách đầy đủ thành phần bên thứ ba và giấy phép nằm trong tệp THIRD-PARTY-NOTICES.md ở thư mục cài đặt.</value>
+  </data>
 </root>
