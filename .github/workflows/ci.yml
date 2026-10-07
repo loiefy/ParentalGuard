@@ -1,0 +1,53 @@
+# DEV-030 — lớp kiểm tra khách quan độc lập: build + test cho mọi push/PR vào main.
+# Bước định dạng (dotnet format) hiện CHỈ BÁO CÁO, chưa chặn: code cũ còn nhiều cảnh báo IDE1006 (quy tắc đặt tên đang
+# bắt cả hằng const) — bật chặn sau khi đã dọn xong.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore ParentalGuard.sln
+
+      - name: Build
+        run: dotnet build ParentalGuard.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test ParentalGuard.sln -c Release --no-build --logger "trx;LogFilePrefix=results" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+      - name: Format check (report only)
+        continue-on-error: true
+        run: dotnet format ParentalGuard.sln --verify-no-changes --no-restore --verbosity minimal
