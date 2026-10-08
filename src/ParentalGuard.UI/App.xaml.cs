@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -32,13 +31,8 @@ public partial class App : Application
     /// <summary>Composition root tối giản (mục 2.2 — "container đơn giản khởi tạo 1 lần"), truy cập qua <c>(App)Application.Current</c>.</summary>
     public IServiceProvider Services { get; private set; } = null!;
 
-    /// <summary>`FE-063a`: tham số dòng lệnh khi UI tự khởi động lại sau khi đổi ngôn ngữ — chờ phiên cũ thoát hẳn.</summary>
-    private const string RestartAfterArgPrefix = "--restart-after=";
-
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        WaitForPreviousInstanceIfRestarting();
-
         // FE-063a: mặc định tiếng Việt (không theo ngôn ngữ Windows) tới khi đọc được lựa chọn đã lưu ở Service.
         ApplyLanguage("vi");
         _singleInstanceGuard = new SingleInstanceGuard();
@@ -76,63 +70,21 @@ public partial class App : Application
     /// <summary>`MISC-011`: HWND cửa sổ chính — hộp thoại Lưu (FileSavePicker) của app unpackaged cần gắn với cửa sổ.</summary>
     internal nint MainWindowHandle => WinRT.Interop.WindowNative.GetWindowHandle(_window);
 
-    private static void ApplyLanguage(string code)
-    {
-        CultureInfo culture;
-        try
-        {
-            culture = CultureInfo.GetCultureInfo(LanguageCatalog.Codes.Contains(code) ? code : "vi");
-        }
-        catch (CultureNotFoundException)
-        {
-            culture = CultureInfo.GetCultureInfo("vi");
-        }
-
-        CultureInfo.DefaultThreadCurrentUICulture = culture;
-        CultureInfo.CurrentUICulture = culture;
-    }
+    private static void ApplyLanguage(string code) =>
+        LocalizationService.SetLanguage(LanguageCatalog.Codes.Contains(code) ? code : "vi");
 
     /// <summary>
-    /// `FE-063a`: đổi ngôn ngữ xong → mở phiên UI mới (chờ phiên này thoát hẳn: pipe UI chỉ nhận 1 kết nối, mutex chống 2 phiên)
-    /// rồi đóng cửa sổ — <see cref="OnWindowClosed"/> dọn dẹp và ngắt kết nối như khi đóng bình thường.
+    /// `FE-063a` (sửa 2026-10-08, chủ dự án yêu cầu "hot load"): đổi ngôn ngữ áp dụng NGAY trong cửa sổ đang mở — không tắt app.
+    /// Dựng lại Main Shell (mọi trang đọc chuỗi lúc dựng) rồi mở lại đúng tab Cài đặt. Phiên đăng nhập phụ huynh và kết nối
+    /// pipe giữ nguyên (singleton). Safety net BUG B: ViewModel Cài đặt cũ bị bỏ — zero Recovery Key nếu còn hiển thị.
     /// </summary>
-    internal void RestartForLanguageChange()
+    internal void ReloadForLanguageChange(string code)
     {
-        try
-        {
-            Process.Start(new ProcessStartInfo(Environment.ProcessPath!, RestartAfterArgPrefix + Environment.ProcessId.ToString(CultureInfo.InvariantCulture))
-            {
-                UseShellExecute = false,
-            });
-        }
-        catch (System.ComponentModel.Win32Exception)
-        {
-            return; // không mở được phiên mới — giữ phiên hiện tại; ngôn ngữ mới áp dụng ở lần mở sau
-        }
-
-        _window?.Close();
-    }
-
-    private static void WaitForPreviousInstanceIfRestarting()
-    {
-        string? arg = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith(RestartAfterArgPrefix, StringComparison.Ordinal));
-        if (arg is null || !int.TryParse(arg.AsSpan(RestartAfterArgPrefix.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int pid))
-        {
-            return;
-        }
-
-        try
-        {
-            using Process previous = Process.GetProcessById(pid);
-            previous.WaitForExit(TimeSpan.FromSeconds(10));
-        }
-        catch (ArgumentException)
-        {
-            // đã thoát
-        }
-        catch (InvalidOperationException)
-        {
-        }
+        ApplyLanguage(code);
+        _activeSettingsViewModel?.MarkDiscarded();
+        _activeSettingsViewModel?.Dispose();
+        _activeSettingsViewModel = null;
+        Services.GetRequiredService<NavigationService>().NavigateToMainShell(typeof(SettingsPage));
     }
 
     /// <summary>Gọi bởi <see cref="Views.ConnectionErrorPage"/> khi bấm "Thử lại" (mục 9).</summary>

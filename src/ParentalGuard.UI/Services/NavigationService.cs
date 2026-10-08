@@ -19,7 +19,13 @@ public sealed class NavigationService(IAuthFacade authFacade) : IAuthPromptServi
 
     public bool NavigateToOnboarding() => Navigate(typeof(OnboardingPage));
 
-    public bool NavigateToMainShell() => Navigate(typeof(MainShellPage));
+    /// <param name="initialPage">Trang mở sẵn trong Main Shell (mặc định Tổng quan) — dùng khi dựng lại giao diện sau đổi ngôn ngữ.</param>
+    public bool NavigateToMainShell(Type? initialPage = null)
+    {
+        bool navigated = _rootFrame?.Navigate(typeof(MainShellPage), initialPage) ?? false;
+        _rootFrame?.BackStack.Clear();
+        return navigated;
+    }
 
     /// <summary>`S6` Recovery (mục 4/6.6) — điều hướng trên root <c>Frame</c>, gọi từ `S5` ("Quên mật khẩu?") và `S4` (link trực tiếp).</summary>
     public bool NavigateToRecovery() => Navigate(typeof(RecoveryPage));

@@ -487,7 +487,7 @@
     <value>Langue</value>
   </data>
   <data name="SettingsLanguageHint" xml:space="preserve">
-    <value>Changer de langue ne nécessite pas de connexion. L'application redémarre pour l'appliquer. Cette traduction a été générée par IA et n'a pas encore été relue.</value>
+    <value>Changer de langue ne nécessite pas de connexion et s'applique immédiatement. Cette traduction a été générée par IA et n'a pas encore été relue.</value>
   </data>
   <data name="LanguageName_vi" xml:space="preserve">
     <value>Vietnamien</value>

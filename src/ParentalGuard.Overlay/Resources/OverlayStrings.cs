@@ -28,5 +28,10 @@ internal static class OverlayStrings
     /// <summary>`FE-016i`: tooltip nút bánh răng trên overlay.</summary>
     internal static string OpenDashboardTooltip => Get("OpenDashboardTooltip");
 
-    private static string Get(string name) => _resourceManager.GetString(name) ?? name;
+    private static System.Globalization.CultureInfo? _culture;
+
+    /// <summary>`FE-063a`: ngôn ngữ do Service đẩy xuống (<c>LanguageUpdate</c>) — null = theo culture của luồng (mặc định).</summary>
+    internal static void SetLanguage(System.Globalization.CultureInfo culture) => _culture = culture;
+
+    private static string Get(string name) => _resourceManager.GetString(name, _culture) ?? name;
 }

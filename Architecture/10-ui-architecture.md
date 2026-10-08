@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -310,15 +310,17 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 ### Đa ngôn ngữ (v0.4.0, 2026-10-07, `FE-063a`)
 
 - Resource: `UiStrings.{en,fr,es,pt,zh-Hans}.resx` và `OverlayStrings.{…}.resx` (satellite assembly). Bản dịch do AI tạo, chưa được người bản ngữ duyệt (ghi trong file và trong dòng gợi ý ở `S4`). Khoá thiếu rơi về bản gốc tiếng Việt.
-- Nguồn sự thật là `config.db` của Service (`language`). UI khởi động bằng `vi` (không theo ngôn ngữ Windows), đọc `ConfigQuery.language` ngay sau khi kết nối rồi đặt `CultureInfo.DefaultThreadCurrentUICulture`/`CurrentUICulture` TRƯỚC khi dựng trang.
-- Đổi ngôn ngữ ở `S4` (không cần đăng nhập) → `SetLanguageRequest` → UI tự khởi động lại: mở tiến trình mới với `--restart-after=<pid>` (chờ tiến trình cũ thoát hẳn tối đa 10 giây, vì pipe UI chỉ nhận 1 kết nối và mutex chống 2 phiên), rồi đóng cửa sổ để `OnWindowClosed` dọn dẹp như đóng thường.
-- Overlay nhận `LanguageUpdate` (field 70) lúc kết nối và lúc đổi → đặt `DefaultThreadCurrentUICulture` + culture của luồng UI WinForms; lớp che mới và tooltip lần cập nhật kế tiếp dùng ngôn ngữ mới.
+- Nguồn sự thật là `config.db` của Service (`language`). UI khởi động bằng `vi` (không theo ngôn ngữ Windows), đọc `ConfigQuery.language` ngay sau khi kết nối rồi gọi `LocalizationService.SetLanguage` TRƯỚC khi dựng trang.
+- **Ngôn ngữ giữ trong `LocalizationService` (field tĩnh), mọi `Get` truyền culture tường minh vào `ResourceManager`** — KHÔNG dựa vào `CultureInfo.CurrentUICulture`: giá trị đó đi theo luồng async (ExecutionContext), đặt trong 1 hàm async chỉ có hiệu lực trong hàm đó (bug 2026-10-08: chỉ menu đổi ngôn ngữ). Không cache chuỗi đã dịch trong field `static`.
+- `FE-063b` (v0.5.0, 2026-10-08): đổi ngôn ngữ ở `S4` (không cần đăng nhập) → `SetLanguageRequest` → `App.ReloadForLanguageChange`: đặt ngôn ngữ, bỏ ViewModel Cài đặt cũ (zero Recovery Key nếu còn — BUG B), điều hướng root `Frame` tới Main Shell MỚI với tham số = `SettingsPage` (mở lại đúng tab), xoá back stack. Kết nối pipe và phiên phụ huynh (singleton) giữ nguyên — không tắt app. Thay cơ chế tự khởi động lại của v0.4.0.
+- Overlay nhận `LanguageUpdate` (field 70) lúc kết nối và lúc đổi → `OverlayStrings.SetLanguage` (culture tường minh, cùng lý do trên); lớp che mới và tooltip lần cập nhật kế tiếp dùng ngôn ngữ mới.
 - `AuthPromptDialog` không còn chuỗi tiếng Việt viết cứng trong XAML. Test UI/Overlay cố định culture `vi` bằng module initializer để kết quả không phụ thuộc ngôn ngữ của máy chạy test.
 
 ## 12. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.5.0 | 2026-10-08 | MINOR — `FE-063b`: đổi ngôn ngữ tại chỗ (dựng lại Main Shell, giữ tab Cài đặt), ngôn ngữ giữ trong `LocalizationService` thay vì `CurrentUICulture` (sửa lỗi chỉ menu đổi ngôn ngữ) |
 | v0.4.0 | 2026-10-07 | MINOR — Bảo vệ cả phụ huynh phía UI: facade, hộp thoại thử thách, luồng thử thách trước `S5`, công tắc `S4`, thẻ giới thiệu 4 |
 | v0.3.0 | 2026-10-05 | MINOR — mục 6.8: `ParentSessionService` + khung đăng nhập dùng chung `S3`/`S4` (`PWD-024`, `FE-080`–`083`), giới thiệu lần đầu 5 thẻ (`FE-032`), giải thích mật khẩu (`FE-033`), ngôn ngữ song ngữ (`FE-064`), biểu đồ 4 khoảng + gộp tuần (`FE-071a`), "Máy tính đang được bảo vệ" (`FE-042`), nền dải chuyển màu (`FE-005e`), mục "Cách ứng dụng hoạt động" ở `S10` (`FE-092`) |
 | v0.2.14 | 2026-10-01 | PATCH — whitelist `S4`: `ListView` `MaxHeight=260` + viền mờ, cuộn dọc khi dài |

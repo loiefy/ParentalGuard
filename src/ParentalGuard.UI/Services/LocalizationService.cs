@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Resources;
 
 namespace ParentalGuard.UI.Services;
@@ -13,7 +14,30 @@ public static class LocalizationService
 {
     private static readonly ResourceManager _resourceManager = new("ParentalGuard.UI.Resources.UiStrings", typeof(LocalizationService).Assembly);
 
-    public static string Get(string key) => _resourceManager.GetString(key) ?? key;
+    /// <summary>
+    /// `FE-063a` (sửa 2026-10-08): ngôn ngữ hiển thị giữ TẠI ĐÂY, không dựa vào <see cref="CultureInfo.CurrentUICulture"/> — giá trị
+    /// đó đi theo từng luồng async (ExecutionContext), đặt trong 1 hàm async chỉ có hiệu lực trong hàm đó: bản trước chỉ menu
+    /// (dựng trong hàm đó) đổi ngôn ngữ, các trang dựng sau vẫn tiếng Việt. Mặc định tiếng Việt.
+    /// </summary>
+    private static CultureInfo _culture = CultureInfo.GetCultureInfo("vi");
+
+    public static CultureInfo Culture => _culture;
+
+    public static void SetLanguage(string code)
+    {
+        try
+        {
+            _culture = CultureInfo.GetCultureInfo(code);
+        }
+        catch (CultureNotFoundException)
+        {
+            _culture = CultureInfo.GetCultureInfo("vi");
+        }
+
+        CultureInfo.DefaultThreadCurrentUICulture = _culture;
+    }
+
+    public static string Get(string key) => _resourceManager.GetString(key, _culture) ?? key;
 
     public static string GetFormatted(string key, params object[] args) => string.Format(Get(key), args);
 

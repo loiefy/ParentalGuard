@@ -22,8 +22,7 @@ public sealed partial class MainShellPage : Page
 
         Loaded += (_, _) =>
         {
-            Nav.SelectedItem = DashboardItem;
-            ContentFrame.Navigate(typeof(DashboardPage));
+            ContentFrame.Navigate(_initialPage ?? typeof(DashboardPage));
             UpdateBackdropLayout();
         };
 
@@ -54,6 +53,15 @@ public sealed partial class MainShellPage : Page
             : e.SourcePageType == typeof(SettingsPage) ? SettingsItem
             : e.SourcePageType == typeof(AboutPage) ? AboutItem
             : e.SourcePageType == typeof(DonatePage) ? DonateItem : DashboardItem;
+    }
+
+    private Type? _initialPage;
+
+    /// <summary>`FE-063a`: sau đổi ngôn ngữ, Main Shell được dựng lại và mở thẳng tab Cài đặt (tham số điều hướng).</summary>
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        _initialPage = e.Parameter as Type;
     }
 
     private double _paneWidth = -1;

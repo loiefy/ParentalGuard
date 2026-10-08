@@ -537,7 +537,7 @@
     <value>Language</value>
   </data>
   <data name="SettingsLanguageHint" xml:space="preserve">
-    <value>Thay đổi ngôn ngữ không yêu cầu đăng nhập. Ứng dụng sẽ tự khởi động lại để áp dụng.</value>
+    <value>Thay đổi ngôn ngữ không yêu cầu đăng nhập và được áp dụng ngay.</value>
   </data>
   <data name="LanguageName_vi" xml:space="preserve">
     <value>Tiếng Việt</value>

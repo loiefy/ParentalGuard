@@ -487,7 +487,7 @@
     <value>Idioma</value>
   </data>
   <data name="SettingsLanguageHint" xml:space="preserve">
-    <value>Mudar o idioma não requer início de sessão. A aplicação reinicia para o aplicar. Esta tradução foi gerada por IA e ainda não foi revista.</value>
+    <value>Mudar o idioma não requer início de sessão e é aplicado de imediato. Esta tradução foi gerada por IA e ainda não foi revista.</value>
   </data>
   <data name="LanguageName_vi" xml:space="preserve">
     <value>Vietnamita</value>

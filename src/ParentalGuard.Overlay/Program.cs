@@ -142,7 +142,7 @@ internal static class Program
 #endif
             case IpcPayload.BodyOneofCase.LanguageUpdate:
                 // FE-063a (2026-10-07): lớp che mới + tooltip icon lần cập nhật kế tiếp dùng ngôn ngữ mới.
-                ApplyLanguage(message.LanguageUpdate.Language, coordinator);
+                ApplyLanguage(message.LanguageUpdate.Language);
                 break;
             case IpcPayload.BodyOneofCase.ShowToast:
                 // BE-061b: UI Toast thật là Đợt 6 (Architecture/09, chưa viết) — Đợt 0/1 chỉ đảm bảo nhận không throw.
@@ -156,7 +156,7 @@ internal static class Program
 
     private static readonly HashSet<string> _supportedLanguages = new(StringComparer.Ordinal) { "vi", "en", "fr", "es", "pt", "zh-Hans" };
 
-    private static void ApplyLanguage(string code, OverlayCoordinator coordinator)
+    private static void ApplyLanguage(string code)
     {
         if (!_supportedLanguages.Contains(code))
         {
@@ -165,7 +165,7 @@ internal static class Program
 
         System.Globalization.CultureInfo culture = System.Globalization.CultureInfo.GetCultureInfo(code);
         System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
-        coordinator.Invoke(() => System.Globalization.CultureInfo.CurrentUICulture = culture);
+        Resources.OverlayStrings.SetLanguage(culture);
     }
 
     private static void SendForceClose(IpcChildClient client, ForceCloseRequest request)

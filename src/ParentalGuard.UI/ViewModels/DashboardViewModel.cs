@@ -43,7 +43,8 @@ public sealed partial class DashboardViewModel(
 
     // Instance property (không static) để x:Bind trực tiếp qua `ViewModel.PauseDurationChoices`, cùng
     // mẫu hình mọi property khác trong file — tránh cú pháp x:Bind tới static member.
-    private static readonly IReadOnlyList<PauseDurationChoice> _pauseDurationChoices =
+    // FE-063a (2026-10-08): KHÔNG static — chuỗi phải dịch theo ngôn ngữ hiện hành mỗi lần dựng trang.
+    private readonly IReadOnlyList<PauseDurationChoice> _pauseDurationChoices =
     [
         new(PauseDurationOption.FifteenMinutes, LocalizationService.Get("PauseDuration15Min")),
         new(PauseDurationOption.ThirtyMinutes, LocalizationService.Get("PauseDuration30Min")),
@@ -54,8 +55,14 @@ public sealed partial class DashboardViewModel(
 
     public IReadOnlyList<PauseDurationChoice> PauseDurationChoices => _pauseDurationChoices;
 
-    [ObservableProperty]
-    public partial PauseDurationChoice SelectedPauseDurationChoice { get; set; } = _pauseDurationChoices[2];
+    private PauseDurationChoice? _selectedPauseDurationChoice;
+
+    /// <summary>Mặc định 1 giờ — viết tay (không qua generator) vì giá trị mặc định lấy từ danh sách instance.</summary>
+    public PauseDurationChoice SelectedPauseDurationChoice
+    {
+        get => _selectedPauseDurationChoice ??= _pauseDurationChoices[2];
+        set => SetProperty(ref _selectedPauseDurationChoice, value);
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsActiveState), nameof(IsPausedState), nameof(IsErrorState), nameof(IsCheckingState), nameof(StatusCardText))]

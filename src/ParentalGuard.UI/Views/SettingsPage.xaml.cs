@@ -90,7 +90,7 @@ public sealed partial class SettingsPage : Page
         _languagePickerReady = true;
     }
 
-    /// <summary>`FE-063a`/`FE-083`: không cần đăng nhập — Service lưu lựa chọn rồi UI tự khởi động lại để áp dụng.</summary>
+    /// <summary>`FE-063a`/`FE-083`: không cần đăng nhập — Service lưu lựa chọn rồi giao diện đổi ngôn ngữ ngay tại chỗ.</summary>
     private async void OnLanguageSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_languagePickerReady || LanguageCombo.SelectedItem is not ComboBoxItem { Tag: string code }
@@ -112,7 +112,7 @@ public sealed partial class SettingsPage : Page
 
         if (accepted)
         {
-            ((App)Application.Current).RestartForLanguageChange();
+            ((App)Application.Current).ReloadForLanguageChange(code);
             return;
         }
 
