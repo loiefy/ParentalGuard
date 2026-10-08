@@ -1,4 +1,4 @@
-# Build bản cài đặt phát hành: publish 6 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
+﻿# Build bản cài đặt phát hành: publish 6 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
 # publish\release\ParentalGuard, chép CHỈ model Marqo, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
 # Dùng:  powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-Version 0.9.0]
 param(
