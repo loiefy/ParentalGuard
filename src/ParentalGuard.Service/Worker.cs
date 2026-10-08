@@ -542,7 +542,10 @@ public sealed class Worker(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "Failed to handle session change.");
+            // Bug real-hardware 2026-10-08: quên session đang ghi nhận để vòng poll 3 giây THỬ LẠI — trước đây
+            // _currentSessionId đã trỏ sang session mới dù khởi động thất bại → không bao giờ thử lại, máy không được bảo vệ.
+            _currentSessionId = SessionInterop.InvalidSessionId;
+            logger.LogError(ex, "Failed to handle session change — will retry on the next poll.");
         }
         finally
         {

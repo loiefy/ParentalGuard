@@ -179,6 +179,12 @@ public sealed class ChildProcessSupervisor(
                 catch (OperationCanceledException)
                 {
                 }
+                catch (Exception ex)
+                {
+                    // Bug real-hardware 2026-10-08: lỗi lúc dừng vòng lặp CŨ không được phép chặn việc khởi động cho
+                    // session MỚI (trước đây ném ngược lên Worker → Vision/Overlay không bao giờ được dựng lại sau logoff→logon).
+                    logger.LogWarning(ex, "{ProcessType} supervisor loop faulted while stopping.", processType);
+                }
             }
 
             _sessionCts.Dispose();
@@ -483,8 +489,15 @@ public sealed class ChildProcessSupervisor(
         }
     }
 
-    private async Task SendGracefulStopAsync(NamedPipeServerStream pipe, string reason)
+    internal async Task SendGracefulStopAsync(NamedPipeServerStream pipe, string reason)
     {
+        // Bug real-hardware 2026-10-08: huỷ đúng lúc còn chờ tiến trình con connect → pipe chưa kết nối, WriteAsync ném
+        // InvalidOperationException. Không có ai để báo dừng — tiến trình con (nếu có) bị force-kill ở bước dọn dẹp.
+        if (!pipe.IsConnected)
+        {
+            return;
+        }
+
         try
         {
             IpcPayload stop = IpcEnvelope.NewEnvelope(ProcessType.Service, _messageIds.Next());
@@ -492,7 +505,7 @@ public sealed class ChildProcessSupervisor(
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
             await IpcFrameTransport.WriteFrameAsync(pipe, stop, hmacKey, cts.Token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or OperationCanceledException or IpcFrameViolationException)
+        catch (Exception ex) when (ex is IOException or OperationCanceledException or IpcFrameViolationException or InvalidOperationException)
         {
             // Pipe đã hỏng hoặc phía kia không phản hồi kịp — tiến trình con sẽ bị force-kill ở bước dọn dẹp.
         }
