@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.6.1 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -303,7 +303,10 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 ### Trò chơi nhảy vượt rào (v0.6.0, 2026-10-08, `PAUSE-044`–`048` — thay hộp thoại thử thách phép tính)
 
-- `Game/HurdleGameEngine` (C# thuần, test được): tốc độ cố định 5,5 m/giây, quãng đường tính theo thời gian thực; vật lý bước cố định 1/240 giây (khung hình giật không làm nhân vật "xuyên" rào); trọng lực 20 m/s², vận tốc nhảy 8 m/s (bay 0,8 giây ≈ 4,4 m, đỉnh 1,6 m), rào cao 0,9 m; khoảng cách rào theo độ khó: 1.000 m 13–22 m, 2.000 m 10–19 m, 3.000 m 8–16 m (seed do Service cấp, PRNG xorshift).
+- `Game/HurdleGameEngine` (C# thuần, test được), v0.6.1 (`PAUSE-045a`/`046a`):
+  - Tốc độ chỉ phụ thuộc quãng đường: pace 600 → 240 giây/km tuyến tính trong 500 m đầu rồi giữ 240 giây/km (`SecondsToRun(1000) = 330`). Vật lý bước cố định 1/240 giây (khung hình giật không "xuyên" rào).
+  - Cú nhảy lấy thông số theo tốc độ lúc bật nhảy (`ProfileAt`): bay 0,9 → 1,2 giây, đỉnh 1,8 → 2,0 m (trọng lực/vận tốc đầu suy ra từ 2 giá trị này) ⇒ xa ~1,5 m lúc chậm nhất, ~5 m lúc nhanh nhất. Rào cao 0,9 m, vùng va chạm ±0,3 m.
+  - Sinh rào theo cụm (1 rào, hoặc cặp rào cách 0,9–1,6 m khi `ClearLength − khoảng cách − 0,6 m ≥ tốc độ × 0,22 giây`; xác suất cặp tăng tới 35%). Khoảng cách giữa 2 cụm = phần bắt buộc (độ dài cú nhảy + 0,4 giây phản xạ + vùng va chạm + đoạn lấy đà) + phần ngẫu nhiên theo GIÂY × tốc độ (0,6–2,4 giây lúc đầu → 0,05–0,6 giây ở mét 2.500), nhân hệ số độ khó (1,0 / 0,85 / 0,7). Seed do Service cấp, PRNG xorshift.
 - `Views/HurdleGameWindow`: cửa sổ WinUI riêng dựng bằng code (Canvas trong Viewbox, `CompositionTarget.Rendering`), luôn nằm trên cùng, không thu nhỏ/phóng to. Space/↑/chuột trái: bắt đầu/nhảy. Về đích/vấp rào → báo Service ngay; đóng cửa sổ khi chưa báo = thoát (báo `completed=false`).
 - `Services/ParentGameService` (seam `IParentGameService`): xin Service bắt đầu ván → mở cửa sổ → trả kết quả Service đã chấm.
 - `S2`: protection bật → `S5` (mật khẩu) → trò chơi → `PAUSED` thì cập nhật ngay, không gửi `PauseMonitoringRequest`. `S4`: công tắc + ComboBox độ khó; tắt/giảm độ khó khi đang bật → trò chơi; bật/tăng → gửi thẳng.
@@ -327,6 +330,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.1 | 2026-10-08 | PATCH — trò chơi: tăng tốc dần, nhảy theo tốc độ, rào dày dần + cặp rào (`PAUSE-045a`/`046a`); HUD hiện pace |
 | v0.6.0 | 2026-10-08 | MINOR — trò chơi nhảy vượt rào (`PAUSE-044`–`048`) thay hộp thoại thử thách phép tính |
 | v0.5.0 | 2026-10-08 | MINOR — `FE-063b`: đổi ngôn ngữ tại chỗ (dựng lại Main Shell, giữ tab Cài đặt), ngôn ngữ giữ trong `LocalizationService` thay vì `CurrentUICulture` (sửa lỗi chỉ menu đổi ngôn ngữ) |
 | v0.4.0 | 2026-10-07 | MINOR — Bảo vệ cả phụ huynh phía UI: facade, hộp thoại thử thách, luồng thử thách trước `S5`, công tắc `S4`, thẻ giới thiệu 4 |

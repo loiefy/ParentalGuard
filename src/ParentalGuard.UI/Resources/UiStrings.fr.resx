@@ -643,7 +643,7 @@
     <value>Protéger aussi contre les parents</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Une fois activé, suspendre la surveillance demande le bon mot de passe puis une course de haies sur la distance choisie (1 000 m prennent environ 3 minutes). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
+    <value>Une fois activé, suspendre la surveillance demande le bon mot de passe puis une course de haies sur la distance choisie (1 000 m prennent environ 5 min 30 s). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activé</value>
@@ -655,7 +655,7 @@
     <value>Activer « Protéger aussi contre les parents » ?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Une fois activé, même un parent qui connaît le mot de passe ne peut pas suspendre la surveillance tout de suite : après le mot de passe, il doit terminer la course de haies sur la distance choisie (au moins environ 3 minutes). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
+    <value>Une fois activé, même un parent qui connaît le mot de passe ne peut pas suspendre la surveillance tout de suite : après le mot de passe, il doit terminer la course de haies sur la distance choisie (au moins environ 5 min 30 s). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Activer</value>
@@ -734,7 +734,7 @@
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
     <value>Courez {0} m sans toucher de haie pour {1}.
-Appuyez sur Espace ou cliquez (bouton gauche) pour démarrer, puis à nouveau pour sauter les haies.</value>
+Le coureur accélère d'une allure de 10 min/km à 4 min/km ; plus il court vite, plus il saute loin. Appuyez sur Espace ou cliquez (bouton gauche) pour démarrer, puis à nouveau pour sauter les haies.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Espace ou clic gauche : sauter. Fermer cette fenêtre revient à abandonner — vous ne pourrez pas {0}.</value>
@@ -779,12 +779,15 @@ Appuyez sur Espace ou cliquez (bouton gauche) pour démarrer, puis à nouveau po
     <value>Difficulté de la course de haies (distance à courir)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Facile — 1 000 m (environ 3 minutes)</value>
+    <value>Facile — 1 000 m (environ 5 min 30 s)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Moyen — 2 000 m (environ 6 minutes, plus de haies)</value>
+    <value>Moyen — 2 000 m (environ 9 min 30 s, plus de haies)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difficile — 3 000 m (environ 9 minutes, le plus de haies)</value>
+    <value>Difficile — 3 000 m (environ 13 min 30 s, le plus de haies)</value>
+  </data>
+  <data name="GamePaceFormat" xml:space="preserve">
+    <value>Allure : {0}/km</value>
   </data>
 </root>

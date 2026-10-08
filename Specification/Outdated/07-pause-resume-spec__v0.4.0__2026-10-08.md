@@ -1,6 +1,6 @@
 # 07 — Pause / Resume Mechanism Spec
 
-> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 1. Mục đích
 
@@ -36,10 +36,8 @@ Cho phép phụ huynh tạm dừng giám sát trong tình huống hợp lệ (v�
 ### 4b. Trò chơi nhảy vượt rào (mới v0.4.0, 2026-10-08 — chủ dự án yêu cầu trực tiếp, supersedes thử thách phép tính `PAUSE-041`/`PAUSE-042`)
 
 - `PAUSE-044` **(ĐÃ CHỐT v0.4.0)**: Khi chế độ đang bật, **tạm dừng giám sát** = nhập đúng mật khẩu (`PAUSE-001`) **TRƯỚC**, sau đó **1 cửa sổ trò chơi nhảy vượt rào** hiện lên. **Về đích** → giám sát được tạm dừng theo thời lượng đã chọn. **Vấp rào** hoặc **thoát trò chơi** (đóng cửa sổ) → **không** tạm dừng; muốn thử lại phải bấm Tạm dừng và nhập mật khẩu lại từ đầu.
-- `PAUSE-045` **(DEPRECATED v0.5.0 phần "tốc độ cố định" và thời gian ước tính — thay bởi `PAUSE-045a`; phần chọn độ khó 1.000/2.000/3.000 m giữ nguyên) (ĐÃ CHỐT v0.4.0)**: Độ khó do phụ huynh chọn ở `S4` = **quãng đường phải chạy**: **Dễ 1.000 m / Vừa 2.000 m / Khó 3.000 m** (mặc định Dễ); quãng đường dài hơn thì rào cũng dày hơn. Nhân vật chạy với **tốc độ cố định cho mọi độ khó**, đảm bảo chạy **1.000 m mất ít nhất 3 phút** (≈ 3 phút 2 giây; 2.000 m ≈ 6 phút; 3.000 m ≈ 9 phút).
-- `PAUSE-046` **(ĐÃ CHỐT v0.4.0, bổ sung bởi `PAUSE-046a`)**: Cách chơi: nhân vật tự chạy trên đường có nhiều rào; nhấn **phím Space** hoặc **chuột trái** để nhảy qua rào (chỉ nhảy khi đang chạm đất). Màn hình hiển thị quãng đường đã chạy / mục tiêu, thanh tiến độ và thời gian.
-- `PAUSE-045a` **(ĐÃ CHỐT v0.5.0, 2026-10-08 — chủ dự án yêu cầu trực tiếp, supersedes phần tốc độ của `PAUSE-045`)**: Chạy càng lâu càng nhanh: **pace 10 phút/km lúc xuất phát, giảm dần đều tới 4 phút/km ở mét thứ 500**, sau đó giữ 4 phút/km — như nhau ở mọi độ khó. Thời gian chạy: 500 m đầu 3 phút 30 giây; **1.000 m ≈ 5 phút 30 giây** (vẫn ≥ 3 phút); 2.000 m ≈ 9 phút 30 giây; 3.000 m ≈ 13 phút 30 giây. Màn hình hiện pace hiện tại.
-- `PAUSE-046a` **(ĐÃ CHỐT v0.5.0, 2026-10-08 — chủ dự án yêu cầu trực tiếp)**: Chạy càng nhanh thì **ở trên không càng lâu và nhảy càng xa**. Mật độ rào **cao hơn trước** và **tăng dần theo quãng đường** (độ khó cao thì dày hơn); cho phép **2 rào đặt gần nhau** khi 1 cú nhảy ở tốc độ lúc đó vượt được cả 2. Mọi bố trí rào phải **khả thi**: luôn có khoảng thời điểm nhảy hợp lệ và đủ thời gian phản xạ sau khi tiếp đất.
+- `PAUSE-045` **(ĐÃ CHỐT v0.4.0)**: Độ khó do phụ huynh chọn ở `S4` = **quãng đường phải chạy**: **Dễ 1.000 m / Vừa 2.000 m / Khó 3.000 m** (mặc định Dễ); quãng đường dài hơn thì rào cũng dày hơn. Nhân vật chạy với **tốc độ cố định cho mọi độ khó**, đảm bảo chạy **1.000 m mất ít nhất 3 phút** (≈ 3 phút 2 giây; 2.000 m ≈ 6 phút; 3.000 m ≈ 9 phút).
+- `PAUSE-046` **(ĐÃ CHỐT v0.4.0)**: Cách chơi: nhân vật tự chạy trên đường có nhiều rào; nhấn **phím Space** hoặc **chuột trái** để nhảy qua rào (chỉ nhảy khi đang chạm đất). Màn hình hiển thị quãng đường đã chạy / mục tiêu, thanh tiến độ và thời gian.
 - `PAUSE-047` **(ĐÃ CHỐT v0.4.0)**: **Tắt** chế độ hoặc **giảm** độ khó khi chế độ đang bật cũng phải về đích trò chơi ở **độ khó hiện hành** (tránh lách bằng cách tắt/giảm rồi tạm dừng). Bật chế độ hoặc tăng độ khó chỉ cần đăng nhập phụ huynh. Không còn khoá sau nhiều lần thua (mỗi lượt chơi đã tốn vài phút).
 - `PAUSE-048` **(ĐÃ CHỐT v0.4.0)**: `Service` ghi nhận ván chơi và quyết định kết quả: mật khẩu (mã xác thực) được tiêu thụ ngay khi bắt đầu ván; mỗi ván chỉ kết thúc được 1 lần; `Service` **từ chối** kết quả về đích sớm hơn thời gian tối thiểu để chạy hết quãng đường ở tốc độ cố định. Tạm dừng do về đích có mọi hệ quả như tạm dừng thường (nhật ký, cảnh báo tần suất `PAUSE-021`). Nhật ký ghi bắt đầu/thắng/thua của từng ván.
 
@@ -56,7 +54,6 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
-| v0.5.0 | 2026-10-08 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `PAUSE-045a` tăng tốc dần (pace 10 → 4 phút/km trong 500 m đầu) supersedes tốc độ cố định của `PAUSE-045`; `PAUSE-046a` nhảy xa/lâu hơn khi chạy nhanh, rào dày hơn và dày dần, cho phép cặp rào gần nhau nếu nhảy qua được. Chi tiết do đội phát triển chọn: bay 0,9 → 1,2 giây, cửa sổ nhảy ≥ 0,22 giây, phản xạ sau tiếp đất ≥ 0,4 giây. Archive: `Outdated/07-pause-resume-spec__v0.4.0__2026-10-08.md` |
 | v0.4.0 | 2026-10-08 | **MINOR (chủ dự án yêu cầu trực tiếp)**: mục 4b — trò chơi nhảy vượt rào thay thử thách phép tính: `PAUSE-044`–`PAUSE-048` mới; `PAUSE-041`/`PAUSE-042` và câu cuối `PAUSE-043` DEPRECATED. Chi tiết do đội phát triển chọn (ghi rõ để chủ dự án điều chỉnh): độ khó = quãng đường + mật độ rào, tốc độ cố định 5,5 m/giây, tắt/giảm độ khó phải chơi, bỏ khoá sau nhiều lần thua. Archive: `Outdated/07-pause-resume-spec__v0.3.1__2026-10-08.md` |
 | v0.3.1 | 2026-10-07 | **PATCH (làm rõ câu chữ)**: `PAUSE-043` — thẻ giới thiệu `FE-032` luôn hiển thị (bản cũ viết nhầm "khi chế độ đang bật"); ghi rõ thứ tự thử thách trước mật khẩu. Archive: `Outdated/07-pause-resume-spec__v0.3.0__2026-10-07.md` |
 | v0.3.0 | 2026-10-07 | **MINOR (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: mục 4a "Bảo vệ cả phụ huynh" — `PAUSE-040`–`PAUSE-043` (thử thách 5 phép tính/60 giây, Service sinh và chấm, khoá 5 phút sau 3 lần thất bại; áp dụng cho tạm dừng và tắt chế độ) |

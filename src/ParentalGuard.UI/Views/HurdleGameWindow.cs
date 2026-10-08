@@ -117,7 +117,7 @@ public sealed partial class HurdleGameWindow : Window
         for (int i = 0; i < HurdlePool; i++)
         {
             double heightPx = HurdleGameEngine.HurdleHeight * PixelsPerMeter;
-            var bar = new Rectangle { Width = 30, Height = 8, Fill = new SolidColorBrush(Colors.White), Stroke = new SolidColorBrush(Color.FromArgb(255, 0xD0, 0x30, 0x30)), StrokeThickness = 2, RadiusX = 2, RadiusY = 2 };
+            var bar = new Rectangle { Width = 16, Height = 8, Fill = new SolidColorBrush(Colors.White), Stroke = new SolidColorBrush(Color.FromArgb(255, 0xD0, 0x30, 0x30)), StrokeThickness = 2, RadiusX = 2, RadiusY = 2 };
             var left = new Rectangle { Width = 4, Height = heightPx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
             var right = new Rectangle { Width = 4, Height = heightPx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
             Canvas.SetTop(bar, GroundY - heightPx);
@@ -246,7 +246,9 @@ public sealed partial class HurdleGameWindow : Window
         _distanceText.Text = LocalizationService.GetFormatted("GameDistanceFormat", ((int)distance).ToString("N0", LocalizationService.Culture), _engine.TargetMeters.ToString("N0", LocalizationService.Culture));
         _progress.Value = distance / _engine.TargetMeters;
         TimeSpan elapsed = TimeSpan.FromSeconds(_engine.ElapsedSeconds);
-        _timeText.Text = LocalizationService.GetFormatted("GameTimeFormat", elapsed.ToString(@"mm\:ss", CultureInfo.InvariantCulture));
+        TimeSpan pace = TimeSpan.FromSeconds(_engine.PaceSecondsPerKm);
+        _timeText.Text = LocalizationService.GetFormatted("GameTimeFormat", elapsed.ToString(@"mm\:ss", CultureInfo.InvariantCulture))
+            + "    " + LocalizationService.GetFormatted("GamePaceFormat", pace.ToString(@"m\:ss", CultureInfo.InvariantCulture));
 
         double laneSpacing = ViewWidth / LaneMarks;
         double laneOffset = (distance * PixelsPerMeter) % laneSpacing;
@@ -270,9 +272,10 @@ public sealed partial class HurdleGameWindow : Window
             }
 
             (Rectangle bar, Rectangle left, Rectangle right) = _hurdles[slot++];
-            Canvas.SetLeft(bar, x - 15);
-            Canvas.SetLeft(left, x - 13);
-            Canvas.SetLeft(right, x + 9);
+            // Rào vẽ rộng ~0,3 m — khớp vùng va chạm (HurdleHalfWidth 0,1 m + chân nhân vật).
+            Canvas.SetLeft(bar, x - 8);
+            Canvas.SetLeft(left, x - 7);
+            Canvas.SetLeft(right, x + 3);
             bar.Visibility = left.Visibility = right.Visibility = Visibility.Visible;
         }
 

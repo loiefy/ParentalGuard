@@ -643,7 +643,7 @@
     <value>Protect against parents too</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>When on, pausing monitoring needs the correct password followed by the hurdle game run to the chosen distance (1,000 m takes about 3 minutes). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
+    <value>When on, pausing monitoring needs the correct password followed by the hurdle game run to the chosen distance (1,000 m takes about 5 min 30 s). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>On</value>
@@ -655,7 +655,7 @@
     <value>Turn on "Protect against parents too"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Once on, even a parent who knows the password cannot pause monitoring right away: after the password they must complete the hurdle game over the chosen distance (at least about 3 minutes). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
+    <value>Once on, even a parent who knows the password cannot pause monitoring right away: after the password they must complete the hurdle game over the chosen distance (at least about 5 min 30 s). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Turn on</value>
@@ -734,7 +734,7 @@
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
     <value>Run {0} m without hitting a hurdle to {1}.
-Press Space or click the left mouse button to start, then press again to jump over hurdles.</value>
+The runner speeds up from a 10 min/km pace to 4 min/km; the faster you run, the further you jump. Press Space or click the left mouse button to start, then press again to jump over hurdles.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Space or left click: jump. Closing this window means giving up — you will not {0}.</value>
@@ -779,12 +779,15 @@ Press Space or click the left mouse button to start, then press again to jump ov
     <value>Hurdle game difficulty (distance to run)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Easy — 1,000 m (about 3 minutes)</value>
+    <value>Easy — 1,000 m (about 5 min 30 s)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Medium — 2,000 m (about 6 minutes, more hurdles)</value>
+    <value>Medium — 2,000 m (about 9 min 30 s, more hurdles)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Hard — 3,000 m (about 9 minutes, most hurdles)</value>
+    <value>Hard — 3,000 m (about 13 min 30 s, most hurdles)</value>
+  </data>
+  <data name="GamePaceFormat" xml:space="preserve">
+    <value>Pace: {0}/km</value>
   </data>
 </root>

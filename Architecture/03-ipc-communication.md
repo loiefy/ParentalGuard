@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.12.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.12.1 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 1. Mục đích
 
@@ -843,7 +843,7 @@ Khối UI mở rộng **160-179** (160-167 đã dùng), Overlay field **70**:
 - `Auth/ParentGameCoordinator` (dựng trong `UiSessionServer`, gọi qua delegate tới `PauseCoordinator`/`ConfigCoordinator` — không giữ state nghiệp vụ riêng):
   - `PURPOSE_PAUSE`: tiêu thụ `action_token` "pause_monitoring" NGAY (mật khẩu trước, token sống 15 giây), lưu ván vào `UiParentSession` kèm thời lượng đã chọn. Về đích hợp lệ → `PauseCoordinator.ApplyPauseAsync` (cùng đường với tạm dừng thường: Vision, overlay, icon, audit, `PAUSE-021`).
   - `PURPOSE_SETTINGS`: cần phiên phụ huynh; chỉ chấp nhận khi thay đổi làm giảm bảo vệ (tắt / giảm quãng đường) → về đích → `ConfigCoordinator.ApplyParentProtectionAsync`.
-  - Chống gian lận phía UI: Service từ chối (`TOO_FAST`) kết quả về đích sớm hơn `quãng đường / 5,5 m/s − 1,5 giây`; ván kết thúc đúng 1 lần (`TakePendingGame`); bỏ ván treo quá 20 phút ngoài thời gian chạy. Audit `ParentGameStarted` / `ParentGamePassed` / `ParentGameFailed{reason}`.
+  - Chống gian lận phía UI: Service từ chối (`TOO_FAST`) kết quả về đích sớm hơn `SecondsToRun(quãng đường) − 1,5 giây` (v0.12.1, `PAUSE-045a`: tích phân pace 600 → 240 giây/km trong 500 m đầu rồi 240 giây/km; 1000 m = 330 giây — PHẢI khớp `HurdleGameEngine.SecondsToRun` phía UI); ván kết thúc đúng 1 lần (`TakePendingGame`); bỏ ván treo quá 20 phút ngoài thời gian chạy. Audit `ParentGameStarted` / `ParentGamePassed` / `ParentGameFailed{reason}`.
 - `PauseMonitoringRequest` khi chế độ đang bật → luôn `CHALLENGE_REQUIRED` (chặn trước `PauseCoordinator`, token không bị tiêu thụ) — tạm dừng chỉ còn đường qua về đích trò chơi.
 
 ### 3.7a Service-side handler binding (gap fix Đợt 8b) — `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest`
@@ -1013,6 +1013,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.12.1 | 2026-10-08 | PATCH — mục 3.7e: thời gian tối thiểu theo đường pace tăng tốc (`PAUSE-045a`) thay tốc độ cố định |
 | v0.12.0 | 2026-10-08 | MINOR — mục 3.7e: trò chơi nhảy vượt rào (field 168-171), bỏ thử thách phép tính (160-163 `reserved`) |
 | v0.11.0 | 2026-10-07 | MINOR — mục 3.7d: thử thách "Bảo vệ cả phụ huynh" (field 160-165), đổi ngôn ngữ (166-167), `LanguageUpdate` Overlay field 70, `PauseResult.CHALLENGE_REQUIRED` |
 | v0.10.2 | 2026-10-07 | PATCH — `BE-034d`: `ForceKillRequest{window_handle, process_id}` field 69 (Overlay → Service). Overlay ghi PID chủ cửa sổ lúc bấm "Tắt nội dung" (MANUAL), 3 giây sau cửa sổ còn và cùng PID thì gửi. Service (`OverlayDecisionCoordinator.HandleForceKillAsync`) chỉ kết thúc tiến trình khi `ForceKillPolicy.Decide` = Allowed: có lần đóng MANUAL cho đúng window_handle trong 30 giây, tiến trình còn, SessionId ≠ 0, tên tiến trình trùng tên Vision đã ghi nhận lúc che, không thuộc danh sách bảo vệ (Explorer, tiến trình lõi Windows, ApplicationFrameHost, ParentalGuard.*). Audit `ForceKillExecuted`/`ForceKillRefused{decision}` |

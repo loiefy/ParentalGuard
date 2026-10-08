@@ -643,7 +643,7 @@
     <value>Proteger incluso frente a los padres</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Si está activado, pausar la supervisión requiere la contraseña correcta y después completar la carrera de vallas hasta la distancia elegida (1.000 m llevan unos 3 minutos). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
+    <value>Si está activado, pausar la supervisión requiere la contraseña correcta y después completar la carrera de vallas hasta la distancia elegida (1.000 m llevan unos 5 min 30 s). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activado</value>
@@ -655,7 +655,7 @@
     <value>¿Activar "Proteger incluso frente a los padres"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: tras la contraseña deberá completar la carrera de vallas hasta la distancia elegida (al menos unos 3 minutos). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
+    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: tras la contraseña deberá completar la carrera de vallas hasta la distancia elegida (al menos unos 5 min 30 s). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Activar</value>
@@ -734,7 +734,7 @@
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
     <value>Corra {0} m sin tocar ninguna valla para {1}.
-Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar las vallas.</value>
+El corredor acelera de un ritmo de 10 min/km a 4 min/km; cuanto más rápido corre, más lejos salta. Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar las vallas.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Espacio o clic izquierdo: saltar. Cerrar esta ventana es rendirse: no podrá {0}.</value>
@@ -779,12 +779,15 @@ Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar l
     <value>Dificultad de la carrera de vallas (distancia que recorrer)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Fácil — 1.000 m (unos 3 minutos)</value>
+    <value>Fácil — 1.000 m (unos 5 min 30 s)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Media — 2.000 m (unos 6 minutos, más vallas)</value>
+    <value>Media — 2.000 m (unos 9 min 30 s, más vallas)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difícil — 3.000 m (unos 9 minutos, más vallas aún)</value>
+    <value>Difícil — 3.000 m (unos 13 min 30 s, más vallas aún)</value>
+  </data>
+  <data name="GamePaceFormat" xml:space="preserve">
+    <value>Ritmo: {0}/km</value>
   </data>
 </root>
