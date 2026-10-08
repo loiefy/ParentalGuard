@@ -14,8 +14,8 @@ namespace ParentalGuard.Service.Auth;
 /// <item>Tắt chế độ / giảm độ khó: cần phiên phụ huynh + về đích ở độ khó HIỆN HÀNH.</item>
 /// </list>
 /// Trò chơi chạy ở UI (tiến trình người dùng) nên Service không tin kết quả mù quáng: chặn mọi kết quả về đích sớm hơn thời gian
-/// tối thiểu để chạy hết quãng đường theo đúng đường pace của trò chơi (`PAUSE-045a`: 10 → 4 phút/km trong 500 m đầu, sau đó
-/// 4 phút/km) — 1000 m = 330 giây với mọi độ khó. PHẢI khớp <c>HurdleGameEngine.SecondsToRun</c> phía UI.
+/// tối thiểu để chạy hết quãng đường theo đúng đường pace của trò chơi (`PAUSE-045b`: 6 → 2 phút/km trong 500 m đầu, sau đó
+/// 2 phút/km) — 1000 m = 180 giây với mọi độ khó. PHẢI khớp <c>HurdleGameEngine.SecondsToRun</c> phía UI.
 /// Ván chơi gắn với ĐÚNG kết nối pipe (<see cref="UiParentSession"/>), mỗi ván chỉ kết thúc được 1 lần.
 /// </summary>
 public sealed class ParentGameCoordinator(
@@ -28,8 +28,8 @@ public sealed class ParentGameCoordinator(
     Func<PauseDuration, CancellationToken, Task<(PauseResult Result, long ExpiresAtUnixMs)>> applyPause,
     Func<bool, uint, CancellationToken, Task<bool>> applySettings)
 {
-    public const double StartPaceSecondsPerKm = 600;
-    public const double EndPaceSecondsPerKm = 240;
+    public const double StartPaceSecondsPerKm = 360;
+    public const double EndPaceSecondsPerKm = 120;
     public const double PaceRampMeters = 500;
 
     /// <summary>Dung sai đồng hồ giữa UI và Service khi kiểm tra thời gian tối thiểu.</summary>
@@ -45,7 +45,7 @@ public sealed class ParentGameCoordinator(
     public static long MinDurationMs(uint meters) =>
         (long)((SecondsToRun(meters) * 1000) - TimingTolerance.TotalMilliseconds);
 
-    /// <summary>Tích phân pace theo quãng đường: pace giảm tuyến tính 600 → 240 giây/km trong 500 m đầu, sau đó 240 giây/km.</summary>
+    /// <summary>Tích phân pace theo quãng đường: pace giảm tuyến tính 360 → 120 giây/km trong 500 m đầu, sau đó 120 giây/km.</summary>
     public static double SecondsToRun(double meters)
     {
         double ramp = Math.Min(meters, PaceRampMeters);

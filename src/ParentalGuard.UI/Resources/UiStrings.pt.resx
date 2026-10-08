@@ -643,7 +643,7 @@
     <value>Proteger também em relação aos pais</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Quando ativo, pausar a monitorização exige a palavra-passe correta e, depois, completar a corrida de barreiras até à distância escolhida (1000 m demoram cerca de 5 min 30 s). Tocar numa barreira ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
+    <value>Quando ativo, pausar a monitorização exige a palavra-passe correta e, depois, completar o jogo de barreiras e buracos até à distância escolhida (1000 m demoram cerca de 3 minutos). Perder ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Ativo</value>
@@ -655,7 +655,7 @@
     <value>Ativar "Proteger também em relação aos pais"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Depois de ativo, nem um pai que saiba a palavra-passe consegue pausar a monitorização de imediato: depois da palavra-passe tem de concluir a corrida de barreiras até à distância escolhida (pelo menos cerca de 5 min 30 s). Tocar numa barreira ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
+    <value>Depois de ativo, nem um pai que saiba a palavra-passe consegue pausar a monitorização de imediato: depois da palavra-passe tem de concluir o jogo de barreiras e buracos até à distância escolhida (pelo menos cerca de 3 minutos). Perder ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Ativar</value>
@@ -733,11 +733,11 @@
     <value>alterar o modo de proteção</value>
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
-    <value>Corra {0} m sem tocar em nenhuma barreira para {1}.
-O corredor acelera de um ritmo de 10 min/km até 4 min/km; quanto mais rápido corre, mais longe salta. Prima Espaço ou clique com o botão esquerdo para começar e volte a premir para saltar as barreiras.</value>
+    <value>Corra {0} m sem tocar em barreiras nem cair em buracos para {1}.
+O corredor acelera de um ritmo de 6 min/km até 2 min/km; quanto mais rápido corre, mais longe salta. Prima Espaço ou clique com o botão esquerdo para começar e volte a premir para saltar barreiras e buracos.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
-    <value>Espaço ou clique esquerdo: saltar. Fechar esta janela é desistir — não vai conseguir {0}.</value>
+    <value>Espaço ou clique esquerdo: saltar barreiras e buracos. Fechar esta janela é desistir — não vai conseguir {0}.</value>
   </data>
   <data name="GameDistanceFormat" xml:space="preserve">
     <value>{0} / {1} m</value>
@@ -749,16 +749,13 @@ O corredor acelera de um ritmo de 10 min/km até 4 min/km; quanto mais rápido c
     <value>Chegou ao fim! A confirmar o resultado…</value>
   </data>
   <data name="GameLostChecking" xml:space="preserve">
-    <value>Tocou numa barreira! A registar o resultado…</value>
+    <value>Perdeu! A registar o resultado…</value>
   </data>
   <data name="GameResultPaused" xml:space="preserve">
     <value>Concluído! A monitorização foi pausada.</value>
   </data>
   <data name="GameResultApplied" xml:space="preserve">
     <value>Concluído! A alteração foi aplicada.</value>
-  </data>
-  <data name="GameResultLost" xml:space="preserve">
-    <value>Tocou numa barreira aos {0} m. A ação não foi realizada.</value>
   </data>
   <data name="GameResultTooFast" xml:space="preserve">
     <value>O resultado do jogo não é válido. A ação não foi realizada.</value>
@@ -770,24 +767,42 @@ O corredor acelera de um ritmo de 10 min/km até 4 min/km; quanto mais rápido c
     <value>Fechar</value>
   </data>
   <data name="DashboardGameNotPaused" xml:space="preserve">
-    <value>A monitorização não foi pausada: o jogo não foi concluído (barreira tocada ou jogo fechado).</value>
+    <value>A monitorização não foi pausada: o jogo não foi concluído (perdido ou fechado).</value>
   </data>
   <data name="SettingsGameNotApplied" xml:space="preserve">
-    <value>Sem alterações: o jogo não foi concluído (barreira tocada ou jogo fechado).</value>
+    <value>Sem alterações: o jogo não foi concluído (perdido ou fechado).</value>
   </data>
   <data name="SettingsGameDifficultyLabel" xml:space="preserve">
     <value>Dificuldade da corrida de barreiras (distância a percorrer)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Fácil — 1000 m (cerca de 5 min 30 s)</value>
+    <value>Fácil — 1000 m (cerca de 3 minutos)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Média — 2000 m (cerca de 9 min 30 s, mais barreiras)</value>
+    <value>Média — 2000 m (cerca de 5 minutos, mais obstáculos)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difícil — 3000 m (cerca de 13 min 30 s, ainda mais barreiras)</value>
+    <value>Difícil — 3000 m (cerca de 7 minutos, ainda mais obstáculos)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Ritmo: {0}/km</value>
+  </data>
+  <data name="GameLostProtected" xml:space="preserve">
+    <value>Perdeu, mas continua protegido!</value>
+  </data>
+  <data name="GameLostDetailHurdle" xml:space="preserve">
+    <value>Tocou numa barreira aos {0} m.</value>
+  </data>
+  <data name="GameLostDetailPit" xml:space="preserve">
+    <value>Caiu num buraco aos {0} m.</value>
+  </data>
+  <data name="GameSuggestStop" xml:space="preserve">
+    <value>E se não pausar afinal?</value>
+  </data>
+  <data name="GameDonateButton" xml:space="preserve">
+    <value>Fazer um donativo</value>
+  </data>
+  <data name="GameLaterButton" xml:space="preserve">
+    <value>Mais tarde</value>
   </data>
 </root>

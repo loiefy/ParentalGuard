@@ -43,5 +43,23 @@ public sealed class NavigationService(IAuthFacade authFacade) : IAuthPromptServi
         return token;
     }
 
+    /// <summary>
+    /// Mở 1 tab trong Main Shell đang hiển thị (không dựng lại shell) và đưa cửa sổ chính lên trước — vd nút "Donate us" trong cửa sổ
+    /// trò chơi nhảy rào (`PAUSE-049`). Chưa ở Main Shell thì dựng shell mở thẳng tab đó.
+    /// </summary>
+    public void ShowInMainShell(Type pageType)
+    {
+        if (_rootFrame?.Content is MainShellPage shell)
+        {
+            shell.ShowPage(pageType);
+        }
+        else
+        {
+            NavigateToMainShell(pageType);
+        }
+
+        ((App)Application.Current).ActivateMainWindow();
+    }
+
     private bool Navigate(Type pageType) => _rootFrame?.Navigate(pageType) ?? false;
 }

@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.6.1 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -311,6 +311,15 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 - `Services/ParentGameService` (seam `IParentGameService`): xin Service bắt đầu ván → mở cửa sổ → trả kết quả Service đã chấm.
 - `S2`: protection bật → `S5` (mật khẩu) → trò chơi → `PAUSED` thì cập nhật ngay, không gửi `PauseMonitoringRequest`. `S4`: công tắc + ComboBox độ khó; tắt/giảm độ khó khi đang bật → trò chơi; bật/tăng → gửi thẳng.
 
+### Trò chơi — bản v0.7.0 (2026-10-08, `PAUSE-045b`/`046b`/`049`, thay thông số v0.6.1 ở trên)
+
+- Pace 360 → 120 giây/km trong 500 m đầu rồi 120 giây/km (`SecondsToRun(1000) = 180`). Cú nhảy: bay 0,9 → 1,2 giây, đỉnh 1,4 → 1,6 m ⇒ xa ~2,5 m (chậm nhất) → 10 m (nhanh nhất).
+- Chướng ngại `Obstacle{Kind = Hurdle | Pit, Start, End}`. Hố rộng 1,0–2,6 m (giới hạn để cửa sổ nhảy ≥ 0,22 giây); thua khi chạm đất trong lòng hố (tha 0,15 m mỗi mép). Xác suất hố 30% (sau mét 60). Cụm rào tới 5 rào cách 0,9–1,6 m khi cửa sổ nhảy còn ≥ 0,22 giây; xác suất thêm rào 0,65 → 0,95 theo quãng đường.
+- Khoảng cách cụm tính từ trường hợp XẤU NHẤT của cụm trước (bật nhảy muộn nhất → tiếp đất xa nhất) + 0,35 giây phản xạ + phần ngẫu nhiên theo giây (0,05–0,6 giây, co dần tới mét 2.000, hệ số độ khó 1,0 / 0,8 / 0,6) + đoạn lấy đà cho rào kế tiếp.
+- Cửa sổ trò chơi: 35 px/m, nhân vật ở x = 120 ⇒ nhìn trước ~24 m (~3 giây ở tốc độ tối đa); pool 24 rào + 6 hố; rơi hố thì nhân vật chìm xuống.
+- `PAUSE-049`: `Game/LossStreakTracker` (singleton trong `ParentGameService`, chỉ sống trong phiên Dashboard) đếm thua liên tiếp, ngưỡng `RandomNumberGenerator.GetInt32(5, 11)`; đạt ngưỡng → thông báo "Hay là không tạm dừng nữa?" + "Donate us" (đóng cửa sổ, `NavigationService.ShowInMainShell(typeof(DonatePage))` — mở tab trong shell hiện tại, không dựng lại shell) + "Để sau". Về đích → đếm lại.
+- Sửa kèm: `DashboardPage` dừng poll khi `Unloaded` (dựng lại Main Shell lúc đổi ngôn ngữ không gọi `OnNavigatedFrom` của trang con → timer chạy mãi).
+
 ### Xuất PDF ở `S3` (v0.4.0, 2026-10-07, `MISC-011`)
 
 - Hàng "khoảng thời gian + Xuất PDF" chỉ hiện khi `AuditLogViewModel.IsGated`. Hộp thoại Lưu (`FileSavePicker` + `InitializeWithWindow` với `App.MainWindowHandle`) mở TRƯỚC khi tải dữ liệu — huỷ thì không gửi request nào.
@@ -330,6 +339,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.7.0 | 2026-10-08 | MINOR — trò chơi: pace 6 → 2, hố, mật độ ×2, nhảy thấp hơn, thông báo khi thua + Donate (`PAUSE-045b`/`046b`/`049`); Dashboard dừng poll khi Unloaded |
 | v0.6.1 | 2026-10-08 | PATCH — trò chơi: tăng tốc dần, nhảy theo tốc độ, rào dày dần + cặp rào (`PAUSE-045a`/`046a`); HUD hiện pace |
 | v0.6.0 | 2026-10-08 | MINOR — trò chơi nhảy vượt rào (`PAUSE-044`–`048`) thay hộp thoại thử thách phép tính |
 | v0.5.0 | 2026-10-08 | MINOR — `FE-063b`: đổi ngôn ngữ tại chỗ (dựng lại Main Shell, giữ tab Cài đặt), ngôn ngữ giữ trong `LocalizationService` thay vì `CurrentUICulture` (sửa lỗi chỉ menu đổi ngôn ngữ) |

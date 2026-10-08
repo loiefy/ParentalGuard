@@ -67,6 +67,9 @@ public partial class App : Application
         _ = ConnectAndRouteAsync();
     }
 
+    /// <summary>Đưa cửa sổ chính lên trước (vd sau khi đóng cửa sổ trò chơi nhảy rào để mở tab Ủng hộ dự án).</summary>
+    internal void ActivateMainWindow() => _window?.Activate();
+
     /// <summary>`MISC-011`: HWND cửa sổ chính — hộp thoại Lưu (FileSavePicker) của app unpackaged cần gắn với cửa sổ.</summary>
     internal nint MainWindowHandle => WinRT.Interop.WindowNative.GetWindowHandle(_window);
 

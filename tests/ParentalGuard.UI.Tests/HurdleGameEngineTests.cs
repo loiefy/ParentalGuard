@@ -2,48 +2,44 @@ using ParentalGuard.UI.Game;
 
 namespace ParentalGuard.UI.Tests;
 
-/// <summary>`PAUSE-045a`/`PAUSE-046a` (2026-10-08) — luật trò chơi nhảy vượt rào: tăng tốc dần, nhảy theo tốc độ, rào dày dần.</summary>
+/// <summary>`PAUSE-045b`/`PAUSE-046b` (2026-10-08) — luật trò chơi: tăng tốc dần (pace 6 → 2), nhảy theo tốc độ, rào và hố dày dần.</summary>
 public sealed class HurdleGameEngineTests
 {
-    private const double C = HurdleGameEngine.ContactHalfSpan;
-
-    /// <summary>Gom rào thành cụm (2 rào cách nhau &lt; 2 m phải qua bằng 1 cú nhảy).</summary>
-    private static List<(double First, double Last)> Groups(IReadOnlyList<double> hurdles)
+    /// <summary>Gom chướng ngại thành cụm qua bằng 1 cú nhảy: hố đứng riêng; rào cách nhau &lt; 2 m chung 1 cụm.</summary>
+    private static List<(ObstacleKind Kind, double First, double Last)> Groups(IReadOnlyList<Obstacle> obstacles)
     {
-        var groups = new List<(double, double)>();
-        foreach (double h in hurdles)
+        var groups = new List<(ObstacleKind Kind, double First, double Last)>();
+        foreach (Obstacle o in obstacles)
         {
-            if (groups.Count > 0 && h - groups[^1].Item2 < 2.0)
+            if (o.Kind == ObstacleKind.Hurdle && groups.Count > 0 && groups[^1].Kind == ObstacleKind.Hurdle && o.Start - groups[^1].Last < 2.0)
             {
-                groups[^1] = (groups[^1].Item1, h);
+                groups[^1] = (ObstacleKind.Hurdle, groups[^1].First, o.Start);
             }
             else
             {
-                groups.Add((h, h));
+                groups.Add((o.Kind, o.Start, o.End));
             }
         }
 
         return groups;
     }
 
-    /// <summary>"Người chơi mẫu": bật nhảy ở giữa cửa sổ thời điểm hợp lệ của cụm rào kế tiếp.</summary>
+    /// <summary>"Người chơi mẫu": bật nhảy ở giữa cửa sổ thời điểm hợp lệ của cụm kế tiếp.</summary>
     private static void PlayPerfectly(HurdleGameEngine engine, double frameSeconds = 1.0 / 60)
     {
-        List<(double First, double Last)> groups = Groups(engine.Hurdles);
+        var groups = Groups(engine.Obstacles);
         int next = 0;
         engine.Press();
         while (engine.State == HurdleGameState.Running)
         {
-            while (next < groups.Count && groups[next].Last + C < engine.Distance)
+            while (next < groups.Count && groups[next].Last < engine.Distance)
             {
                 next++;
             }
 
             if (next < groups.Count && !engine.IsAirborne)
             {
-                JumpProfile jump = HurdleGameEngine.ProfileAt(engine.Speed);
-                double earliest = groups[next].Last + C - jump.ClearStart - jump.ClearLength;
-                double latest = groups[next].First - C - jump.ClearStart;
+                (double earliest, double latest) = HurdleGameEngine.TakeoffWindow(groups[next].Kind, groups[next].First, groups[next].Last, HurdleGameEngine.ProfileAt(engine.Speed));
                 if (engine.Distance >= (earliest + latest) / 2)
                 {
                     engine.Press();
@@ -57,6 +53,7 @@ public sealed class HurdleGameEngineTests
     [Theory]
     [InlineData(1000u, 1ul)]
     [InlineData(1000u, 42ul)]
+    [InlineData(1000u, 777ul)]
     [InlineData(2000u, 42ul)]
     [InlineData(3000u, 7ul)]
     public void PerfectPlayer_Wins_AtEveryDifficulty(uint meters, ulong seed)
@@ -65,21 +62,20 @@ public sealed class HurdleGameEngineTests
 
         PlayPerfectly(engine);
 
-        Assert.Equal(HurdleGameState.Won, engine.State);
-        Assert.Equal(meters, engine.Distance);
+        Assert.True(engine.State == HurdleGameState.Won, $"thua vì {engine.LostTo} ở mét {engine.Distance:F1}");
         Assert.InRange(engine.ElapsedSeconds, HurdleGameEngine.SecondsToRun(meters) - 1, HurdleGameEngine.SecondsToRun(meters) + 1);
     }
 
     [Fact]
-    public void Pace_From10To4MinPerKm_ReachedAt500m_1000mTakesFiveAndHalfMinutes()
+    public void Pace_From6To2MinPerKm_ReachedAt500m_1000mTakesThreeMinutes()
     {
-        Assert.Equal(600, HurdleGameEngine.PaceAt(0));
-        Assert.Equal(420, HurdleGameEngine.PaceAt(250), 6);
-        Assert.Equal(240, HurdleGameEngine.PaceAt(500));
-        Assert.Equal(240, HurdleGameEngine.PaceAt(2500));
-        Assert.Equal(210, HurdleGameEngine.SecondsToRun(500), 6);
-        Assert.Equal(330, HurdleGameEngine.SecondsToRun(1000), 6);
-        Assert.True(HurdleGameEngine.SecondsToRun(1000) >= 180); // vẫn ≥ 3 phút (PAUSE-045)
+        Assert.Equal(360, HurdleGameEngine.PaceAt(0));
+        Assert.Equal(240, HurdleGameEngine.PaceAt(250), 6);
+        Assert.Equal(120, HurdleGameEngine.PaceAt(500));
+        Assert.Equal(120, HurdleGameEngine.PaceAt(2500));
+        Assert.Equal(120, HurdleGameEngine.SecondsToRun(500), 6);
+        Assert.Equal(180, HurdleGameEngine.SecondsToRun(1000), 6);
+        Assert.Equal(420, HurdleGameEngine.SecondsToRun(3000), 6);
     }
 
     [Fact]
@@ -100,41 +96,45 @@ public sealed class HurdleGameEngineTests
     {
         foreach (ulong seed in new ulong[] { 1, 2, 3, 99, 12345 })
         {
-            List<(double First, double Last)> groups = Groups(new HurdleGameEngine(meters, seed).Hurdles);
+            var groups = Groups(new HurdleGameEngine(meters, seed).Obstacles);
             for (int i = 0; i < groups.Count; i++)
             {
                 double speed = HurdleGameEngine.SpeedAt(groups[i].First);
                 JumpProfile jump = HurdleGameEngine.ProfileAt(speed);
-                double window = jump.ClearLength - (groups[i].Last - groups[i].First) - (2 * C);
-                Assert.True(window >= speed * HurdleGameEngine.MinTimingWindowSeconds - 1e-9, $"seed {seed} cụm {i}: cửa sổ {window:F2} m");
+                (double earliest, double latest) = HurdleGameEngine.TakeoffWindow(groups[i].Kind, groups[i].First, groups[i].Last, jump);
+                Assert.True(latest - earliest >= (speed * HurdleGameEngine.MinTimingWindowSeconds) - 1e-9, $"seed {seed} cụm {i} ({groups[i].Kind}): cửa sổ {latest - earliest:F2} m");
 
                 if (i + 1 < groups.Count)
                 {
-                    // Kể cả bật nhảy muộn nhất ở cụm này, vẫn còn thời gian phản xạ trước lần nhảy muộn nhất ở cụm sau.
-                    double landing = groups[i].First - C - jump.ClearStart + jump.Length;
+                    // Bật nhảy muộn nhất ở cụm này vẫn còn thời gian phản xạ trước lần bật nhảy muộn nhất ở cụm sau.
+                    double landing = latest + jump.Length;
                     JumpProfile nextJump = HurdleGameEngine.ProfileAt(HurdleGameEngine.SpeedAt(groups[i + 1].First));
-                    double nextLatest = groups[i + 1].First - C - nextJump.ClearStart;
-                    Assert.True(nextLatest - landing >= speed * HurdleGameEngine.MinReactionSeconds - 1e-9, $"seed {seed} cụm {i}");
+                    double nextLatest = HurdleGameEngine.TakeoffWindow(groups[i + 1].Kind, groups[i + 1].First, groups[i + 1].Last, nextJump).Latest;
+                    Assert.True(nextLatest - landing >= (speed * HurdleGameEngine.MinReactionSeconds) - 1e-9, $"seed {seed} cụm {i}");
                 }
             }
         }
     }
 
     [Fact]
-    public void HurdlesGetDenserFurtherAlong_AndHarderIsDenser()
+    public void Obstacles_DenserFurtherAlong_HarderDenser_MixHurdlesPitsAndClusters()
     {
-        double Density(HurdleGameEngine e, double from, double to) => e.Hurdles.Count(h => h >= from && h < to) / (to - from);
+        static double Density(HurdleGameEngine e, double from, double to) => e.Obstacles.Count(o => o.Start >= from && o.Start < to) / (to - from);
 
         var easy = new HurdleGameEngine(1000, 5);
         var hard = new HurdleGameEngine(3000, 5);
 
         Assert.True(Density(hard, 2000, 3000) > Density(hard, 0, 1000));
-        Assert.True(Density(hard, 600, 1000) > Density(easy, 600, 1000));
-        Assert.Contains(Groups(hard.Hurdles), g => g.Last > g.First); // có cặp rào sát nhau
+        Assert.True(Density(hard, 0, 1000) > Density(easy, 0, 1000));
+        Assert.Contains(hard.Obstacles, o => o.Kind == ObstacleKind.Pit);
+        Assert.Contains(Groups(hard.Obstacles), g => g.Kind == ObstacleKind.Hurdle && g.Last > g.First);
+        // Mật độ theo thời gian ≥ 2 lần bản trước (104 rào / 330 giây ≈ 0,315 chướng ngại/giây).
+        double perSecond = easy.Obstacles.Count / HurdleGameEngine.SecondsToRun(1000);
+        Assert.True(perSecond >= 2 * 104 / 330.0, $"1000 m chỉ có {perSecond:F2} chướng ngại/giây");
     }
 
     [Fact]
-    public void NeverJumping_LosesAtFirstHurdle()
+    public void NeverJumping_LosesAtFirstObstacle()
     {
         var engine = new HurdleGameEngine(1000, seed: 7);
         engine.Press();
@@ -145,19 +145,51 @@ public sealed class HurdleGameEngineTests
         }
 
         Assert.Equal(HurdleGameState.Lost, engine.State);
-        Assert.InRange(engine.Distance, HurdleGameEngine.FirstHurdleAt - 1, HurdleGameEngine.FirstHurdleAt);
+        Assert.InRange(engine.Distance, HurdleGameEngine.FirstObstacleAt - 1, HurdleGameEngine.FirstObstacleAt + 0.5);
     }
 
     [Fact]
-    public void LongFrameStall_DoesNotTunnelThroughHurdle()
+    public void LandingInsidePit_Loses_AsPit()
+    {
+        var engine = new HurdleGameEngine(3000, seed: 5);
+        Obstacle pit = engine.Obstacles.First(o => o.Kind == ObstacleKind.Pit);
+        engine.Press();
+
+        // Nhảy qua mọi chướng ngại trước hố bằng "người chơi mẫu", rồi đứng yên dưới đất đi vào hố.
+        var groups = Groups(engine.Obstacles).Where(g => g.Last < pit.Start).ToList();
+        int next = 0;
+        while (engine.State == HurdleGameState.Running && engine.Distance < pit.End)
+        {
+            while (next < groups.Count && groups[next].Last < engine.Distance)
+            {
+                next++;
+            }
+
+            if (next < groups.Count && !engine.IsAirborne)
+            {
+                (double earliest, double latest) = HurdleGameEngine.TakeoffWindow(groups[next].Kind, groups[next].First, groups[next].Last, HurdleGameEngine.ProfileAt(engine.Speed));
+                if (engine.Distance >= (earliest + latest) / 2)
+                {
+                    engine.Press();
+                }
+            }
+
+            engine.Advance(1.0 / 60);
+        }
+
+        Assert.Equal(HurdleGameState.Lost, engine.State);
+        Assert.Equal(ObstacleKind.Pit, engine.LostTo);
+    }
+
+    [Fact]
+    public void LongFrameStall_DoesNotTunnelThroughObstacle()
     {
         var engine = new HurdleGameEngine(1000, seed: 7);
         engine.Press();
 
-        engine.Advance(5);   // ~8,5 m
-        engine.Advance(5);   // ~17 m
-        Assert.True(engine.Distance < HurdleGameEngine.FirstHurdleAt - 5);
-        engine.Advance(5);   // 1 khung hình giật 5 giây vắt qua rào đầu tiên ở 25 m
+        engine.Advance(5);   // ~14 m
+        Assert.True(engine.Distance < HurdleGameEngine.FirstObstacleAt - 5);
+        engine.Advance(5);   // 1 khung hình giật 5 giây vắt qua chướng ngại đầu tiên ở 25 m
 
         Assert.Equal(HurdleGameState.Lost, engine.State);
     }

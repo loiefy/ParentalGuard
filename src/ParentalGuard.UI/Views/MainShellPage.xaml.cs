@@ -57,6 +57,15 @@ public sealed partial class MainShellPage : Page
 
     private Type? _initialPage;
 
+    /// <summary>Mở 1 tab (vd Ủng hộ dự án) từ bên ngoài — <c>ContentFrame.Navigated</c> tự đồng bộ mục menu đang chọn.</summary>
+    public void ShowPage(Type pageType)
+    {
+        if (ContentFrame.CurrentSourcePageType != pageType)
+        {
+            ContentFrame.Navigate(pageType);
+        }
+    }
+
     /// <summary>`FE-063a`: sau đổi ngôn ngữ, Main Shell được dựng lại và mở thẳng tab Cài đặt (tham số điều hướng).</summary>
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {

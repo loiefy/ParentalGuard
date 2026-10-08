@@ -705,7 +705,7 @@
     <value>Bảo vệ cả phụ huynh</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Khi bật, muốn tạm dừng giám sát phải nhập đúng mật khẩu rồi chơi trò nhảy vượt rào đến hết quãng đường đã chọn (1.000 m mất khoảng 5 phút 30 giây). Vấp rào hoặc thoát trò chơi thì không tạm dừng được. Tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
+    <value>Khi bật, muốn tạm dừng giám sát phải nhập đúng mật khẩu rồi chơi trò nhảy vượt rào và hố đến hết quãng đường đã chọn (1.000 m mất khoảng 3 phút). Thua hoặc thoát trò chơi thì không tạm dừng được. Tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Đang bật</value>
@@ -717,7 +717,7 @@
     <value>Bật chế độ Bảo vệ cả phụ huynh?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Sau khi bật, kể cả khi đã biết mật khẩu, phụ huynh cũng không thể tạm dừng giám sát ngay: sau khi nhập mật khẩu phải chơi trò nhảy vượt rào đến hết quãng đường đã chọn (ít nhất khoảng 5 phút 30 giây). Vấp rào hoặc thoát trò chơi thì không tạm dừng được. Muốn tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
+    <value>Sau khi bật, kể cả khi đã biết mật khẩu, phụ huynh cũng không thể tạm dừng giám sát ngay: sau khi nhập mật khẩu phải chơi trò nhảy vượt rào và hố đến hết quãng đường đã chọn (ít nhất khoảng 3 phút). Thua hoặc thoát trò chơi thì không tạm dừng được. Muốn tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Bật chế độ</value>
@@ -795,11 +795,11 @@
     <value>thay đổi chế độ bảo vệ</value>
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
-    <value>Chạy đủ {0} m mà không vấp rào để {1}.
-Nhân vật tăng tốc dần từ pace 10 phút/km lên 4 phút/km; chạy càng nhanh thì nhảy càng xa. Nhấn Space hoặc chuột trái để bắt đầu, rồi nhấn tiếp để nhảy qua rào.</value>
+    <value>Chạy đủ {0} m mà không vấp rào hay rơi xuống hố để {1}.
+Nhân vật tăng tốc dần từ pace 6 phút/km lên 2 phút/km; chạy càng nhanh thì nhảy càng xa. Nhấn Space hoặc chuột trái để bắt đầu, rồi nhấn tiếp để nhảy qua rào và hố.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
-    <value>Space hoặc chuột trái: nhảy. Đóng cửa sổ là bỏ cuộc — sẽ không {0}.</value>
+    <value>Space hoặc chuột trái: nhảy qua rào và hố. Đóng cửa sổ là bỏ cuộc — sẽ không {0}.</value>
   </data>
   <data name="GameDistanceFormat" xml:space="preserve">
     <value>{0} / {1} m</value>
@@ -811,16 +811,13 @@ Nhân vật tăng tốc dần từ pace 10 phút/km lên 4 phút/km; chạy càn
     <value>Về đích! Đang xác nhận kết quả…</value>
   </data>
   <data name="GameLostChecking" xml:space="preserve">
-    <value>Vấp rào! Đang ghi nhận kết quả…</value>
+    <value>Thua rồi! Đang ghi nhận kết quả…</value>
   </data>
   <data name="GameResultPaused" xml:space="preserve">
     <value>Hoàn thành! Giám sát đã được tạm dừng.</value>
   </data>
   <data name="GameResultApplied" xml:space="preserve">
     <value>Hoàn thành! Thay đổi đã được áp dụng.</value>
-  </data>
-  <data name="GameResultLost" xml:space="preserve">
-    <value>Bạn đã vấp rào ở mét thứ {0}. Thao tác chưa được thực hiện.</value>
   </data>
   <data name="GameResultTooFast" xml:space="preserve">
     <value>Kết quả trò chơi không hợp lệ. Thao tác chưa được thực hiện.</value>
@@ -832,24 +829,42 @@ Nhân vật tăng tốc dần từ pace 10 phút/km lên 4 phút/km; chạy càn
     <value>Đóng</value>
   </data>
   <data name="DashboardGameNotPaused" xml:space="preserve">
-    <value>Chưa tạm dừng giám sát: trò chơi chưa hoàn thành (vấp rào hoặc đã thoát).</value>
+    <value>Chưa tạm dừng giám sát: trò chơi chưa hoàn thành (thua hoặc đã thoát).</value>
   </data>
   <data name="SettingsGameNotApplied" xml:space="preserve">
-    <value>Chưa thay đổi: trò chơi chưa hoàn thành (vấp rào hoặc đã thoát).</value>
+    <value>Chưa thay đổi: trò chơi chưa hoàn thành (thua hoặc đã thoát).</value>
   </data>
   <data name="SettingsGameDifficultyLabel" xml:space="preserve">
     <value>Độ khó trò chơi nhảy vượt rào (quãng đường phải chạy)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Dễ — 1.000 m (khoảng 5 phút 30 giây)</value>
+    <value>Dễ — 1.000 m (khoảng 3 phút)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Vừa — 2.000 m (khoảng 9 phút 30 giây, rào dày hơn)</value>
+    <value>Vừa — 2.000 m (khoảng 5 phút, chướng ngại dày hơn)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Khó — 3.000 m (khoảng 13 phút 30 giây, rào dày nhất)</value>
+    <value>Khó — 3.000 m (khoảng 7 phút, chướng ngại dày nhất)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Pace: {0}/km</value>
+  </data>
+  <data name="GameLostProtected" xml:space="preserve">
+    <value>Bạn đã thua, nhưng bạn vẫn đang được bảo vệ!</value>
+  </data>
+  <data name="GameLostDetailHurdle" xml:space="preserve">
+    <value>Vấp rào ở mét thứ {0}.</value>
+  </data>
+  <data name="GameLostDetailPit" xml:space="preserve">
+    <value>Rơi xuống hố ở mét thứ {0}.</value>
+  </data>
+  <data name="GameSuggestStop" xml:space="preserve">
+    <value>Hay là không tạm dừng nữa?</value>
+  </data>
+  <data name="GameDonateButton" xml:space="preserve">
+    <value>Donate us</value>
+  </data>
+  <data name="GameLaterButton" xml:space="preserve">
+    <value>Để sau</value>
   </data>
 </root>

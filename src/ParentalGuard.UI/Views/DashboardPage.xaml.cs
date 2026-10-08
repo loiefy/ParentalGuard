@@ -32,6 +32,9 @@ public sealed partial class DashboardPage : Page
             services.GetRequiredService<IParentGameService>());
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
+        // Main Shell bị dựng lại (đổi ngôn ngữ — FE-063b) không gọi OnNavigatedFrom của trang con → timer poll 5 giây sẽ chạy mãi.
+        Unloaded += (_, _) => ViewModel.Stop();
+
         ApplyStaticLabels();
     }
 

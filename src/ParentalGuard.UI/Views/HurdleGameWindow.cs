@@ -20,30 +20,40 @@ using Windows.UI;
 
 namespace ParentalGuard.UI.Views;
 
+/// <summary>Các hành động cửa sổ trò chơi cần từ bên ngoài (Service + điều hướng app).</summary>
+/// <param name="Report">Báo kết quả ván (completed, mét đã chạy) cho Service — Service chấm và quyết định.</param>
+/// <param name="ShouldSuggestStop">`PAUSE-049`: gọi mỗi lần thua; <c>true</c> = hiện "Hay là không tạm dừng nữa?" + nút Donate.</param>
+/// <param name="OpenDonate">Bấm "Donate us": mở tab Ủng hộ dự án ở cửa sổ chính.</param>
+public sealed record HurdleGameCallbacks(Func<bool, uint, Task<ParentGameFinish>> Report, Func<bool> ShouldSuggestStop, Action OpenDonate);
+
 /// <summary>
-/// `PAUSE-046` (2026-10-08) — cửa sổ trò chơi nhảy vượt rào. Space hoặc chuột trái: bắt đầu / nhảy. Về đích, vấp rào hoặc đóng
-/// cửa sổ (= thoát trò chơi) đều báo kết quả cho Service NGAY lúc đó qua <c>report</c>; Service mới là bên quyết định tạm dừng.
-/// Dựng hoàn toàn bằng code (không XAML) — vài hình đơn giản cập nhật mỗi khung hình qua <see cref="CompositionTarget.Rendering"/>.
+/// `PAUSE-046`/`PAUSE-046b`/`PAUSE-049` (2026-10-08) — cửa sổ trò chơi nhảy vượt rào. Space hoặc chuột trái: bắt đầu / nhảy. Về đích,
+/// vấp rào, rơi xuống hố hoặc đóng cửa sổ (= thoát trò chơi) đều báo kết quả cho Service NGAY lúc đó; Service mới là bên quyết định
+/// tạm dừng. Dựng hoàn toàn bằng code (không XAML) — vài hình đơn giản cập nhật mỗi khung hình qua <see cref="CompositionTarget.Rendering"/>.
 /// </summary>
 public sealed partial class HurdleGameWindow : Window
 {
     private const double ViewWidth = 960;
     private const double ViewHeight = 440;
     private const double GroundY = 330;
-    private const double RunnerX = 170;
-    private const double PixelsPerMeter = 55;
-    private const int HurdlePool = 6;
+    private const double RunnerX = 120;
+
+    /// <summary>35 px/m: nhìn trước ~24 m — ở tốc độ tối đa (pace 2, 8,3 m/giây) vẫn thấy trước ~3 giây.</summary>
+    private const double PixelsPerMeter = 35;
+    private const int HurdlePool = 24;
+    private const int PitPool = 6;
     private const int LaneMarks = 14;
 
     private static readonly Color _trackColor = Color.FromArgb(255, 0xB5, 0x4A, 0x2E);
     private static readonly Color _runnerColor = Color.FromArgb(255, 0x2B, 0x7D, 0xE9);
 
     private readonly HurdleGameEngine _engine;
-    private readonly Func<bool, uint, Task<ParentGameFinish>> _report;
+    private readonly HurdleGameCallbacks _callbacks;
     private readonly TaskCompletionSource<ParentGameFinish> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Stopwatch _clock = new();
     private readonly Canvas _scene = new() { Width = ViewWidth, Height = ViewHeight };
     private readonly List<(Rectangle Bar, Rectangle LeftPost, Rectangle RightPost)> _hurdles = [];
+    private readonly List<Rectangle> _pits = [];
     private readonly List<Rectangle> _laneMarks = [];
     private readonly Canvas _runner = new();
     private readonly Line _legFront = NewLimb();
@@ -54,17 +64,22 @@ public sealed partial class HurdleGameWindow : Window
     private readonly TextBlock _timeText = NewHudText(16, FontWeights.Normal);
     private readonly ProgressBar _progress = new() { Width = 300, Minimum = 0, Maximum = 1 };
     private readonly Border _messagePanel = new();
-    private readonly TextBlock _messageText = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = 18, Foreground = new SolidColorBrush(Colors.White) };
-    private readonly Button _closeButton = new() { HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly TextBlock _messageTitle = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) };
+    private readonly TextBlock _messageText = new() { TextWrapping = TextWrapping.Wrap, TextAlignment = TextAlignment.Center, FontSize = 16, Foreground = new SolidColorBrush(Colors.White) };
+    private readonly StackPanel _buttons = new() { Orientation = Orientation.Horizontal, Spacing = 12, HorizontalAlignment = HorizontalAlignment.Center };
+    private readonly Button _closeButton = new();
+    private readonly Button _laterButton = new();
+    private readonly Button _donateButton = new() { Style = (Style)Application.Current.Resources["AccentButtonStyle"] };
     private readonly ContentControl _focusRoot = new() { IsTabStop = true, HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch };
     private TimeSpan _lastTick;
     private bool _finished;
     private bool _reported;
+    private bool _donateRequested;
 
-    private HurdleGameWindow(uint targetMeters, ulong seed, string purposeText, Func<bool, uint, Task<ParentGameFinish>> report)
+    private HurdleGameWindow(uint targetMeters, ulong seed, string purposeText, HurdleGameCallbacks callbacks)
     {
         _engine = new HurdleGameEngine(targetMeters, seed);
-        _report = report;
+        _callbacks = callbacks;
         Title = LocalizationService.Get("GameWindowTitle");
 
         BuildScene(purposeText);
@@ -76,9 +91,9 @@ public sealed partial class HurdleGameWindow : Window
     }
 
     /// <summary>Mở cửa sổ trò chơi; kết thúc khi cửa sổ đóng, trả kết quả Service đã chấm (đóng giữa chừng = thua).</summary>
-    public static Task<ParentGameFinish> PlayAsync(uint targetMeters, ulong seed, string purposeText, Func<bool, uint, Task<ParentGameFinish>> report)
+    public static Task<ParentGameFinish> PlayAsync(uint targetMeters, ulong seed, string purposeText, HurdleGameCallbacks callbacks)
     {
-        var window = new HurdleGameWindow(targetMeters, seed, purposeText, report);
+        var window = new HurdleGameWindow(targetMeters, seed, purposeText, callbacks);
         window.Activate();
         return window._result.Task;
     }
@@ -114,28 +129,51 @@ public sealed partial class HurdleGameWindow : Window
             _scene.Children.Add(mark);
         }
 
+        // Hố: khoảng tối cắt ngang đường chạy (vẽ SAU vạch kẻ để che vạch).
+        for (int i = 0; i < PitPool; i++)
+        {
+            var pit = new Rectangle
+            {
+                Height = ViewHeight - GroundY,
+                Fill = new LinearGradientBrush
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(0, 1),
+                    GradientStops =
+                    {
+                        new GradientStop { Color = Color.FromArgb(255, 0x24, 0x18, 0x10), Offset = 0 },
+                        new GradientStop { Color = Color.FromArgb(255, 0x05, 0x05, 0x05), Offset = 1 },
+                    },
+                },
+                Visibility = Visibility.Collapsed,
+            };
+            Canvas.SetTop(pit, GroundY);
+            _pits.Add(pit);
+            _scene.Children.Add(pit);
+        }
+
+        double hurdlePx = HurdleGameEngine.HurdleHeight * PixelsPerMeter;
         for (int i = 0; i < HurdlePool; i++)
         {
-            double heightPx = HurdleGameEngine.HurdleHeight * PixelsPerMeter;
-            var bar = new Rectangle { Width = 16, Height = 8, Fill = new SolidColorBrush(Colors.White), Stroke = new SolidColorBrush(Color.FromArgb(255, 0xD0, 0x30, 0x30)), StrokeThickness = 2, RadiusX = 2, RadiusY = 2 };
-            var left = new Rectangle { Width = 4, Height = heightPx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
-            var right = new Rectangle { Width = 4, Height = heightPx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
-            Canvas.SetTop(bar, GroundY - heightPx);
-            Canvas.SetTop(left, GroundY - heightPx);
-            Canvas.SetTop(right, GroundY - heightPx);
+            var bar = new Rectangle { Width = 12, Height = 6, Fill = new SolidColorBrush(Colors.White), Stroke = new SolidColorBrush(Color.FromArgb(255, 0xD0, 0x30, 0x30)), StrokeThickness = 2, RadiusX = 2, RadiusY = 2 };
+            var left = new Rectangle { Width = 3, Height = hurdlePx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
+            var right = new Rectangle { Width = 3, Height = hurdlePx, Fill = new SolidColorBrush(Color.FromArgb(255, 0xEE, 0xEE, 0xEE)) };
+            Canvas.SetTop(bar, GroundY - hurdlePx);
+            Canvas.SetTop(left, GroundY - hurdlePx);
+            Canvas.SetTop(right, GroundY - hurdlePx);
             _scene.Children.Add(left);
             _scene.Children.Add(right);
             _scene.Children.Add(bar);
             _hurdles.Add((bar, left, right));
         }
 
-        // Nhân vật: đầu tròn, thân, tay chân vung theo bước chạy. Gốc toạ độ (0,0) = chân, trục y hướng lên dùng toạ độ âm.
-        var head = new Ellipse { Width = 18, Height = 18, Fill = new SolidColorBrush(Color.FromArgb(255, 0xF2, 0xC2, 0x9B)) };
-        Canvas.SetLeft(head, -9);
-        Canvas.SetTop(head, -78);
-        var body = new Rectangle { Width = 12, Height = 30, Fill = new SolidColorBrush(_runnerColor), RadiusX = 4, RadiusY = 4 };
-        Canvas.SetLeft(body, -6);
-        Canvas.SetTop(body, -60);
+        // Nhân vật (~1,7 m ở tỉ lệ 35 px/m): đầu tròn, thân, tay chân vung theo bước chạy. Gốc (0,0) = chân, trục y hướng lên dùng toạ độ âm.
+        var head = new Ellipse { Width = 13, Height = 13, Fill = new SolidColorBrush(Color.FromArgb(255, 0xF2, 0xC2, 0x9B)) };
+        Canvas.SetLeft(head, -6.5);
+        Canvas.SetTop(head, -60);
+        var body = new Rectangle { Width = 9, Height = 23, Fill = new SolidColorBrush(_runnerColor), RadiusX = 3, RadiusY = 3 };
+        Canvas.SetLeft(body, -4.5);
+        Canvas.SetTop(body, -46);
         foreach (UIElement part in new UIElement[] { _legBack, _armBack, body, head, _legFront, _armFront })
         {
             _runner.Children.Add(part);
@@ -160,20 +198,28 @@ public sealed partial class HurdleGameWindow : Window
         _scene.Children.Add(hint);
 
         _closeButton.Content = LocalizationService.Get("GameCloseButton");
-        _closeButton.Visibility = Visibility.Collapsed;
         _closeButton.Click += (_, _) => Close();
-        var messageStack = new StackPanel { Spacing = 14 };
+        _laterButton.Content = LocalizationService.Get("GameLaterButton");
+        _laterButton.Click += (_, _) => Close();
+        _donateButton.Content = LocalizationService.Get("GameDonateButton");
+        _donateButton.Click += (_, _) =>
+        {
+            _donateRequested = true;
+            Close();
+        };
+        var messageStack = new StackPanel { Spacing = 12 };
+        messageStack.Children.Add(_messageTitle);
         messageStack.Children.Add(_messageText);
-        messageStack.Children.Add(_closeButton);
+        messageStack.Children.Add(_buttons);
         _messagePanel.Child = messageStack;
-        _messagePanel.Width = 560;
+        _messagePanel.Width = 600;
         _messagePanel.Padding = new Thickness(24, 18, 24, 18);
         _messagePanel.CornerRadius = new CornerRadius(10);
-        _messagePanel.Background = new SolidColorBrush(Color.FromArgb(215, 0x10, 0x18, 0x28));
-        Canvas.SetLeft(_messagePanel, (ViewWidth - 560) / 2);
-        Canvas.SetTop(_messagePanel, 120);
+        _messagePanel.Background = new SolidColorBrush(Color.FromArgb(225, 0x10, 0x18, 0x28));
+        Canvas.SetLeft(_messagePanel, (ViewWidth - 600) / 2);
+        Canvas.SetTop(_messagePanel, 110);
         _scene.Children.Add(_messagePanel);
-        ShowMessage(LocalizationService.GetFormatted("GameStartPrompt", _engine.TargetMeters, purposeText), showClose: false);
+        ShowMessage(null, LocalizationService.GetFormatted("GameStartPrompt", _engine.TargetMeters, purposeText));
 
         var viewbox = new Viewbox { Child = _scene, Stretch = Stretch.Uniform };
         var root = new Grid { Background = new SolidColorBrush(Color.FromArgb(255, 0x0E, 0x16, 0x24)) };
@@ -184,7 +230,7 @@ public sealed partial class HurdleGameWindow : Window
         Content = _focusRoot;
     }
 
-    private static Line NewLimb() => new() { Stroke = new SolidColorBrush(Color.FromArgb(255, 0x1E, 0x2E, 0x48)), StrokeThickness = 6, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
+    private static Line NewLimb() => new() { Stroke = new SolidColorBrush(Color.FromArgb(255, 0x1E, 0x2E, 0x48)), StrokeThickness = 5, StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round };
 
     private static TextBlock NewHudText(double size, Windows.UI.Text.FontWeight weight) => new() { FontSize = size, FontWeight = weight, Foreground = new SolidColorBrush(Colors.White) };
 
@@ -240,6 +286,8 @@ public sealed partial class HurdleGameWindow : Window
         }
     }
 
+    private double ScreenX(double meters) => RunnerX + ((meters - _engine.Distance) * PixelsPerMeter);
+
     private void Render()
     {
         double distance = _engine.Distance;
@@ -257,43 +305,61 @@ public sealed partial class HurdleGameWindow : Window
             Canvas.SetLeft(_laneMarks[i], (i * laneSpacing) - laneOffset);
         }
 
-        int slot = 0;
-        foreach (double h in _engine.Hurdles)
+        int hurdleSlot = 0;
+        int pitSlot = 0;
+        foreach (Obstacle o in _engine.Obstacles)
         {
-            double x = RunnerX + ((h - distance) * PixelsPerMeter);
-            if (x < -40)
+            double startX = ScreenX(o.Start);
+            double endX = ScreenX(o.End);
+            if (endX < -60)
             {
                 continue;
             }
 
-            if (x > ViewWidth + 40 || slot >= _hurdles.Count)
+            if (startX > ViewWidth + 60)
             {
                 break;
             }
 
-            (Rectangle bar, Rectangle left, Rectangle right) = _hurdles[slot++];
-            // Rào vẽ rộng ~0,3 m — khớp vùng va chạm (HurdleHalfWidth 0,1 m + chân nhân vật).
-            Canvas.SetLeft(bar, x - 8);
-            Canvas.SetLeft(left, x - 7);
-            Canvas.SetLeft(right, x + 3);
-            bar.Visibility = left.Visibility = right.Visibility = Visibility.Visible;
+            if (o.Kind == ObstacleKind.Pit && pitSlot < _pits.Count)
+            {
+                Rectangle pit = _pits[pitSlot++];
+                pit.Width = Math.Max(1, endX - startX);
+                Canvas.SetLeft(pit, startX);
+                pit.Visibility = Visibility.Visible;
+            }
+            else if (o.Kind == ObstacleKind.Hurdle && hurdleSlot < _hurdles.Count)
+            {
+                (Rectangle bar, Rectangle left, Rectangle right) = _hurdles[hurdleSlot++];
+                Canvas.SetLeft(bar, startX - 6);
+                Canvas.SetLeft(left, startX - 5);
+                Canvas.SetLeft(right, startX + 2);
+                bar.Visibility = left.Visibility = right.Visibility = Visibility.Visible;
+            }
         }
 
-        for (; slot < _hurdles.Count; slot++)
+        for (; pitSlot < _pits.Count; pitSlot++)
         {
-            (Rectangle bar, Rectangle left, Rectangle right) = _hurdles[slot];
+            _pits[pitSlot].Visibility = Visibility.Collapsed;
+        }
+
+        for (; hurdleSlot < _hurdles.Count; hurdleSlot++)
+        {
+            (Rectangle bar, Rectangle left, Rectangle right) = _hurdles[hurdleSlot];
             bar.Visibility = left.Visibility = right.Visibility = Visibility.Collapsed;
         }
 
+        // Rơi xuống hố: nhân vật chìm xuống lòng hố.
+        double sink = _engine.State == HurdleGameState.Lost && _engine.LostTo == ObstacleKind.Pit ? 40 : 0;
         Canvas.SetLeft(_runner, RunnerX);
-        Canvas.SetTop(_runner, GroundY - (_engine.RunnerHeight * PixelsPerMeter));
+        Canvas.SetTop(_runner, GroundY - (_engine.RunnerHeight * PixelsPerMeter) + sink);
 
         // Tay chân: vung theo quãng đường khi chạy, co lại khi đang nhảy.
-        double swing = _engine.IsAirborne ? 0.9 : Math.Sin(distance * 3.2) * 0.7;
-        SetLimb(_legFront, 0, -30, swing, 30);
-        SetLimb(_legBack, 0, -30, -swing, 30);
-        SetLimb(_armFront, 0, -54, -swing * 0.8, 22);
-        SetLimb(_armBack, 0, -54, swing * 0.8, 22);
+        double swing = _engine.IsAirborne ? 0.9 : Math.Sin(distance * 2.4) * 0.7;
+        SetLimb(_legFront, 0, -23, swing, 23);
+        SetLimb(_legBack, 0, -23, -swing, 23);
+        SetLimb(_armFront, 0, -42, -swing * 0.8, 17);
+        SetLimb(_armBack, 0, -42, swing * 0.8, 17);
     }
 
     private static void SetLimb(Line limb, double x, double y, double angle, double length)
@@ -307,25 +373,40 @@ public sealed partial class HurdleGameWindow : Window
     private async Task OnGameOverAsync(bool won)
     {
         _clock.Stop();
-        ShowMessage(LocalizationService.Get(won ? "GameWonChecking" : "GameLostChecking"), showClose: false);
+        ShowMessage(null, LocalizationService.Get(won ? "GameWonChecking" : "GameLostChecking"));
         ParentGameFinish finish = await ReportAsync(won).ConfigureAwait(true);
-        string text = finish.Outcome switch
+        switch (finish.Outcome)
         {
-            ParentGameOutcome.Paused => LocalizationService.Get("GameResultPaused"),
-            ParentGameOutcome.Applied => LocalizationService.Get("GameResultApplied"),
-            ParentGameOutcome.Lost => LocalizationService.GetFormatted("GameResultLost", ((int)_engine.Distance).ToString("N0", LocalizationService.Culture)),
-            ParentGameOutcome.TooFast => LocalizationService.Get("GameResultTooFast"),
-            _ => LocalizationService.Get("GameResultFailed"),
-        };
-        ShowMessage(text, showClose: true);
-        if (finish.Outcome is ParentGameOutcome.Paused or ParentGameOutcome.Applied)
-        {
-            await Task.Delay(1500).ConfigureAwait(true);
-            Close();
+            case ParentGameOutcome.Paused:
+            case ParentGameOutcome.Applied:
+                ShowMessage(null, LocalizationService.Get(finish.Outcome == ParentGameOutcome.Paused ? "GameResultPaused" : "GameResultApplied"), close: true);
+                await Task.Delay(1500).ConfigureAwait(true);
+                Close();
+                break;
+            case ParentGameOutcome.Lost:
+                // `PAUSE-049`: mỗi lần thua nhắc rằng máy vẫn đang được bảo vệ; thua liên tiếp 5–10 lần (ngẫu nhiên) thì gợi ý thôi tạm dừng.
+                string meters = ((int)_engine.Distance).ToString("N0", LocalizationService.Culture);
+                string detail = LocalizationService.GetFormatted(_engine.LostTo == ObstacleKind.Pit ? "GameLostDetailPit" : "GameLostDetailHurdle", meters);
+                if (_callbacks.ShouldSuggestStop())
+                {
+                    ShowMessage(LocalizationService.Get("GameSuggestStop"), detail, close: true, donate: true);
+                }
+                else
+                {
+                    ShowMessage(LocalizationService.Get("GameLostProtected"), detail, close: true);
+                }
+
+                break;
+            case ParentGameOutcome.TooFast:
+                ShowMessage(null, LocalizationService.Get("GameResultTooFast"), close: true);
+                break;
+            default:
+                ShowMessage(null, LocalizationService.Get("GameResultFailed"), close: true);
+                break;
         }
     }
 
-    /// <summary>Báo kết quả đúng 1 lần (về đích, vấp rào, hoặc đóng cửa sổ giữa chừng).</summary>
+    /// <summary>Báo kết quả đúng 1 lần (về đích, thua, hoặc đóng cửa sổ giữa chừng).</summary>
     private async Task<ParentGameFinish> ReportAsync(bool completed)
     {
         if (_reported)
@@ -337,7 +418,7 @@ public sealed partial class HurdleGameWindow : Window
         ParentGameFinish finish;
         try
         {
-            finish = await _report(completed, (uint)_engine.Distance).ConfigureAwait(true);
+            finish = await _callbacks.Report(completed, (uint)_engine.Distance).ConfigureAwait(true);
         }
         catch (UiIpcConnectionException)
         {
@@ -348,11 +429,26 @@ public sealed partial class HurdleGameWindow : Window
         return finish;
     }
 
-    private void ShowMessage(string text, bool showClose)
+    private void ShowMessage(string? title, string text, bool close = false, bool donate = false)
     {
+        _messageTitle.Text = title ?? string.Empty;
+        _messageTitle.Visibility = title is null ? Visibility.Collapsed : Visibility.Visible;
         _messageText.Text = text;
-        _closeButton.Visibility = showClose ? Visibility.Visible : Visibility.Collapsed;
+        _buttons.Children.Clear();
+        if (donate)
+        {
+            // Chủ dự án yêu cầu (2026-10-08): kèm nút "Để sau" thay cho "Đóng".
+            _buttons.Children.Add(_donateButton);
+            _buttons.Children.Add(_laterButton);
+        }
+        else if (close)
+        {
+            _buttons.Children.Add(_closeButton);
+        }
+
+        _buttons.Visibility = _buttons.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _messagePanel.Visibility = Visibility.Visible;
+        (donate ? _donateButton : close ? _closeButton : null)?.Focus(FocusState.Programmatic);
     }
 
     private async void OnClosed(object sender, WindowEventArgs args)
@@ -363,6 +459,11 @@ public sealed partial class HurdleGameWindow : Window
         {
             // `PAUSE-046`: thoát trò chơi = không tạm dừng — vẫn báo Service để ván kết thúc và ghi nhật ký.
             await ReportAsync(completed: false).ConfigureAwait(true);
+        }
+
+        if (_donateRequested)
+        {
+            _callbacks.OpenDonate();
         }
     }
 

@@ -643,7 +643,7 @@
     <value>Proteger incluso frente a los padres</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Si está activado, pausar la supervisión requiere la contraseña correcta y después completar la carrera de vallas hasta la distancia elegida (1.000 m llevan unos 5 min 30 s). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
+    <value>Si está activado, pausar la supervisión requiere la contraseña correcta y después completar el juego de vallas y hoyos hasta la distancia elegida (1.000 m llevan unos 3 minutos). Perder o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activado</value>
@@ -655,7 +655,7 @@
     <value>¿Activar "Proteger incluso frente a los padres"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: tras la contraseña deberá completar la carrera de vallas hasta la distancia elegida (al menos unos 5 min 30 s). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
+    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: tras la contraseña deberá completar el juego de vallas y hoyos hasta la distancia elegida (al menos unos 3 minutos). Perder o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Activar</value>
@@ -733,11 +733,11 @@
     <value>cambiar el modo de protección</value>
   </data>
   <data name="GameStartPrompt" xml:space="preserve">
-    <value>Corra {0} m sin tocar ninguna valla para {1}.
-El corredor acelera de un ritmo de 10 min/km a 4 min/km; cuanto más rápido corre, más lejos salta. Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar las vallas.</value>
+    <value>Corra {0} m sin tocar vallas ni caer en hoyos para {1}.
+El corredor acelera de un ritmo de 6 min/km a 2 min/km; cuanto más rápido corre, más lejos salta. Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar vallas y hoyos.</value>
   </data>
   <data name="GameControlsHint" xml:space="preserve">
-    <value>Espacio o clic izquierdo: saltar. Cerrar esta ventana es rendirse: no podrá {0}.</value>
+    <value>Espacio o clic izquierdo: saltar vallas y hoyos. Cerrar esta ventana es rendirse: no podrá {0}.</value>
   </data>
   <data name="GameDistanceFormat" xml:space="preserve">
     <value>{0} / {1} m</value>
@@ -749,16 +749,13 @@ El corredor acelera de un ritmo de 10 min/km a 4 min/km; cuanto más rápido cor
     <value>¡Meta! Confirmando el resultado…</value>
   </data>
   <data name="GameLostChecking" xml:space="preserve">
-    <value>¡Ha tocado una valla! Registrando el resultado…</value>
+    <value>¡Has perdido! Registrando el resultado…</value>
   </data>
   <data name="GameResultPaused" xml:space="preserve">
     <value>¡Hecho! La supervisión se ha pausado.</value>
   </data>
   <data name="GameResultApplied" xml:space="preserve">
     <value>¡Hecho! El cambio se ha aplicado.</value>
-  </data>
-  <data name="GameResultLost" xml:space="preserve">
-    <value>Ha tocado una valla a los {0} m. La acción no se ha realizado.</value>
   </data>
   <data name="GameResultTooFast" xml:space="preserve">
     <value>El resultado del juego no es válido. La acción no se ha realizado.</value>
@@ -770,24 +767,42 @@ El corredor acelera de un ritmo de 10 min/km a 4 min/km; cuanto más rápido cor
     <value>Cerrar</value>
   </data>
   <data name="DashboardGameNotPaused" xml:space="preserve">
-    <value>La supervisión no se pausó: el juego no se completó (valla tocada o juego cerrado).</value>
+    <value>La supervisión no se pausó: el juego no se completó (perdido o cerrado).</value>
   </data>
   <data name="SettingsGameNotApplied" xml:space="preserve">
-    <value>Sin cambios: el juego no se completó (valla tocada o juego cerrado).</value>
+    <value>Sin cambios: el juego no se completó (perdido o cerrado).</value>
   </data>
   <data name="SettingsGameDifficultyLabel" xml:space="preserve">
     <value>Dificultad de la carrera de vallas (distancia que recorrer)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Fácil — 1.000 m (unos 5 min 30 s)</value>
+    <value>Fácil — 1.000 m (unos 3 minutos)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Media — 2.000 m (unos 9 min 30 s, más vallas)</value>
+    <value>Media — 2.000 m (unos 5 minutos, más obstáculos)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difícil — 3.000 m (unos 13 min 30 s, más vallas aún)</value>
+    <value>Difícil — 3.000 m (unos 7 minutos, más obstáculos aún)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Ritmo: {0}/km</value>
+  </data>
+  <data name="GameLostProtected" xml:space="preserve">
+    <value>Has perdido, ¡pero sigues protegido!</value>
+  </data>
+  <data name="GameLostDetailHurdle" xml:space="preserve">
+    <value>Valla tocada a los {0} m.</value>
+  </data>
+  <data name="GameLostDetailPit" xml:space="preserve">
+    <value>Caída en un hoyo a los {0} m.</value>
+  </data>
+  <data name="GameSuggestStop" xml:space="preserve">
+    <value>¿Y si mejor no pausamos?</value>
+  </data>
+  <data name="GameDonateButton" xml:space="preserve">
+    <value>Donar</value>
+  </data>
+  <data name="GameLaterButton" xml:space="preserve">
+    <value>Más tarde</value>
   </data>
 </root>

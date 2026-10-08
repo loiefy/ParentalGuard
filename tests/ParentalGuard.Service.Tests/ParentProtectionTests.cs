@@ -73,15 +73,14 @@ public class ParentProtectionTests : IDisposable
             CancellationToken.None)).ParentGameFinishResp;
 
     [Fact]
-    public void MinDuration_FollowsPaceCurve_1000MetersIsFiveAndHalfMinutes()
+    public void MinDuration_FollowsPaceCurve_1000MetersIsThreeMinutes()
     {
-        Assert.Equal(210, ParentGameCoordinator.SecondsToRun(500), 6);   // pace 10 → 4 phút/km trong 500 m đầu
-        Assert.Equal(330, ParentGameCoordinator.SecondsToRun(1000), 6);
-        Assert.Equal(570, ParentGameCoordinator.SecondsToRun(2000), 6);
-        Assert.Equal(810, ParentGameCoordinator.SecondsToRun(3000), 6);
-        Assert.Equal(328_500, ParentGameCoordinator.MinDurationMs(1000));
-        Assert.True(ParentGameCoordinator.MinDurationMs(1000) >= 180_000); // vẫn ≥ 3 phút
-    }
+        Assert.Equal(120, ParentGameCoordinator.SecondsToRun(500), 6);   // pace 6 → 2 phút/km trong 500 m đầu
+        Assert.Equal(180, ParentGameCoordinator.SecondsToRun(1000), 6);
+        Assert.Equal(300, ParentGameCoordinator.SecondsToRun(2000), 6);
+        Assert.Equal(420, ParentGameCoordinator.SecondsToRun(3000), 6);
+        Assert.Equal(178_500, ParentGameCoordinator.MinDurationMs(1000));
+            }
 
     [Fact]
     public async Task PauseGame_FinishAfterMinDuration_PausesWithChosenDuration_GameUsableOnce()
@@ -94,7 +93,7 @@ public class ParentProtectionTests : IDisposable
         Assert.Equal(1000u, start.TargetMeters);
         Assert.Equal((uint)ParentGameCoordinator.MinDurationMs(1000), start.MinDurationMs);
 
-        _clock.Now += 331_000;
+        _clock.Now += 181_000;
         ParentGameFinishResponse finish = await Finish(game, session, completed: true, meters: 1000);
 
         Assert.Equal(ParentGameResult.Paused, finish.Result);
@@ -110,7 +109,7 @@ public class ParentProtectionTests : IDisposable
         var session = new UiParentSession(_clock);
         await StartPause(game, session);
 
-        _clock.Now += 240_000; // "về đích" 1000 m sau 4 phút — không thể (đường pace cần 5 phút 30 giây)
+        _clock.Now += 120_000; // "về đích" 1000 m sau 2 phút — không thể (đường pace cần 3 phút)
         Assert.Equal(ParentGameResult.TooFast, (await Finish(game, session, true, 1000)).Result);
         Assert.Empty(h.PausesApplied);
     }
@@ -171,7 +170,7 @@ public class ParentProtectionTests : IDisposable
         Assert.Equal(ParentGameResult.Started, start.Result);
         Assert.Equal(3000u, start.TargetMeters); // chơi ở độ khó HIỆN HÀNH
 
-        _clock.Now += 811_000;
+        _clock.Now += 421_000;
         Assert.Equal(ParentGameResult.Applied, (await Finish(game, session, true, 3000)).Result);
         Assert.Equal([(true, 1000u)], h.SettingsApplied);
     }
