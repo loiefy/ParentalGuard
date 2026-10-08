@@ -1,6 +1,6 @@
 # 03 — IPC Communication (Named Pipe Contract)
 
-> Version: v0.12.2 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.12.3 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 1. Mục đích
 
@@ -843,7 +843,7 @@ Khối UI mở rộng **160-179** (160-167 đã dùng), Overlay field **70**:
 - `Auth/ParentGameCoordinator` (dựng trong `UiSessionServer`, gọi qua delegate tới `PauseCoordinator`/`ConfigCoordinator` — không giữ state nghiệp vụ riêng):
   - `PURPOSE_PAUSE`: tiêu thụ `action_token` "pause_monitoring" NGAY (mật khẩu trước, token sống 15 giây), lưu ván vào `UiParentSession` kèm thời lượng đã chọn. Về đích hợp lệ → `PauseCoordinator.ApplyPauseAsync` (cùng đường với tạm dừng thường: Vision, overlay, icon, audit, `PAUSE-021`).
   - `PURPOSE_SETTINGS`: cần phiên phụ huynh; chỉ chấp nhận khi thay đổi làm giảm bảo vệ (tắt / giảm quãng đường) → về đích → `ConfigCoordinator.ApplyParentProtectionAsync`.
-  - Chống gian lận phía UI: Service từ chối (`TOO_FAST`) kết quả về đích sớm hơn `SecondsToRun(quãng đường) − 1,5 giây` (v0.12.2, `PAUSE-045b`: tích phân pace 360 → 120 giây/km trong 500 m đầu rồi 120 giây/km; 1000 m = 180 giây — PHẢI khớp `HurdleGameEngine.SecondsToRun` phía UI); ván kết thúc đúng 1 lần (`TakePendingGame`); bỏ ván treo quá 20 phút ngoài thời gian chạy. Audit `ParentGameStarted` / `ParentGamePassed` / `ParentGameFailed{reason}`.
+  - Chống gian lận phía UI: Service từ chối (`TOO_FAST`) kết quả về đích sớm hơn `SecondsToRun(quãng đường) − 1,5 giây` (v0.12.3, `PAUSE-045c`: tích phân pace 360 → 180 giây/km trong 500 m đầu rồi 180 giây/km; 800 m = 189 giây; mốc hợp lệ 800/1600/2000, `NormalizeMeters` chuyển mốc cũ 1000/3000 khi đọc `config.db` — PHẢI khớp `HurdleGameEngine.SecondsToRun` phía UI); ván kết thúc đúng 1 lần (`TakePendingGame`); bỏ ván treo quá 20 phút ngoài thời gian chạy. Audit `ParentGameStarted` / `ParentGamePassed` / `ParentGameFailed{reason}`.
 - `PauseMonitoringRequest` khi chế độ đang bật → luôn `CHALLENGE_REQUIRED` (chặn trước `PauseCoordinator`, token không bị tiêu thụ) — tạm dừng chỉ còn đường qua về đích trò chơi.
 
 ### 3.7a Service-side handler binding (gap fix Đợt 8b) — `DashboardStatusQuery`/`AuditChartQuery`/`AcknowledgePauseAnomalyRequest`
@@ -1013,6 +1013,7 @@ Sau mỗi lần 1 pipe instance bị đóng (do client tự ngắt, do lỗi ở
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.12.3 | 2026-10-08 | PATCH — mục 3.7e: mốc 800/1600/2000 m, pace nhanh nhất 3 phút/km (`PAUSE-045c`) |
 | v0.12.2 | 2026-10-08 | PATCH — mục 3.7e: đường pace mới 6 → 2 phút/km (`PAUSE-045b`) |
 | v0.12.1 | 2026-10-08 | PATCH — mục 3.7e: thời gian tối thiểu theo đường pace tăng tốc (`PAUSE-045a`) thay tốc độ cố định |
 | v0.12.0 | 2026-10-08 | MINOR — mục 3.7e: trò chơi nhảy vượt rào (field 168-171), bỏ thử thách phép tính (160-163 `reserved`) |

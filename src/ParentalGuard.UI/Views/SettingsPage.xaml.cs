@@ -52,7 +52,7 @@ public sealed partial class SettingsPage : Page
         ParentProtectionToggle.OnContent = LocalizationService.Get("SettingsParentProtectionOn");
         ParentProtectionToggle.OffContent = LocalizationService.Get("SettingsParentProtectionOff");
         ParentGameDifficultyLabel.Text = LocalizationService.Get("SettingsGameDifficultyLabel");
-        foreach ((uint meters, string key) in new[] { (1000u, "GameDifficultyEasy"), (2000u, "GameDifficultyMedium"), (3000u, "GameDifficultyHard") })
+        foreach ((uint meters, string key) in new[] { (800u, "GameDifficultyEasy"), (1600u, "GameDifficultyMedium"), (2000u, "GameDifficultyHard") })
         {
             ParentGameDifficultyCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.Get(key), Tag = meters });
         }

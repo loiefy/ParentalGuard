@@ -24,10 +24,10 @@ public sealed record MonitoringStateData(
 
     public const string DefaultLanguage = "vi";
 
-    /// <summary>`PAUSE-045` (2026-10-08): quãng đường trò chơi nhảy rào (độ khó) — 1000 (dễ) / 2000 (vừa) / 3000 m (khó).</summary>
+    /// <summary>`PAUSE-045c` (2026-10-08): quãng đường trò chơi nhảy rào (độ khó) — 800 (dễ) / 1600 (vừa) / 2000 m (khó).</summary>
     public uint ParentGameMeters { get; init; } = DefaultParentGameMeters;
 
-    public const uint DefaultParentGameMeters = 1000;
+    public const uint DefaultParentGameMeters = 800;
 
     /// <summary>`FE-063a`: đúng 6 ngôn ngữ hỗ trợ.</summary>
     public static readonly IReadOnlySet<string> SupportedLanguages = new HashSet<string>(StringComparer.Ordinal) { "vi", "en", "fr", "es", "pt", "zh-Hans" };

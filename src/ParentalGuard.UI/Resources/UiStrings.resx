@@ -705,7 +705,7 @@
     <value>Bảo vệ cả phụ huynh</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Khi bật, muốn tạm dừng giám sát phải nhập đúng mật khẩu rồi chơi trò nhảy vượt rào và hố đến hết quãng đường đã chọn (1.000 m mất khoảng 3 phút). Thua hoặc thoát trò chơi thì không tạm dừng được. Tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
+    <value>Khi bật, muốn tạm dừng giám sát phải nhập đúng mật khẩu rồi chơi trò nhảy vượt rào và hố đến hết quãng đường đã chọn (800 m mất khoảng 3 phút 10 giây). Thua hoặc thoát trò chơi thì không tạm dừng được. Tắt chế độ này hoặc giảm độ khó cũng phải hoàn thành trò chơi.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Đang bật</value>
@@ -794,10 +794,6 @@
   <data name="GamePurposeSettings" xml:space="preserve">
     <value>thay đổi chế độ bảo vệ</value>
   </data>
-  <data name="GameStartPrompt" xml:space="preserve">
-    <value>Chạy đủ {0} m mà không vấp rào hay rơi xuống hố để {1}.
-Nhân vật tăng tốc dần từ pace 6 phút/km lên 2 phút/km; chạy càng nhanh thì nhảy càng xa. Nhấn Space hoặc chuột trái để bắt đầu, rồi nhấn tiếp để nhảy qua rào và hố.</value>
-  </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Space hoặc chuột trái: nhảy qua rào và hố. Đóng cửa sổ là bỏ cuộc — sẽ không {0}.</value>
   </data>
@@ -838,13 +834,13 @@ Nhân vật tăng tốc dần từ pace 6 phút/km lên 2 phút/km; chạy càng
     <value>Độ khó trò chơi nhảy vượt rào (quãng đường phải chạy)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Dễ — 1.000 m (khoảng 3 phút)</value>
+    <value>Dễ — 800 m (khoảng 3 phút 10 giây)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Vừa — 2.000 m (khoảng 5 phút, chướng ngại dày hơn)</value>
+    <value>Vừa — 1.600 m (khoảng 5 phút 30 giây, chướng ngại dày hơn)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Khó — 3.000 m (khoảng 7 phút, chướng ngại dày nhất)</value>
+    <value>Khó — 2.000 m (khoảng 6 phút 45 giây, chướng ngại dày nhất)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Pace: {0}/km</value>

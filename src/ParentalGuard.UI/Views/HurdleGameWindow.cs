@@ -38,8 +38,15 @@ public sealed partial class HurdleGameWindow : Window
     private const double GroundY = 330;
     private const double RunnerX = 120;
 
-    /// <summary>35 px/m: nhìn trước ~24 m — ở tốc độ tối đa (pace 2, 8,3 m/giây) vẫn thấy trước ~3 giây.</summary>
-    private const double PixelsPerMeter = 35;
+    /// <summary>42 px/m: nhìn trước ~20 m — ở tốc độ tối đa (pace 3, 5,6 m/giây) thấy trước ~3,6 giây.</summary>
+    private const double PixelsPerMeter = 42;
+    private const int CloudCount = 6;
+
+    // Bầu trời (chủ dự án yêu cầu 2026-10-08): xuất phát trời trong xanh có mặt trời, càng chạy xa trời càng tối.
+    private static readonly Color _dayTop = Color.FromArgb(255, 0x3E, 0x9B, 0xE6);
+    private static readonly Color _dayBottom = Color.FromArgb(255, 0xBF, 0xE6, 0xFF);
+    private static readonly Color _nightTop = Color.FromArgb(255, 0x07, 0x0B, 0x1E);
+    private static readonly Color _nightBottom = Color.FromArgb(255, 0x2A, 0x2C, 0x58);
     private const int HurdlePool = 24;
     private const int PitPool = 6;
     private const int LaneMarks = 14;
@@ -47,6 +54,12 @@ public sealed partial class HurdleGameWindow : Window
     private static readonly Color _trackColor = Color.FromArgb(255, 0xB5, 0x4A, 0x2E);
     private static readonly Color _runnerColor = Color.FromArgb(255, 0x2B, 0x7D, 0xE9);
 
+    private readonly GradientStop _skyTop = new() { Color = _dayTop, Offset = 0 };
+    private readonly GradientStop _skyBottom = new() { Color = _dayBottom, Offset = 1 };
+    private readonly Ellipse _sun = new() { Width = 64, Height = 64, Fill = new SolidColorBrush(Color.FromArgb(255, 0xFF, 0xD8, 0x4A)) };
+    private readonly Ellipse _sunGlow = new() { Width = 120, Height = 120, Fill = new SolidColorBrush(Color.FromArgb(70, 0xFF, 0xE8, 0x80)) };
+    private readonly List<(Canvas Shape, double BaseX, double Y, double Parallax)> _clouds = [];
+    private readonly Rectangle _groundShade = new() { Width = ViewWidth, Height = ViewHeight - GroundY, Fill = new SolidColorBrush(Colors.Black), Opacity = 0 };
     private readonly HurdleGameEngine _engine;
     private readonly HurdleGameCallbacks _callbacks;
     private readonly TaskCompletionSource<ParentGameFinish> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -105,13 +118,28 @@ public sealed partial class HurdleGameWindow : Window
         {
             StartPoint = new Windows.Foundation.Point(0, 0),
             EndPoint = new Windows.Foundation.Point(0, 1),
-            GradientStops =
-            {
-                new GradientStop { Color = Color.FromArgb(255, 0x14, 0x2A, 0x4A), Offset = 0 },
-                new GradientStop { Color = Color.FromArgb(255, 0x3A, 0x6E, 0xA8), Offset = 1 },
-            },
+            GradientStops = { _skyTop, _skyBottom },
         };
         _scene.Children.Add(sky);
+        _scene.Children.Add(_sunGlow);
+        _scene.Children.Add(_sun);
+
+        // Mây nhạt: vài đám (mỗi đám 3 hình elip chồng nhau) trôi chậm hơn mặt đường (thị sai).
+        for (int i = 0; i < CloudCount; i++)
+        {
+            double scale = 0.7 + (0.12 * (i % 4));
+            var cloud = new Canvas();
+            foreach ((double x, double y, double w, double h) in new[] { (0.0, 10.0, 70.0, 28.0), (24.0, 0.0, 64.0, 34.0), (58.0, 12.0, 60.0, 24.0) })
+            {
+                var puff = new Ellipse { Width = w * scale, Height = h * scale, Fill = new SolidColorBrush(Colors.White) };
+                Canvas.SetLeft(puff, x * scale);
+                Canvas.SetTop(puff, y * scale);
+                cloud.Children.Add(puff);
+            }
+
+            _clouds.Add((cloud, i * 190.0, 40 + (37 * ((i * 3) % 5)), 0.05 + (0.03 * (i % 3))));
+            _scene.Children.Add(cloud);
+        }
 
         var grass = new Rectangle { Width = ViewWidth, Height = ViewHeight - GroundY, Fill = new SolidColorBrush(Color.FromArgb(255, 0x2E, 0x5E, 0x2E)) };
         Canvas.SetTop(grass, GroundY);
@@ -151,6 +179,10 @@ public sealed partial class HurdleGameWindow : Window
             _pits.Add(pit);
             _scene.Children.Add(pit);
         }
+
+        // Lớp phủ tối dần cho mặt đất theo "thời gian trong ngày" (vẽ trên đường và hố, dưới rào và nhân vật).
+        Canvas.SetTop(_groundShade, GroundY);
+        _scene.Children.Add(_groundShade);
 
         double hurdlePx = HurdleGameEngine.HurdleHeight * PixelsPerMeter;
         for (int i = 0; i < HurdlePool; i++)
@@ -219,7 +251,8 @@ public sealed partial class HurdleGameWindow : Window
         Canvas.SetLeft(_messagePanel, (ViewWidth - 600) / 2);
         Canvas.SetTop(_messagePanel, 110);
         _scene.Children.Add(_messagePanel);
-        ShowMessage(null, LocalizationService.GetFormatted("GameStartPrompt", _engine.TargetMeters, purposeText));
+        // Chủ dự án yêu cầu (2026-10-08): không hiện đoạn giới thiệu lúc bắt đầu — hướng dẫn điều khiển chỉ còn dòng nhỏ ở góc.
+        _messagePanel.Visibility = Visibility.Collapsed;
 
         var viewbox = new Viewbox { Child = _scene, Stretch = Stretch.Uniform };
         var root = new Grid { Background = new SolidColorBrush(Color.FromArgb(255, 0x0E, 0x16, 0x24)) };
@@ -298,6 +331,8 @@ public sealed partial class HurdleGameWindow : Window
         _timeText.Text = LocalizationService.GetFormatted("GameTimeFormat", elapsed.ToString(@"mm\:ss", CultureInfo.InvariantCulture))
             + "    " + LocalizationService.GetFormatted("GamePaceFormat", pace.ToString(@"m\:ss", CultureInfo.InvariantCulture));
 
+        RenderSky(distance / _engine.TargetMeters, distance);
+
         double laneSpacing = ViewWidth / LaneMarks;
         double laneOffset = (distance * PixelsPerMeter) % laneSpacing;
         for (int i = 0; i < _laneMarks.Count; i++)
@@ -361,6 +396,43 @@ public sealed partial class HurdleGameWindow : Window
         SetLimb(_armFront, 0, -42, -swing * 0.8, 17);
         SetLimb(_armBack, 0, -42, swing * 0.8, 17);
     }
+
+    /// <summary>
+    /// <paramref name="progress"/> 0 → 1 theo quãng đường: trời chuyển từ xanh trong sang tối, mặt trời lặn dần xuống đường chân trời
+    /// và mờ đi, mây nhạt dần, mặt đất tối theo.
+    /// </summary>
+    private void RenderSky(double progress, double distance)
+    {
+        double t = Math.Clamp(progress, 0, 1);
+        _skyTop.Color = Lerp(_dayTop, _nightTop, t);
+        _skyBottom.Color = Lerp(_dayBottom, _nightBottom, t);
+
+        double sunY = 50 + (t * 320);
+        Canvas.SetLeft(_sun, ViewWidth - 230);
+        Canvas.SetTop(_sun, sunY);
+        Canvas.SetLeft(_sunGlow, ViewWidth - 258);
+        Canvas.SetTop(_sunGlow, sunY - 28);
+        _sun.Opacity = Math.Clamp(1 - (t * 1.1), 0, 1);
+        _sunGlow.Opacity = _sun.Opacity;
+
+        double wrap = ViewWidth + 260;
+        foreach ((Canvas shape, double baseX, double y, double parallax) in _clouds)
+        {
+            double x = baseX - (distance * PixelsPerMeter * parallax);
+            x = (((x % wrap) + wrap) % wrap) - 160;
+            Canvas.SetLeft(shape, x);
+            Canvas.SetTop(shape, y);
+            shape.Opacity = 0.5 * (1 - (0.65 * t));
+        }
+
+        _groundShade.Opacity = 0.55 * t;
+    }
+
+    private static Color Lerp(Color a, Color b, double t) => Color.FromArgb(
+        255,
+        (byte)(a.R + ((b.R - a.R) * t)),
+        (byte)(a.G + ((b.G - a.G) * t)),
+        (byte)(a.B + ((b.B - a.B) * t)));
 
     private static void SetLimb(Line limb, double x, double y, double angle, double length)
     {

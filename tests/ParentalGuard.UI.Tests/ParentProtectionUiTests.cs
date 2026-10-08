@@ -84,7 +84,7 @@ public sealed class ParentProtectionUiTests
         game.Outcome = ParentGameOutcome.Applied;
         Assert.True(await vm.SetParentProtectionAsync(false));
         Assert.False(vm.ParentProtectionEnabled);
-        Assert.Equal([(false, 1000u)], game.SettingsCalls.Skip(1));
+        Assert.Equal([(false, 800u)], game.SettingsCalls.Skip(1));
     }
 
     [Fact]
@@ -92,16 +92,16 @@ public sealed class ParentProtectionUiTests
     {
         var facade = new StubProtectionFacade();
         var game = new StubGameService(ParentGameOutcome.Applied);
-        var vm = new SettingsViewModel(new StubConfigFacade { Enabled = true, Meters = 2000 }, null!, new StubAuthPrompt(), null, facade, game);
+        var vm = new SettingsViewModel(new StubConfigFacade { Enabled = true, Meters = 1600 }, null!, new StubAuthPrompt(), null, facade, game);
         await vm.InitializeAsync(CancellationToken.None);
 
-        Assert.True(await vm.SetParentProtectionAsync(true, 3000));
-        Assert.Equal([(true, 3000u)], facade.Requests);
+        Assert.True(await vm.SetParentProtectionAsync(true, 2000));
+        Assert.Equal([(true, 2000u)], facade.Requests);
         Assert.Empty(game.SettingsCalls);
 
-        Assert.True(await vm.SetParentProtectionAsync(true, 1000));
-        Assert.Equal([(true, 1000u)], game.SettingsCalls);
-        Assert.Equal(1000u, vm.ParentGameMeters);
+        Assert.True(await vm.SetParentProtectionAsync(true, 800));
+        Assert.Equal([(true, 800u)], game.SettingsCalls);
+        Assert.Equal(800u, vm.ParentGameMeters);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class ParentProtectionUiTests
         await vm.InitializeAsync(CancellationToken.None);
 
         Assert.True(await vm.SetParentProtectionAsync(true));
-        Assert.Equal([(true, 1000u)], facade.Requests);
+        Assert.Equal([(true, 800u)], facade.Requests);
         Assert.Empty(game.SettingsCalls);
     }
 
@@ -188,7 +188,7 @@ public sealed class ParentProtectionUiTests
     {
         public bool Enabled { get; init; }
 
-        public uint Meters { get; init; } = 1000;
+        public uint Meters { get; init; } = 800;
 
         public Task<ConfigSnapshot> GetConfigAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new ConfigSnapshot(string.Empty, [], PerformanceModeOption.Balanced, Enabled, "vi", Meters));

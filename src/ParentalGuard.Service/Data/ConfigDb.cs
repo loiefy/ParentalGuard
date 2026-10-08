@@ -403,7 +403,7 @@ public sealed class ConfigDb : IDisposable
         {
             ParentProtectionEnabled = json.ParentProtectionEnabled,
             Language = MonitoringStateData.SupportedLanguages.Contains(json.Language ?? "") ? json.Language! : MonitoringStateData.DefaultLanguage,
-            ParentGameMeters = json.ParentGameMeters is 1000 or 2000 or 3000 ? json.ParentGameMeters : MonitoringStateData.DefaultParentGameMeters,
+            ParentGameMeters = Auth.ParentGameCoordinator.NormalizeMeters(json.ParentGameMeters), // mốc cũ 1000/3000 → 800/2000 (PAUSE-045c)
         };
     }
 
@@ -646,9 +646,9 @@ public sealed class ConfigDb : IDisposable
         [JsonPropertyName("language")]
         public string? Language { get; set; } = "vi";
 
-        /// <summary>`PAUSE-045` (2026-10-08) — thiếu/không hợp lệ = 1000.</summary>
+        /// <summary>`PAUSE-045c` (2026-10-08) — thiếu/không hợp lệ = 800.</summary>
         [JsonPropertyName("parent_game_meters")]
-        public uint ParentGameMeters { get; set; } = 1000;
+        public uint ParentGameMeters { get; set; } = 800;
     }
 
     private sealed class PauseStateJson

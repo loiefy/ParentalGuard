@@ -38,7 +38,7 @@ public sealed record ConfigSnapshot(
     PerformanceModeOption PerformanceMode,
     bool ParentProtectionEnabled = false,
     string Language = "vi",
-    uint ParentGameMeters = 1000);
+    uint ParentGameMeters = 800);
 
 /// <summary>1-1 với <c>PerformanceMode</c> proto (trừ <c>UNSPECIFIED</c>, `PERF-050b` chỉ có đúng 2 mức).</summary>
 public enum PerformanceModeOption

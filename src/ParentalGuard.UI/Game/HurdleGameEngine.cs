@@ -32,8 +32,8 @@ public readonly record struct JumpProfile(double AirTime, double Peak, double Cl
 /// <summary>
 /// `PAUSE-045b`/`PAUSE-046b` (2026-10-08, chủ dự án chỉnh lần 2) — luật trò chơi nhảy vượt rào, tách khỏi giao diện để test được.
 /// <list type="bullet">
-/// <item>Tốc độ tăng dần theo quãng đường: pace 6 phút/km lúc xuất phát giảm đều tới 2 phút/km ở mét 500, sau đó giữ 2 phút/km.
-/// Tốc độ chỉ phụ thuộc quãng đường (không phụ thuộc khung hình) ⇒ 1000 m luôn mất đúng 180 giây (3 phút).</item>
+/// <item>Tốc độ tăng dần theo quãng đường: pace 6 phút/km lúc xuất phát giảm đều tới 3 phút/km ở mét 500, sau đó giữ 3 phút/km.
+/// Tốc độ chỉ phụ thuộc quãng đường (không phụ thuộc khung hình) ⇒ 800 m luôn mất 189 giây.</item>
 /// <item>Chạy càng nhanh, cú nhảy càng lâu và càng xa (bay 0,9 → 1,2 giây; xa ~3 → 10 m).</item>
 /// <item>Chướng ngại theo "cụm": 1–5 rào sát nhau qua được bằng 1 cú nhảy, hoặc 1 hố; hố xen kẽ ngẫu nhiên với rào. Cụm dày dần
 /// theo quãng đường (độ khó cao dày hơn). Mọi cụm luôn có cửa sổ thời điểm nhảy ≥ <see cref="MinTimingWindowSeconds"/>, và sau mỗi lần
@@ -45,7 +45,7 @@ public readonly record struct JumpProfile(double AirTime, double Peak, double Cl
 public sealed class HurdleGameEngine
 {
     public const double StartPaceSecondsPerKm = 360;
-    public const double EndPaceSecondsPerKm = 120;
+    public const double EndPaceSecondsPerKm = 180; // PAUSE-045c: nhanh nhất pace 3 (pace 2 quá nhanh)
     public const double PaceRampMeters = 500;
 
     public const double HurdleHeight = 0.9;
@@ -99,7 +99,7 @@ public sealed class HurdleGameEngine
 
     public IReadOnlyList<Obstacle> Obstacles => _obstacles;
 
-    /// <summary>Pace (giây/km) tại quãng đường <paramref name="meters"/>: 360 → 120 tuyến tính trong 500 m đầu.</summary>
+    /// <summary>Pace (giây/km) tại quãng đường <paramref name="meters"/>: 360 → 180 tuyến tính trong 500 m đầu.</summary>
     public static double PaceAt(double meters) =>
         meters >= PaceRampMeters
             ? EndPaceSecondsPerKm
@@ -107,7 +107,7 @@ public sealed class HurdleGameEngine
 
     public static double SpeedAt(double meters) => 1000 / PaceAt(meters);
 
-    /// <summary>Thời gian (giây) để chạy hết <paramref name="meters"/> — tích phân pace; 1000 m = 180 giây.</summary>
+    /// <summary>Thời gian (giây) để chạy hết <paramref name="meters"/> — tích phân pace; 800 m = 189 giây.</summary>
     public static double SecondsToRun(double meters)
     {
         double ramp = Math.Min(meters, PaceRampMeters);
@@ -223,7 +223,7 @@ public sealed class HurdleGameEngine
     /// </summary>
     private void Generate(uint targetMeters, ulong state)
     {
-        double difficulty = targetMeters >= 3000 ? 0.6 : targetMeters >= 2000 ? 0.8 : 1.0;
+        double difficulty = targetMeters >= 2000 ? 0.6 : targetMeters >= 1600 ? 0.8 : 1.0; // PAUSE-045c: 800 / 1600 / 2000 m
         double position = FirstObstacleAt;
         while (position < targetMeters - 15)
         {

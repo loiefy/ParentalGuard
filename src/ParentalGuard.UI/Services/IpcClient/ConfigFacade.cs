@@ -23,7 +23,7 @@ public sealed class ConfigFacade(UiIpcClient client) : IConfigFacade
             MapPerformanceMode(resp.PerformanceMode),
             resp.ParentProtectionEnabled,
             string.IsNullOrEmpty(resp.Language) ? "vi" : resp.Language,
-            resp.ParentGameMeters is 1000 or 2000 or 3000 ? resp.ParentGameMeters : 1000);
+            resp.ParentGameMeters is 800 or 1600 or 2000 ? resp.ParentGameMeters : 800);
     }
 
     public Task<ConfigUpdateOutcome> UpdateOverlayMessageAsync(string overlayMessage, PerformanceModeOption currentPerformanceMode, CancellationToken cancellationToken) =>

@@ -643,7 +643,7 @@
     <value>Proteger também em relação aos pais</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Quando ativo, pausar a monitorização exige a palavra-passe correta e, depois, completar o jogo de barreiras e buracos até à distância escolhida (1000 m demoram cerca de 3 minutos). Perder ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
+    <value>Quando ativo, pausar a monitorização exige a palavra-passe correta e, depois, completar o jogo de barreiras e buracos até à distância escolhida (800 m demoram cerca de 3 min 10 s). Perder ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Ativo</value>
@@ -732,10 +732,6 @@
   <data name="GamePurposeSettings" xml:space="preserve">
     <value>alterar o modo de proteção</value>
   </data>
-  <data name="GameStartPrompt" xml:space="preserve">
-    <value>Corra {0} m sem tocar em barreiras nem cair em buracos para {1}.
-O corredor acelera de um ritmo de 6 min/km até 2 min/km; quanto mais rápido corre, mais longe salta. Prima Espaço ou clique com o botão esquerdo para começar e volte a premir para saltar barreiras e buracos.</value>
-  </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Espaço ou clique esquerdo: saltar barreiras e buracos. Fechar esta janela é desistir — não vai conseguir {0}.</value>
   </data>
@@ -776,13 +772,13 @@ O corredor acelera de um ritmo de 6 min/km até 2 min/km; quanto mais rápido co
     <value>Dificuldade da corrida de barreiras (distância a percorrer)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Fácil — 1000 m (cerca de 3 minutos)</value>
+    <value>Fácil — 800 m (cerca de 3 min 10 s)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Média — 2000 m (cerca de 5 minutos, mais obstáculos)</value>
+    <value>Média — 1600 m (cerca de 5 min 30 s, mais obstáculos)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difícil — 3000 m (cerca de 7 minutos, ainda mais obstáculos)</value>
+    <value>Difícil — 2000 m (cerca de 6 min 45 s, ainda mais obstáculos)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Ritmo: {0}/km</value>

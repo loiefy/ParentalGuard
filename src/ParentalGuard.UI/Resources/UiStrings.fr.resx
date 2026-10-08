@@ -643,7 +643,7 @@
     <value>Protéger aussi contre les parents</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Une fois activé, suspendre la surveillance demande le bon mot de passe puis le jeu de haies et de trous sur la distance choisie (1 000 m prennent environ 3 minutes). Perdre ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
+    <value>Une fois activé, suspendre la surveillance demande le bon mot de passe puis le jeu de haies et de trous sur la distance choisie (800 m prennent environ 3 min 10 s). Perdre ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activé</value>
@@ -732,10 +732,6 @@
   <data name="GamePurposeSettings" xml:space="preserve">
     <value>modifier le mode de protection</value>
   </data>
-  <data name="GameStartPrompt" xml:space="preserve">
-    <value>Courez {0} m sans toucher de haie ni tomber dans un trou pour {1}.
-Le coureur accélère d'une allure de 6 min/km à 2 min/km ; plus il court vite, plus il saute loin. Appuyez sur Espace ou cliquez (bouton gauche) pour démarrer, puis à nouveau pour sauter les haies et les trous.</value>
-  </data>
   <data name="GameControlsHint" xml:space="preserve">
     <value>Espace ou clic gauche : sauter les haies et les trous. Fermer cette fenêtre revient à abandonner — vous ne pourrez pas {0}.</value>
   </data>
@@ -776,13 +772,13 @@ Le coureur accélère d'une allure de 6 min/km à 2 min/km ; plus il court vite,
     <value>Difficulté de la course de haies (distance à courir)</value>
   </data>
   <data name="GameDifficultyEasy" xml:space="preserve">
-    <value>Facile — 1 000 m (environ 3 minutes)</value>
+    <value>Facile — 800 m (environ 3 min 10 s)</value>
   </data>
   <data name="GameDifficultyMedium" xml:space="preserve">
-    <value>Moyen — 2 000 m (environ 5 minutes, plus d’obstacles)</value>
+    <value>Moyen — 1 600 m (environ 5 min 30 s, plus d’obstacles)</value>
   </data>
   <data name="GameDifficultyHard" xml:space="preserve">
-    <value>Difficile — 3 000 m (environ 7 minutes, le plus d’obstacles)</value>
+    <value>Difficile — 2 000 m (environ 6 min 45 s, le plus d’obstacles)</value>
   </data>
   <data name="GamePaceFormat" xml:space="preserve">
     <value>Allure : {0}/km</value>

@@ -51,11 +51,12 @@ public sealed class HurdleGameEngineTests
     }
 
     [Theory]
-    [InlineData(1000u, 1ul)]
-    [InlineData(1000u, 42ul)]
-    [InlineData(1000u, 777ul)]
-    [InlineData(2000u, 42ul)]
-    [InlineData(3000u, 7ul)]
+    [InlineData(800u, 1ul)]
+    [InlineData(800u, 42ul)]
+    [InlineData(800u, 777ul)]
+    [InlineData(1600u, 42ul)]
+    [InlineData(2000u, 7ul)]
+    [InlineData(2000u, 99ul)]
     public void PerfectPlayer_Wins_AtEveryDifficulty(uint meters, ulong seed)
     {
         var engine = new HurdleGameEngine(meters, seed);
@@ -67,15 +68,15 @@ public sealed class HurdleGameEngineTests
     }
 
     [Fact]
-    public void Pace_From6To2MinPerKm_ReachedAt500m_1000mTakesThreeMinutes()
+    public void Pace_From6To3MinPerKm_ReachedAt500m_800mOverThreeMinutes()
     {
         Assert.Equal(360, HurdleGameEngine.PaceAt(0));
-        Assert.Equal(240, HurdleGameEngine.PaceAt(250), 6);
-        Assert.Equal(120, HurdleGameEngine.PaceAt(500));
-        Assert.Equal(120, HurdleGameEngine.PaceAt(2500));
-        Assert.Equal(120, HurdleGameEngine.SecondsToRun(500), 6);
-        Assert.Equal(180, HurdleGameEngine.SecondsToRun(1000), 6);
-        Assert.Equal(420, HurdleGameEngine.SecondsToRun(3000), 6);
+        Assert.Equal(270, HurdleGameEngine.PaceAt(250), 6);
+        Assert.Equal(180, HurdleGameEngine.PaceAt(500));
+        Assert.Equal(180, HurdleGameEngine.PaceAt(2000));
+        Assert.Equal(135, HurdleGameEngine.SecondsToRun(500), 6);
+        Assert.Equal(189, HurdleGameEngine.SecondsToRun(800), 6);
+        Assert.Equal(405, HurdleGameEngine.SecondsToRun(2000), 6);
     }
 
     [Fact]
@@ -85,13 +86,13 @@ public sealed class HurdleGameEngineTests
         JumpProfile fast = HurdleGameEngine.ProfileAt(HurdleGameEngine.SpeedAt(600));
 
         Assert.True(fast.AirTime > slow.AirTime);
-        Assert.True(fast.Length > slow.Length * 3);
+        Assert.True(fast.Length > slow.Length * 2); // pace 6 → 3: tốc độ gấp đôi, bay lâu hơn ⇒ xa ~2,7 lần
     }
 
     [Theory]
-    [InlineData(1000u)]
+    [InlineData(800u)]
+    [InlineData(1600u)]
     [InlineData(2000u)]
-    [InlineData(3000u)]
     public void EveryGroup_IsJumpable_WithReactionTimeAfterLanding(uint meters)
     {
         foreach (ulong seed in new ulong[] { 1, 2, 3, 99, 12345 })
@@ -121,16 +122,19 @@ public sealed class HurdleGameEngineTests
     {
         static double Density(HurdleGameEngine e, double from, double to) => e.Obstacles.Count(o => o.Start >= from && o.Start < to) / (to - from);
 
-        var easy = new HurdleGameEngine(1000, 5);
-        var hard = new HurdleGameEngine(3000, 5);
+        var easy = new HurdleGameEngine(800, 5);
+        var hard = new HurdleGameEngine(2000, 5);
 
-        Assert.True(Density(hard, 2000, 3000) > Density(hard, 0, 1000));
-        Assert.True(Density(hard, 0, 1000) > Density(easy, 0, 1000));
+        Assert.True(Density(hard, 1200, 2000) > Density(hard, 0, 800));
+        // Khó dày hơn Dễ — so trung bình nhiều seed (1 seed riêng lẻ ở đoạn đầu chạy chậm có thể dao động ngẫu nhiên).
+        double hardAverage = Enumerable.Range(1, 10).Average(s => Density(new HurdleGameEngine(2000, (ulong)s), 0, 800));
+        double easyAverage = Enumerable.Range(1, 10).Average(s => Density(new HurdleGameEngine(800, (ulong)s), 0, 800));
+        Assert.True(hardAverage > easyAverage, $"khó {hardAverage:F3} / dễ {easyAverage:F3}");
         Assert.Contains(hard.Obstacles, o => o.Kind == ObstacleKind.Pit);
         Assert.Contains(Groups(hard.Obstacles), g => g.Kind == ObstacleKind.Hurdle && g.Last > g.First);
         // Mật độ theo thời gian ≥ 2 lần bản trước (104 rào / 330 giây ≈ 0,315 chướng ngại/giây).
-        double perSecond = easy.Obstacles.Count / HurdleGameEngine.SecondsToRun(1000);
-        Assert.True(perSecond >= 2 * 104 / 330.0, $"1000 m chỉ có {perSecond:F2} chướng ngại/giây");
+        double perSecond = easy.Obstacles.Count / HurdleGameEngine.SecondsToRun(800);
+        Assert.True(perSecond >= 2 * 104 / 330.0, $"800 m chỉ có {perSecond:F2} chướng ngại/giây");
     }
 
     [Fact]
@@ -151,7 +155,7 @@ public sealed class HurdleGameEngineTests
     [Fact]
     public void LandingInsidePit_Loses_AsPit()
     {
-        var engine = new HurdleGameEngine(3000, seed: 5);
+        var engine = new HurdleGameEngine(2000, seed: 5);
         Obstacle pit = engine.Obstacles.First(o => o.Kind == ObstacleKind.Pit);
         engine.Press();
 

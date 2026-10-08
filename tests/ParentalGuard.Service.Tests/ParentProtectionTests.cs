@@ -20,7 +20,7 @@ public class ParentProtectionTests : IDisposable
     {
         public bool ProtectionEnabled { get; set; } = true;
 
-        public uint Meters { get; set; } = 1000;
+        public uint Meters { get; set; } = 800;
 
         public bool TokenValid { get; set; } = true;
 
@@ -73,13 +73,13 @@ public class ParentProtectionTests : IDisposable
             CancellationToken.None)).ParentGameFinishResp;
 
     [Fact]
-    public void MinDuration_FollowsPaceCurve_1000MetersIsThreeMinutes()
+    public void MinDuration_FollowsPaceCurve_800MetersOverThreeMinutes()
     {
-        Assert.Equal(120, ParentGameCoordinator.SecondsToRun(500), 6);   // pace 6 → 2 phút/km trong 500 m đầu
-        Assert.Equal(180, ParentGameCoordinator.SecondsToRun(1000), 6);
-        Assert.Equal(300, ParentGameCoordinator.SecondsToRun(2000), 6);
-        Assert.Equal(420, ParentGameCoordinator.SecondsToRun(3000), 6);
-        Assert.Equal(178_500, ParentGameCoordinator.MinDurationMs(1000));
+        Assert.Equal(135, ParentGameCoordinator.SecondsToRun(500), 6);   // PAUSE-045c: pace 6 → 3 phút/km trong 500 m đầu
+        Assert.Equal(189, ParentGameCoordinator.SecondsToRun(800), 6);   // Dễ 800 m = 3 phút 9 giây
+        Assert.Equal(333, ParentGameCoordinator.SecondsToRun(1600), 6);  // Vừa
+        Assert.Equal(405, ParentGameCoordinator.SecondsToRun(2000), 6);  // Khó
+        Assert.Equal(187_500, ParentGameCoordinator.MinDurationMs(800));
             }
 
     [Fact]
@@ -90,16 +90,16 @@ public class ParentProtectionTests : IDisposable
 
         ParentGameStartResponse start = await StartPause(game, session);
         Assert.Equal(ParentGameResult.Started, start.Result);
-        Assert.Equal(1000u, start.TargetMeters);
-        Assert.Equal((uint)ParentGameCoordinator.MinDurationMs(1000), start.MinDurationMs);
+        Assert.Equal(800u, start.TargetMeters);
+        Assert.Equal((uint)ParentGameCoordinator.MinDurationMs(800), start.MinDurationMs);
 
-        _clock.Now += 181_000;
-        ParentGameFinishResponse finish = await Finish(game, session, completed: true, meters: 1000);
+        _clock.Now += 190_000;
+        ParentGameFinishResponse finish = await Finish(game, session, completed: true, meters: 800);
 
         Assert.Equal(ParentGameResult.Paused, finish.Result);
         Assert.Equal(12345L, finish.PauseExpiresAtUnixMs);
         Assert.Equal([PauseDuration.OneHour], h.PausesApplied);
-        Assert.Equal(ParentGameResult.NoGame, (await Finish(game, session, true, 1000)).Result); // không dùng lại ván đã kết thúc
+        Assert.Equal(ParentGameResult.NoGame, (await Finish(game, session, true, 800)).Result); // không dùng lại ván đã kết thúc
     }
 
     [Fact]
@@ -109,15 +109,15 @@ public class ParentProtectionTests : IDisposable
         var session = new UiParentSession(_clock);
         await StartPause(game, session);
 
-        _clock.Now += 120_000; // "về đích" 1000 m sau 2 phút — không thể (đường pace cần 3 phút)
-        Assert.Equal(ParentGameResult.TooFast, (await Finish(game, session, true, 1000)).Result);
+        _clock.Now += 120_000; // "về đích" 800 m sau 2 phút — không thể (đường pace cần 3 phút 9 giây)
+        Assert.Equal(ParentGameResult.TooFast, (await Finish(game, session, true, 800)).Result);
         Assert.Empty(h.PausesApplied);
     }
 
     [Theory]
     [InlineData(false, 523u)] // vấp rào
     [InlineData(false, 0u)]   // thoát game
-    [InlineData(true, 999u)]  // chưa đủ quãng đường
+    [InlineData(true, 799u)]  // chưa đủ quãng đường
     public async Task PauseGame_LostOrQuit_NoPause(bool completed, uint meters)
     {
         (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
@@ -159,27 +159,27 @@ public class ParentProtectionTests : IDisposable
     public async Task SettingsGame_DisableOrLower_RequiresSessionThenAppliesAfterWin()
     {
         (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
-        h.Meters = 3000;
+        h.Meters = 2000;
         var session = new UiParentSession(_clock);
-        var startReq = new IpcPayload { MessageId = 3, ParentGameStartReq = new ParentGameStartRequest { Purpose = ParentGamePurpose.Settings, SettingsEnabled = true, SettingsGameMeters = 1000 } };
+        var startReq = new IpcPayload { MessageId = 3, ParentGameStartReq = new ParentGameStartRequest { Purpose = ParentGamePurpose.Settings, SettingsEnabled = true, SettingsGameMeters = 800 } };
 
         Assert.Equal(ParentGameResult.NotAuthenticated, (await game.HandleAsync(startReq, session, CancellationToken.None)).ParentGameStartResp.Result);
 
         session.Open();
         ParentGameStartResponse start = (await game.HandleAsync(startReq, session, CancellationToken.None)).ParentGameStartResp;
         Assert.Equal(ParentGameResult.Started, start.Result);
-        Assert.Equal(3000u, start.TargetMeters); // chơi ở độ khó HIỆN HÀNH
+        Assert.Equal(2000u, start.TargetMeters); // chơi ở độ khó HIỆN HÀNH
 
         _clock.Now += 421_000;
-        Assert.Equal(ParentGameResult.Applied, (await Finish(game, session, true, 3000)).Result);
-        Assert.Equal([(true, 1000u)], h.SettingsApplied);
+        Assert.Equal(ParentGameResult.Applied, (await Finish(game, session, true, 2000)).Result);
+        Assert.Equal([(true, 800u)], h.SettingsApplied);
     }
 
     [Theory]
-    [InlineData(true, 3000u, 1000u, false)] // tăng độ khó — không cần chơi
-    [InlineData(true, 0u, 2000u, false)]    // giữ nguyên
-    [InlineData(true, 1000u, 2000u, true)]  // giảm độ khó
-    [InlineData(false, 0u, 1000u, true)]    // tắt chế độ
+    [InlineData(true, 2000u, 800u, false)]  // tăng độ khó — không cần chơi
+    [InlineData(true, 0u, 1600u, false)]    // giữ nguyên
+    [InlineData(true, 800u, 1600u, true)]   // giảm độ khó
+    [InlineData(false, 0u, 800u, true)]     // tắt chế độ
     public void NeedsGame_OnlyWhenProtectionWouldWeaken(bool wantEnabled, uint wantMeters, uint currentMeters, bool expected) =>
         Assert.Equal(expected, ParentGameCoordinator.NeedsGame(wantEnabled, wantMeters, currentMeters));
 
@@ -206,27 +206,27 @@ public class ParentProtectionTests : IDisposable
         Assert.Equal(SetParentProtectionResult.NotAuthenticated, (await SetProtection(config, session, true)).SetParentProtectionResp.Result);
 
         session.Open();
-        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 2000)).SetParentProtectionResp.Result);
+        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 1600)).SetParentProtectionResp.Result);
         Assert.True(config.ParentProtectionEnabled);
-        Assert.Equal(2000u, config.ParentGameMeters);
+        Assert.Equal(1600u, config.ParentGameMeters);
 
-        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 3000)).SetParentProtectionResp.Result);
-        Assert.Equal(SetParentProtectionResult.ChallengeRequired, (await SetProtection(config, session, true, 1000)).SetParentProtectionResp.Result);
+        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 2000)).SetParentProtectionResp.Result);
+        Assert.Equal(SetParentProtectionResult.ChallengeRequired, (await SetProtection(config, session, true, 800)).SetParentProtectionResp.Result);
         Assert.Equal(SetParentProtectionResult.ChallengeRequired, (await SetProtection(config, session, false)).SetParentProtectionResp.Result);
         Assert.Equal(SetParentProtectionResult.Unspecified, (await SetProtection(config, session, true, 1234)).SetParentProtectionResp.Result);
         Assert.True(holder.Current.ParentProtectionEnabled);
-        Assert.Equal(3000u, holder.Current.ParentGameMeters);
+        Assert.Equal(2000u, holder.Current.ParentGameMeters);
 
         // Đường về đích trò chơi (ParentGameCoordinator gọi) mới được tắt.
         Assert.True(await config.ApplyParentProtectionAsync(false, 0, CancellationToken.None));
         Assert.False(holder.Current.ParentProtectionEnabled);
 
         IpcPayload query = await config.HandleAsync(new IpcPayload { MessageId = 7, ConfigQuery = new ConfigQuery() }, session, CancellationToken.None);
-        Assert.Equal(3000u, query.ConfigResp.ParentGameMeters);
+        Assert.Equal(2000u, query.ConfigResp.ParentGameMeters);
 
         using ConfigDb db = ConfigDb.Open(_configDbPath);
         Assert.False(db.ReadSnapshot().MonitoringState.ParentProtectionEnabled);
-        Assert.Equal(3000u, db.ReadSnapshot().MonitoringState.ParentGameMeters);
+        Assert.Equal(2000u, db.ReadSnapshot().MonitoringState.ParentGameMeters);
     }
 
     [Fact]
@@ -251,14 +251,23 @@ public class ParentProtectionTests : IDisposable
     }
 
     [Fact]
-    public void OldConfigWithoutNewFields_DefaultsToVietnameseProtectionOffAnd1000Meters()
+    public void OldConfigWithoutNewFields_DefaultsToVietnameseProtectionOffAnd800Meters()
     {
         MonitoringStateData state = MonitoringStateData.CreateFirstRunDefault();
 
         Assert.Equal("vi", state.Language);
         Assert.False(state.ParentProtectionEnabled);
-        Assert.Equal(1000u, state.ParentGameMeters);
+        Assert.Equal(800u, state.ParentGameMeters);
     }
+
+    [Theory]
+    [InlineData(1000u, 800u)]  // mốc cũ Dễ
+    [InlineData(2000u, 2000u)] // trùng mốc Khó mới — giữ nguyên (không làm giảm độ khó)
+    [InlineData(3000u, 2000u)] // mốc cũ Khó
+    [InlineData(1600u, 1600u)]
+    [InlineData(1234u, 800u)]
+    public void NormalizeMeters_MigratesOldDistances(uint stored, uint expected) =>
+        Assert.Equal(expected, ParentGameCoordinator.NormalizeMeters(stored));
 
     public void Dispose()
     {

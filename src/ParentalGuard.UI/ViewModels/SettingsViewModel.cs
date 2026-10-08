@@ -111,7 +111,7 @@ public sealed partial class SettingsViewModel(
 
     /// <summary>`PAUSE-045`: quãng đường trò chơi nhảy rào đang lưu ở Service (1000 / 2000 / 3000 m).</summary>
     [ObservableProperty]
-    public partial uint ParentGameMeters { get; set; } = 1000;
+    public partial uint ParentGameMeters { get; set; } = 800;
 
     /// <summary>`FE-063a`: mã ngôn ngữ Service đang lưu (đọc lúc vào tab).</summary>
     public string Language { get; private set; } = "vi";
