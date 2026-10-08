@@ -94,6 +94,10 @@ public sealed partial class HurdleGameWindow : Window
         _engine = new HurdleGameEngine(targetMeters, seed);
         _callbacks = callbacks;
         Title = LocalizationService.Get("GameWindowTitle");
+        // 2026-10-09 (chủ dự án yêu cầu): icon app + thanh tiêu đề cùng màu thanh tiêu đề Dashboard (theo Dark/Light).
+        MainWindow.ApplyAppIcon(AppWindow);
+        _focusRoot.Loaded += (_, _) => MainWindow.ApplyTitleBarColors(AppWindow, _focusRoot.ActualTheme);
+        _focusRoot.ActualThemeChanged += (_, _) => MainWindow.ApplyTitleBarColors(AppWindow, _focusRoot.ActualTheme);
 
         BuildScene(purposeText);
         Closed += OnClosed;

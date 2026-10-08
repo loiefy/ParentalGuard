@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.7.1 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.7.2 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -325,6 +325,11 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 - Pace 360 → 180 giây/km trong 500 m đầu rồi 180 giây/km; mốc 800/1600/2000 m (hệ số độ khó 1,0 / 0,8 / 0,6 gắn với 3 mốc mới). Cú nhảy xa ~2,5 m (chậm nhất) → ~6,7 m (nhanh nhất).
 - Cửa sổ: 42 px/m (nhìn trước ~20 m ≈ 3,6 giây ở tốc độ tối đa). Không còn khung giới thiệu lúc bắt đầu. Bầu trời: `GradientStop` nội suy xanh trong → tối theo `quãng đường / mốc`; mặt trời (+ quầng sáng) lặn từ y = 50 tới dưới đường chân trời và mờ dần; 6 đám mây (3 elip/đám) trôi thị sai, nhạt dần; lớp phủ tối mặt đất tới 55%.
 
+### Đồng bộ tông màu (v0.7.2, 2026-10-09, chủ dự án yêu cầu)
+
+- `S6` Quên mật khẩu và trang lỗi kết nối dùng nền `PgContentBackgroundBrush` (dải chuyển màu `FE-005e`) như Dashboard; form `S6` đặt trong thẻ `CardBackgroundFillColorDefaultBrush` (bo 8, viền `CardStrokeColorDefaultBrush`), cuộn được khi cửa sổ thấp.
+- `MainWindow.ApplyTitleBarColors(AppWindow, ElementTheme)` và `MainWindow.ApplyAppIcon(AppWindow)` thành hàm dùng chung; cửa sổ trò chơi nhảy rào dùng cùng màu thanh tiêu đề (`FE-006a`, theo Dark/Light) và icon ParentalGuard.
+
 ### Xuất PDF ở `S3` (v0.4.0, 2026-10-07, `MISC-011`)
 
 - Hàng "khoảng thời gian + Xuất PDF" chỉ hiện khi `AuditLogViewModel.IsGated`. Hộp thoại Lưu (`FileSavePicker` + `InitializeWithWindow` với `App.MainWindowHandle`) mở TRƯỚC khi tải dữ liệu — huỷ thì không gửi request nào.
@@ -344,6 +349,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.7.2 | 2026-10-09 | PATCH — `S6`/trang lỗi kết nối cùng nền Dashboard; cửa sổ trò chơi: icon + màu thanh tiêu đề như cửa sổ chính |
 | v0.7.1 | 2026-10-08 | PATCH — trò chơi: mốc 800/1600/2000 m, pace nhanh nhất 3; bỏ khung giới thiệu; bầu trời ngày → đêm (`PAUSE-045c`/`046c`) |
 | v0.7.0 | 2026-10-08 | MINOR — trò chơi: pace 6 → 2, hố, mật độ ×2, nhảy thấp hơn, thông báo khi thua + Donate (`PAUSE-045b`/`046b`/`049`); Dashboard dừng poll khi Unloaded |
 | v0.6.1 | 2026-10-08 | PATCH — trò chơi: tăng tốc dần, nhảy theo tốc độ, rào dày dần + cặp rào (`PAUSE-045a`/`046a`); HUD hiện pace |
