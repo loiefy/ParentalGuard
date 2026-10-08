@@ -25,6 +25,18 @@ foreach ($proj in "ParentalGuard.Service","ParentalGuard.Overlay","ParentalGuard
 
 `--no-incremental` khi đổi cờ: build tăng dần có thể giữ lại bản biên dịch với bộ cờ cũ.
 
+## Bản cài đặt phát hành
+
+Một lệnh (cần Inno Setup 6: `winget install JRSoftware.InnoSetup --scope user`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installeruild-installer.ps1 -Version 0.9.0
+```
+
+Script publish đủ 6 executable với `ParentalGuardDeveloperMode=false` (Vision cuối cùng) vào `publishelease\ParentalGuard`,
+chép **chỉ** model Marqo, biên dịch `installer\ParentalGuard.iss`, ghi `dist\ParentalGuard-Setup-<version>-win-x64.exe` +
+`dist\SHA256SUMS`. Thiết kế: `Architecture/11-deployment-release-architecture.md`.
+
 ## Mô hình AI
 
 - `models/nsfw_marqo_384.onnx` (22 MB) có trong repo.

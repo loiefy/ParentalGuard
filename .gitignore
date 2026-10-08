@@ -43,3 +43,6 @@ models/nsfw_falconsai_224.onnx
 # Cấu hình chạy/debug cục bộ của Visual Studio và log chẩn đoán tạm — không đưa vào repo
 **/Properties/launchSettings.json
 tests/Log/
+
+# Bản cài đặt đã build (installer/ParentalGuard.iss) — phát hành qua GitHub Releases, không đưa vào repo
+dist/

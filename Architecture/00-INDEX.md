@@ -35,7 +35,7 @@ Cấu trúc tài liệu đi từ **high-level → low-level**, từ mục tiêu 
 | 08 | `08-password-authentication-architecture.md` | Argon2id (tham số/thư viện/PHC format), memory hygiene RAM (`PWD-050`/`051`), IPC Setup/Auth Modal/Đổi mật khẩu/Khôi phục (`PWD-001`–`035`), rate-limit thực thi cụ thể | **Approved** |
 | 09 | `09-anti-tamper-architecture.md` | Dual watchdog implementation, Service Recovery Options, custom uninstaller flow | **Approved** |
 | 10 | `10-ui-architecture.md` | WinUI 3 app structure (MVVM), navigation map, resource/đa ngôn ngữ | **Approved** |
-| 11 | `11-deployment-release-architecture.md` | Installer (MSI/MSIX), SignPath CI signing pipeline, GitHub Release flow | Chưa viết |
+| 11 | `11-deployment-release-architecture.md` | Installer (Inno Setup — ADR-160, thay MSI/MSIX), SignPath CI signing pipeline (chưa làm), GitHub Release flow | Draft (v0.1.0, 2026-10-08) |
 | 12 | `12-dev-automation-architecture.md` | Claude Code Agent workflow (Dev/Test/Debug/Report), GitHub Actions CI pipeline | Chưa viết |
 
 ## 3. Nguyên tắc truy vết (Traceability)
