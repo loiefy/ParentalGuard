@@ -636,30 +636,6 @@
   <data name="AboutThirdPartyNotice" xml:space="preserve">
     <value>La liste complète des composants tiers et de leurs licences se trouve dans THIRD-PARTY-NOTICES.md, dans le dossier d'installation.</value>
   </data>
-  <data name="ChallengeTitle" xml:space="preserve">
-    <value>Défi de vérification</value>
-  </data>
-  <data name="ChallengeIntro" xml:space="preserve">
-    <value>Le mode « Protéger aussi contre les parents » est activé. Répondez correctement aux 5 calculs ci-dessous en 60 secondes.</value>
-  </data>
-  <data name="ChallengeSubmitButton" xml:space="preserve">
-    <value>Envoyer les réponses</value>
-  </data>
-  <data name="ChallengeCancelButton" xml:space="preserve">
-    <value>Annuler</value>
-  </data>
-  <data name="ChallengeCountdown" xml:space="preserve">
-    <value>Temps restant : {0} secondes</value>
-  </data>
-  <data name="ChallengeWrong" xml:space="preserve">
-    <value>Certaines réponses sont fausses. Voici une nouvelle série — encore {0} essais avant le verrouillage.</value>
-  </data>
-  <data name="ChallengeExpired" xml:space="preserve">
-    <value>Le temps est écoulé. Voici une nouvelle série — encore {0} essais avant le verrouillage.</value>
-  </data>
-  <data name="ChallengeLockedOut" xml:space="preserve">
-    <value>Vous vous êtes trompé 3 fois de suite. Le défi est verrouillé jusqu'à {0}.</value>
-  </data>
   <data name="DashboardChallengeRequired" xml:space="preserve">
     <value>Le défi de vérification doit d'abord être réussi. Veuillez recommencer l'action.</value>
   </data>
@@ -667,7 +643,7 @@
     <value>Protéger aussi contre les parents</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Une fois activé, suspendre la surveillance demande le mot de passe et un court défi de 5 calculs en 60 secondes. Désactiver ce mode demande aussi de réussir le défi.</value>
+    <value>Une fois activé, suspendre la surveillance demande le bon mot de passe puis une course de haies sur la distance choisie (1 000 m prennent environ 3 minutes). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activé</value>
@@ -679,7 +655,7 @@
     <value>Activer « Protéger aussi contre les parents » ?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Une fois activé, même un parent qui connaît le mot de passe ne peut pas suspendre la surveillance immédiatement : il doit réussir 5 calculs en 60 secondes. Trois échecs consécutifs verrouillent le défi pendant 5 minutes. Désactiver ce mode demande aussi de réussir le défi.</value>
+    <value>Une fois activé, même un parent qui connaît le mot de passe ne peut pas suspendre la surveillance tout de suite : après le mot de passe, il doit terminer la course de haies sur la distance choisie (au moins environ 3 minutes). Toucher une haie ou fermer le jeu empêche la pause. Désactiver ce mode ou baisser la difficulté demande aussi de terminer le jeu.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Activer</value>
@@ -746,5 +722,69 @@
   </data>
   <data name="LanguageChangeFailed" xml:space="preserve">
     <value>Impossible de changer de langue. Veuillez réessayer.</value>
+  </data>
+  <data name="GameWindowTitle" xml:space="preserve">
+    <value>ParentalGuard — Course de haies</value>
+  </data>
+  <data name="GamePurposePause" xml:space="preserve">
+    <value>suspendre la surveillance</value>
+  </data>
+  <data name="GamePurposeSettings" xml:space="preserve">
+    <value>modifier le mode de protection</value>
+  </data>
+  <data name="GameStartPrompt" xml:space="preserve">
+    <value>Courez {0} m sans toucher de haie pour {1}.
+Appuyez sur Espace ou cliquez (bouton gauche) pour démarrer, puis à nouveau pour sauter les haies.</value>
+  </data>
+  <data name="GameControlsHint" xml:space="preserve">
+    <value>Espace ou clic gauche : sauter. Fermer cette fenêtre revient à abandonner — vous ne pourrez pas {0}.</value>
+  </data>
+  <data name="GameDistanceFormat" xml:space="preserve">
+    <value>{0} / {1} m</value>
+  </data>
+  <data name="GameTimeFormat" xml:space="preserve">
+    <value>Temps : {0}</value>
+  </data>
+  <data name="GameWonChecking" xml:space="preserve">
+    <value>Arrivée ! Confirmation du résultat…</value>
+  </data>
+  <data name="GameLostChecking" xml:space="preserve">
+    <value>Haie touchée ! Enregistrement du résultat…</value>
+  </data>
+  <data name="GameResultPaused" xml:space="preserve">
+    <value>Terminé ! La surveillance est suspendue.</value>
+  </data>
+  <data name="GameResultApplied" xml:space="preserve">
+    <value>Terminé ! La modification a été appliquée.</value>
+  </data>
+  <data name="GameResultLost" xml:space="preserve">
+    <value>Vous avez touché une haie à {0} m. L'action n'a pas été effectuée.</value>
+  </data>
+  <data name="GameResultTooFast" xml:space="preserve">
+    <value>Le résultat du jeu n'est pas valide. L'action n'a pas été effectuée.</value>
+  </data>
+  <data name="GameResultFailed" xml:space="preserve">
+    <value>Le résultat du jeu n'a pas pu être confirmé. L'action n'a pas été effectuée.</value>
+  </data>
+  <data name="GameCloseButton" xml:space="preserve">
+    <value>Fermer</value>
+  </data>
+  <data name="DashboardGameNotPaused" xml:space="preserve">
+    <value>La surveillance n'a pas été suspendue : le jeu n'a pas été terminé (haie touchée ou jeu fermé).</value>
+  </data>
+  <data name="SettingsGameNotApplied" xml:space="preserve">
+    <value>Aucun changement : le jeu n'a pas été terminé (haie touchée ou jeu fermé).</value>
+  </data>
+  <data name="SettingsGameDifficultyLabel" xml:space="preserve">
+    <value>Difficulté de la course de haies (distance à courir)</value>
+  </data>
+  <data name="GameDifficultyEasy" xml:space="preserve">
+    <value>Facile — 1 000 m (environ 3 minutes)</value>
+  </data>
+  <data name="GameDifficultyMedium" xml:space="preserve">
+    <value>Moyen — 2 000 m (environ 6 minutes, plus de haies)</value>
+  </data>
+  <data name="GameDifficultyHard" xml:space="preserve">
+    <value>Difficile — 3 000 m (environ 9 minutes, le plus de haies)</value>
   </data>
 </root>

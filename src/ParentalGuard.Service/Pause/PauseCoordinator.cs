@@ -114,18 +114,31 @@ public sealed class PauseCoordinator
             return response;
         }
 
+        (PauseResult result, long expiresAt) = await ApplyPauseAsync(req.Duration, cancellationToken).ConfigureAwait(false);
+        response.PauseMonitoringResp = new PauseMonitoringResponse { Result = result, PauseExpiresAtUnixMs = result == PauseResult.Success ? expiresAt : 0 };
+        return response;
+    }
+
+    /// <summary>`PAUSE-044` (2026-10-08): tiêu thụ <c>action_token</c> "pause_monitoring" — dùng khi bắt đầu ván trò chơi nhảy rào.</summary>
+    public Task<bool> TryConsumePauseTokenAsync(ByteString token, CancellationToken cancellationToken) => ConsumeTokenAsync(token, cancellationToken);
+
+    /// <summary>
+    /// Áp dụng tạm dừng SAU KHI đã xác thực (token, hoặc về đích trò chơi nhảy rào — `PAUSE-044`). Dùng chung cho cả 2 đường
+    /// để mọi hệ quả (Vision, overlay, icon, audit, cảnh báo tần suất `PAUSE-021`) giống hệt nhau.
+    /// </summary>
+    public async Task<(PauseResult Result, long ExpiresAtUnixMs)> ApplyPauseAsync(PauseDuration duration, CancellationToken cancellationToken)
+    {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (_state.IsPaused)
             {
                 // Idempotent guard (mục 3a.1) — hiếm, 2 phiên UI thao tác gần như đồng thời.
-                response.PauseMonitoringResp = new PauseMonitoringResponse { Result = PauseResult.AlreadyPaused };
-                return response;
+                return (PauseResult.AlreadyPaused, 0);
             }
 
             long trustedNow = _clock.UtcNowUnixMs;
-            long expiresAt = PauseDurationCalculator.ComputeExpiresAtUnixMs(req.Duration, trustedNow);
+            long expiresAt = PauseDurationCalculator.ComputeExpiresAtUnixMs(duration, trustedNow);
             var newState = new PauseStateData(IsPaused: true, PauseStartedAtUnixMs: trustedNow, PauseExpiresAtUnixMs: expiresAt);
 
             if (!TryPersist(newState))
@@ -134,8 +147,7 @@ public sealed class PauseCoordinator
                 // Pause, giữ nguyên Running·Monitoring. `PauseResult` chỉ có 3 giá trị đã approve
                 // (03-ipc-communication.md mục 3.6) — dùng Unspecified (giá trị mặc định proto3)
                 // cho lỗi nội bộ hiếm gặp này thay vì phát minh thêm giá trị enum ngoài phạm vi đã duyệt.
-                response.PauseMonitoringResp = new PauseMonitoringResponse { Result = PauseResult.Unspecified };
-                return response;
+                return (PauseResult.Unspecified, 0);
             }
 
             _state = newState;
@@ -146,14 +158,13 @@ public sealed class PauseCoordinator
             _visionSupervisor.SetHeartbeatInterval(PausedVisionHeartbeatInterval); // ADR-104
             _iconStatusCoordinator.SetState(IconState.Paused, expiresAt);
 
-            string durationLiteral = PauseDurationMapper.ToAuditLogValue(req.Duration);
+            string durationLiteral = PauseDurationMapper.ToAuditLogValue(duration);
             await _auditLog.AppendAsync("PauseActivated", new { duration = durationLiteral, pause_expires_at_unix_ms = expiresAt }, CancellationToken.None).ConfigureAwait(false);
             await CheckDailyFrequencyAnomalyAsync(trustedNow, cancellationToken).ConfigureAwait(false); // PAUSE-021
 
             StartTick();
 
-            response.PauseMonitoringResp = new PauseMonitoringResponse { Result = PauseResult.Success, PauseExpiresAtUnixMs = expiresAt };
-            return response;
+            return (PauseResult.Success, expiresAt);
         }
         finally
         {

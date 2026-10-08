@@ -10,6 +10,7 @@ option csharp_namespace = "ParentalGuard.Ipc.Protocol";
 // đã có — chỉ được thêm field/case mới hoặc "reserved".
 
 message IpcPayload {
+  reserved 160, 161, 162, 163; // thử thách phép tính cũ (PAUSE-041/042), bỏ 2026-10-08
   uint64 message_id = 1;
   uint64 correlation_id = 2;
   int64 timestamp_unix_ms = 3;
@@ -107,16 +108,17 @@ message IpcPayload {
     ParentSessionResponse parent_session_resp = 159;
 
     // --- Kênh UI mở rộng (160-179), 2026-10-07 ---
-    // PAUSE-040..043 — Bảo vệ cả phụ huynh (thử thách do Service sinh và chấm)
-    ChallengeStartRequest challenge_start_req = 160;
-    ChallengeStartResponse challenge_start_resp = 161;
-    ChallengeSubmitRequest challenge_submit_req = 162;
-    ChallengeSubmitResponse challenge_submit_resp = 163;
+    // 160-163: thử thách 5 phép tính (PAUSE-041/042) — ĐÃ BỎ 2026-10-08, thay bằng trò chơi nhảy rào (168-171). Không tái sử dụng.
     SetParentProtectionRequest set_parent_protection_req = 164;
     SetParentProtectionResponse set_parent_protection_resp = 165;
     // FE-063a — ngôn ngữ (không cần đăng nhập, FE-083)
     SetLanguageRequest set_language_req = 166;
     SetLanguageResponse set_language_resp = 167;
+    // PAUSE-044..048 (2026-10-08) — trò chơi nhảy rào "Bảo vệ cả phụ huynh"
+    ParentGameStartRequest parent_game_start_req = 168;
+    ParentGameStartResponse parent_game_start_resp = 169;
+    ParentGameFinishRequest parent_game_finish_req = 170;
+    ParentGameFinishResponse parent_game_finish_resp = 171;
   }
 }
 
@@ -608,6 +610,7 @@ message ConfigResponse { // field 149
                                          // (BALANCED/MAXIMUM_PROTECTION), không bao giờ UNSPECIFIED
   bool parent_protection_enabled = 4; // PAUSE-040 (2026-10-07)
   string language = 5; // FE-063a (2026-10-07) — "vi" | "en" | "fr" | "es" | "pt" | "zh-Hans"
+  uint32 parent_game_meters = 6; // PAUSE-045 (2026-10-08) — quãng đường phải chạy: 1000 | 2000 | 3000
 }
 
 // PERF-050b — tập giá trị ĐÓNG, cố định bởi chính hợp đồng IPC này (khác event_type ở AuditLogEntry,
@@ -753,37 +756,9 @@ message ForceKillRequest {
 
 // --- 2026-10-07, PAUSE-040..043 "Bảo vệ cả phụ huynh" + FE-063a ngôn ngữ (khối UI 160-167, Overlay field 70) ---
 
-message ChallengeStartRequest {} // field 160 — sinh bộ câu hỏi mới cho kết nối hiện tại
-
-message ChallengeStartResponse { // field 161
-  ChallengeResult result = 1;          // SUCCESS hoặc LOCKED_OUT
-  repeated string questions = 2;       // vd "37 + 48" — UI chỉ hiển thị, không biết đáp án
-  int64 expires_at_unix_ms = 3;        // hết hạn trả lời (60 giây)
-  int64 locked_until_unix_ms = 4;      // khi LOCKED_OUT
-}
-
-message ChallengeSubmitRequest { // field 162
-  repeated int32 answers = 1;
-}
-
-message ChallengeSubmitResponse { // field 163
-  ChallengeResult result = 1;          // PASSED / WRONG / EXPIRED / LOCKED_OUT / NO_CHALLENGE
-  int64 locked_until_unix_ms = 2;
-  uint32 failures_before_lockout = 3;  // còn bao nhiêu lần sai trước khi bị khoá
-}
-
-enum ChallengeResult {
-  CHALLENGE_RESULT_UNSPECIFIED = 0;
-  CHALLENGE_RESULT_SUCCESS = 1;
-  CHALLENGE_RESULT_PASSED = 2;
-  CHALLENGE_RESULT_WRONG = 3;
-  CHALLENGE_RESULT_EXPIRED = 4;
-  CHALLENGE_RESULT_LOCKED_OUT = 5;
-  CHALLENGE_RESULT_NO_CHALLENGE = 6;
-}
-
-message SetParentProtectionRequest { // field 164 — cần phiên phụ huynh (PWD-024); TẮT cần đã vượt thử thách
-  bool enabled = 1;
+message SetParentProtectionRequest { // field 164 — cần phiên phụ huynh (PWD-024). Chỉ BẬT / TĂNG độ khó đi đường này;
+  bool enabled = 1;                    // TẮT hoặc GIẢM độ khó → CHALLENGE_REQUIRED, phải qua ParentGameStart(purpose=SETTINGS)
+  uint32 parent_game_meters = 2;       // 0 = giữ nguyên
 }
 
 message SetParentProtectionResponse { // field 165
@@ -807,4 +782,52 @@ message SetLanguageResponse { // field 167
 
 message LanguageUpdate { // field 70, Service → Overlay — gửi lúc đổi và lúc Overlay (re)connect
   string language = 1;
+}
+
+// --- 2026-10-08, PAUSE-044..048: trò chơi nhảy rào thay thử thách phép tính (khối UI 168-171) ---
+
+enum ParentGamePurpose {
+  PARENT_GAME_PURPOSE_UNSPECIFIED = 0;
+  PARENT_GAME_PURPOSE_PAUSE = 1;     // tạm dừng giám sát: cần action_token "pause_monitoring" (mật khẩu TRƯỚC khi chơi)
+  PARENT_GAME_PURPOSE_SETTINGS = 2;  // tắt chế độ / giảm độ khó: cần phiên phụ huynh
+}
+
+message ParentGameStartRequest { // field 168
+  ParentGamePurpose purpose = 1;
+  bytes action_token = 2;            // PURPOSE_PAUSE — Service tiêu thụ NGAY (token chỉ sống 15 giây)
+  PauseDuration duration = 3;        // PURPOSE_PAUSE — thời lượng sẽ áp dụng khi thắng
+  bool settings_enabled = 4;         // PURPOSE_SETTINGS — giá trị muốn đặt
+  uint32 settings_game_meters = 5;   // PURPOSE_SETTINGS — 0 = giữ nguyên
+}
+
+message ParentGameStartResponse { // field 169
+  ParentGameResult result = 1;       // STARTED / INVALID_TOKEN / NOT_AUTHENTICATED / NOT_REQUIRED / ALREADY_PAUSED
+  uint32 target_meters = 2;
+  uint64 seed = 3;                   // bố trí rào
+  uint32 min_duration_ms = 4;        // Service từ chối kết quả về đích sớm hơn mốc này
+}
+
+message ParentGameFinishRequest { // field 170
+  bool completed = 1;                // false = vấp rào hoặc thoát game
+  uint32 meters_reached = 2;
+}
+
+message ParentGameFinishResponse { // field 171
+  ParentGameResult result = 1;       // PAUSED / APPLIED / LOST / TOO_FAST / NO_GAME / FAILED
+  int64 pause_expires_at_unix_ms = 2;
+}
+
+enum ParentGameResult {
+  PARENT_GAME_RESULT_UNSPECIFIED = 0;
+  PARENT_GAME_RESULT_STARTED = 1;
+  PARENT_GAME_RESULT_INVALID_TOKEN = 2;
+  PARENT_GAME_RESULT_NOT_AUTHENTICATED = 3;
+  PARENT_GAME_RESULT_NOT_REQUIRED = 4;
+  PARENT_GAME_RESULT_ALREADY_PAUSED = 5;
+  PARENT_GAME_RESULT_PAUSED = 6;
+  PARENT_GAME_RESULT_APPLIED = 7;
+  PARENT_GAME_RESULT_LOST = 8;
+  PARENT_GAME_RESULT_TOO_FAST = 9;
+  PARENT_GAME_RESULT_NO_GAME = 10;
+  PARENT_GAME_RESULT_FAILED = 11;
 }

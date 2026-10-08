@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using Microsoft.Extensions.Logging.Abstractions;
 using ParentalGuard.Ipc.Protocol;
 using ParentalGuard.Service.Audit;
@@ -7,97 +8,178 @@ using ParentalGuard.Service.Data;
 
 namespace ParentalGuard.Service.Tests;
 
-/// <summary>`PAUSE-040`–`PAUSE-043` "Bảo vệ cả phụ huynh" + `FE-063a` lưu ngôn ngữ (2026-10-07).</summary>
+/// <summary>`PAUSE-040`, `PAUSE-044`–`PAUSE-048` "Bảo vệ cả phụ huynh" — trò chơi nhảy rào (2026-10-08) + `FE-063a` lưu ngôn ngữ.</summary>
 public class ParentProtectionTests : IDisposable
 {
     private readonly string _auditLogPath = Path.Combine(Path.GetTempPath(), $"pg-audit-pp-{Guid.NewGuid():N}.log");
     private readonly string _configDbPath = Path.Combine(Path.GetTempPath(), $"pg-config-pp-{Guid.NewGuid():N}.db");
     private readonly FakeMonotonicClock _clock = new();
 
-    private static int Solve(string question)
+    /// <summary>Ghi lại mọi lần coordinator gọi ra ngoài (tiêu thụ token, áp dụng tạm dừng/cài đặt).</summary>
+    private sealed class GameHarness
     {
-        string[] parts = question.Split(' ');
-        int a = int.Parse(parts[0]);
-        int b = int.Parse(parts[2]);
-        return parts[1] switch { "+" => a + b, "-" => a - b, _ => a * b };
+        public bool ProtectionEnabled { get; set; } = true;
+
+        public uint Meters { get; set; } = 1000;
+
+        public bool TokenValid { get; set; } = true;
+
+        public bool Paused { get; set; }
+
+        public List<PauseDuration> PausesApplied { get; } = [];
+
+        public List<(bool Enabled, uint Meters)> SettingsApplied { get; } = [];
     }
 
-    private static IpcPayload Submit(ParentChallengeCoordinator c, UiParentSession s, IEnumerable<int> answers)
+    private async Task<(ParentGameCoordinator Coordinator, GameHarness Harness)> CreateGameAsync()
     {
-        var req = new ChallengeSubmitRequest();
-        req.Answers.AddRange(answers);
-        return c.HandleAsync(new IpcPayload { MessageId = 2, ChallengeSubmitReq = req }, s).Result;
+        AuditLogWriter auditLog = await AuditLogWriter.InitializeAsync(_auditLogPath, CancellationToken.None);
+        var h = new GameHarness();
+        var coordinator = new ParentGameCoordinator(
+            _clock,
+            auditLog,
+            () => h.ProtectionEnabled,
+            () => h.Meters,
+            (_, _) => Task.FromResult(h.TokenValid),
+            () => h.Paused,
+            (duration, _) =>
+            {
+                h.PausesApplied.Add(duration);
+                h.Paused = true;
+                return Task.FromResult((PauseResult.Success, 12345L));
+            },
+            (enabled, meters, _) =>
+            {
+                h.SettingsApplied.Add((enabled, meters));
+                return Task.FromResult(true);
+            });
+        return (coordinator, h);
     }
 
-    private static ChallengeStartResponse Start(ParentChallengeCoordinator c, UiParentSession s) =>
-        c.HandleAsync(new IpcPayload { MessageId = 1, ChallengeStartReq = new ChallengeStartRequest() }, s).Result.ChallengeStartResp;
+    private static async Task<ParentGameStartResponse> StartPause(ParentGameCoordinator c, UiParentSession s) =>
+        (await c.HandleAsync(
+            new IpcPayload
+            {
+                MessageId = 1,
+                ParentGameStartReq = new ParentGameStartRequest { Purpose = ParentGamePurpose.Pause, ActionToken = ByteString.CopyFrom(1, 2, 3), Duration = PauseDuration.OneHour },
+            },
+            s,
+            CancellationToken.None)).ParentGameStartResp;
+
+    private static async Task<ParentGameFinishResponse> Finish(ParentGameCoordinator c, UiParentSession s, bool completed, uint meters) =>
+        (await c.HandleAsync(
+            new IpcPayload { MessageId = 2, ParentGameFinishReq = new ParentGameFinishRequest { Completed = completed, MetersReached = meters } },
+            s,
+            CancellationToken.None)).ParentGameFinishResp;
 
     [Fact]
-    public void Challenge_CorrectAnswers_Passes_PassUsableExactlyOnce()
+    public void MinDuration_1000Meters_IsAtLeastThreeMinutes_ForEveryDifficulty()
     {
-        var coordinator = new ParentChallengeCoordinator(_clock);
+        Assert.True(ParentGameCoordinator.MinDurationMs(1000) >= 180_000);
+        Assert.True(ParentGameCoordinator.MinDurationMs(2000) >= 360_000);
+        Assert.True(ParentGameCoordinator.MinDurationMs(3000) >= 540_000);
+    }
+
+    [Fact]
+    public async Task PauseGame_FinishAfterMinDuration_PausesWithChosenDuration_GameUsableOnce()
+    {
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
         var session = new UiParentSession(_clock);
 
-        ChallengeStartResponse start = Start(coordinator, session);
-        Assert.Equal(ChallengeResult.Success, start.Result);
-        Assert.Equal(ParentChallengeCoordinator.QuestionCount, start.Questions.Count);
+        ParentGameStartResponse start = await StartPause(game, session);
+        Assert.Equal(ParentGameResult.Started, start.Result);
+        Assert.Equal(1000u, start.TargetMeters);
+        Assert.Equal((uint)ParentGameCoordinator.MinDurationMs(1000), start.MinDurationMs);
 
-        Assert.Equal(ChallengeResult.Passed, Submit(coordinator, session, start.Questions.Select(Solve)).ChallengeSubmitResp.Result);
-        Assert.True(session.TryConsumeChallengePass());
-        Assert.False(session.TryConsumeChallengePass());
+        _clock.Now += 182_000;
+        ParentGameFinishResponse finish = await Finish(game, session, completed: true, meters: 1000);
+
+        Assert.Equal(ParentGameResult.Paused, finish.Result);
+        Assert.Equal(12345L, finish.PauseExpiresAtUnixMs);
+        Assert.Equal([PauseDuration.OneHour], h.PausesApplied);
+        Assert.Equal(ParentGameResult.NoGame, (await Finish(game, session, true, 1000)).Result); // không dùng lại ván đã kết thúc
     }
 
     [Fact]
-    public void Challenge_PassExpiresAfterTwoMinutes()
+    public async Task PauseGame_FinishedTooFast_Refused_NoPause()
     {
-        var coordinator = new ParentChallengeCoordinator(_clock);
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
         var session = new UiParentSession(_clock);
-        ChallengeStartResponse start = Start(coordinator, session);
-        Submit(coordinator, session, start.Questions.Select(Solve));
+        await StartPause(game, session);
 
-        _clock.Now += (long)ParentChallengeCoordinator.PassValidity.TotalMilliseconds;
-
-        Assert.False(session.TryConsumeChallengePass());
+        _clock.Now += 60_000; // "về đích" 1000 m sau 1 phút — không thể ở tốc độ cố định
+        Assert.Equal(ParentGameResult.TooFast, (await Finish(game, session, true, 1000)).Result);
+        Assert.Empty(h.PausesApplied);
     }
 
-    [Fact]
-    public void Challenge_LateAnswer_Expired_NoPass()
+    [Theory]
+    [InlineData(false, 523u)] // vấp rào
+    [InlineData(false, 0u)]   // thoát game
+    [InlineData(true, 999u)]  // chưa đủ quãng đường
+    public async Task PauseGame_LostOrQuit_NoPause(bool completed, uint meters)
     {
-        var coordinator = new ParentChallengeCoordinator(_clock);
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
         var session = new UiParentSession(_clock);
-        ChallengeStartResponse start = Start(coordinator, session);
-        _clock.Now += (long)ParentChallengeCoordinator.AnswerTime.TotalMilliseconds + 1;
+        await StartPause(game, session);
+        _clock.Now += 200_000;
 
-        Assert.Equal(ChallengeResult.Expired, Submit(coordinator, session, start.Questions.Select(Solve)).ChallengeSubmitResp.Result);
-        Assert.False(session.TryConsumeChallengePass());
+        Assert.Equal(ParentGameResult.Lost, (await Finish(game, session, completed, meters)).Result);
+        Assert.Empty(h.PausesApplied);
     }
 
     [Fact]
-    public void Challenge_ThreeWrongAttempts_LocksOutFiveMinutes_EvenForNewConnection()
+    public async Task PauseGame_InvalidToken_NotStarted()
     {
-        var coordinator = new ParentChallengeCoordinator(_clock);
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
+        h.TokenValid = false;
+
+        Assert.Equal(ParentGameResult.InvalidToken, (await StartPause(game, new UiParentSession(_clock))).Result);
+    }
+
+    [Fact]
+    public async Task Game_ProtectionOff_NotRequired()
+    {
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
+        h.ProtectionEnabled = false;
+
+        Assert.Equal(ParentGameResult.NotRequired, (await StartPause(game, new UiParentSession(_clock))).Result);
+    }
+
+    [Fact]
+    public async Task Game_FinishWithoutStart_NoGame()
+    {
+        (ParentGameCoordinator game, _) = await CreateGameAsync();
+
+        Assert.Equal(ParentGameResult.NoGame, (await Finish(game, new UiParentSession(_clock), true, 1000)).Result);
+    }
+
+    [Fact]
+    public async Task SettingsGame_DisableOrLower_RequiresSessionThenAppliesAfterWin()
+    {
+        (ParentGameCoordinator game, GameHarness h) = await CreateGameAsync();
+        h.Meters = 3000;
         var session = new UiParentSession(_clock);
-        IpcPayload last = new();
-        for (int i = 0; i < ParentChallengeCoordinator.MaxFailuresBeforeLockout; i++)
-        {
-            ChallengeStartResponse start = Start(coordinator, session);
-            last = Submit(coordinator, session, start.Questions.Select(q => Solve(q) + 1));
-        }
+        var startReq = new IpcPayload { MessageId = 3, ParentGameStartReq = new ParentGameStartRequest { Purpose = ParentGamePurpose.Settings, SettingsEnabled = true, SettingsGameMeters = 1000 } };
 
-        Assert.Equal(ChallengeResult.LockedOut, last.ChallengeSubmitResp.Result);
-        Assert.Equal(ChallengeResult.LockedOut, Start(coordinator, new UiParentSession(_clock)).Result); // kết nối mới cũng bị khoá
+        Assert.Equal(ParentGameResult.NotAuthenticated, (await game.HandleAsync(startReq, session, CancellationToken.None)).ParentGameStartResp.Result);
 
-        _clock.Now += (long)ParentChallengeCoordinator.LockoutDuration.TotalMilliseconds;
-        Assert.Equal(ChallengeResult.Success, Start(coordinator, session).Result);
+        session.Open();
+        ParentGameStartResponse start = (await game.HandleAsync(startReq, session, CancellationToken.None)).ParentGameStartResp;
+        Assert.Equal(ParentGameResult.Started, start.Result);
+        Assert.Equal(3000u, start.TargetMeters); // chơi ở độ khó HIỆN HÀNH
+
+        _clock.Now += 546_000;
+        Assert.Equal(ParentGameResult.Applied, (await Finish(game, session, true, 3000)).Result);
+        Assert.Equal([(true, 1000u)], h.SettingsApplied);
     }
 
-    [Fact]
-    public void Challenge_SubmitWithoutStart_NoChallenge()
-    {
-        var coordinator = new ParentChallengeCoordinator(_clock);
-
-        Assert.Equal(ChallengeResult.NoChallenge, Submit(coordinator, new UiParentSession(_clock), [1, 2, 3, 4, 5]).ChallengeSubmitResp.Result);
-    }
+    [Theory]
+    [InlineData(true, 3000u, 1000u, false)] // tăng độ khó — không cần chơi
+    [InlineData(true, 0u, 2000u, false)]    // giữ nguyên
+    [InlineData(true, 1000u, 2000u, true)]  // giảm độ khó
+    [InlineData(false, 0u, 1000u, true)]    // tắt chế độ
+    public void NeedsGame_OnlyWhenProtectionWouldWeaken(bool wantEnabled, uint wantMeters, uint currentMeters, bool expected) =>
+        Assert.Equal(expected, ParentGameCoordinator.NeedsGame(wantEnabled, wantMeters, currentMeters));
 
     private async Task<(ConfigCoordinator Config, MonitoringStateHolder Holder, List<string> LanguagesPushed)> CreateConfigAsync(MonitoringStateData? state = null)
     {
@@ -110,11 +192,11 @@ public class ParentProtectionTests : IDisposable
         return (new ConfigCoordinator(holder, _configDbPath, auth, auditLog, () => { }, pushLanguage: pushed.Add), holder, pushed);
     }
 
-    private static Task<IpcPayload> SetProtection(ConfigCoordinator c, UiParentSession s, bool enabled) =>
-        c.HandleAsync(new IpcPayload { MessageId = 3, SetParentProtectionReq = new SetParentProtectionRequest { Enabled = enabled } }, s, CancellationToken.None);
+    private static Task<IpcPayload> SetProtection(ConfigCoordinator c, UiParentSession s, bool enabled, uint meters = 0) =>
+        c.HandleAsync(new IpcPayload { MessageId = 3, SetParentProtectionReq = new SetParentProtectionRequest { Enabled = enabled, ParentGameMeters = meters } }, s, CancellationToken.None);
 
     [Fact]
-    public async Task SetParentProtection_RequiresSession_DisableRequiresChallengePass_Persists()
+    public async Task SetParentProtection_EnableAndRaiseDirect_DisableAndLowerNeedGame_Persists()
     {
         (ConfigCoordinator config, MonitoringStateHolder holder, _) = await CreateConfigAsync();
         var session = new UiParentSession(_clock);
@@ -122,20 +204,27 @@ public class ParentProtectionTests : IDisposable
         Assert.Equal(SetParentProtectionResult.NotAuthenticated, (await SetProtection(config, session, true)).SetParentProtectionResp.Result);
 
         session.Open();
-        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true)).SetParentProtectionResp.Result);
-        Assert.True(holder.Current.ParentProtectionEnabled);
+        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 2000)).SetParentProtectionResp.Result);
         Assert.True(config.ParentProtectionEnabled);
+        Assert.Equal(2000u, config.ParentGameMeters);
 
+        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, true, 3000)).SetParentProtectionResp.Result);
+        Assert.Equal(SetParentProtectionResult.ChallengeRequired, (await SetProtection(config, session, true, 1000)).SetParentProtectionResp.Result);
         Assert.Equal(SetParentProtectionResult.ChallengeRequired, (await SetProtection(config, session, false)).SetParentProtectionResp.Result);
+        Assert.Equal(SetParentProtectionResult.Unspecified, (await SetProtection(config, session, true, 1234)).SetParentProtectionResp.Result);
+        Assert.True(holder.Current.ParentProtectionEnabled);
+        Assert.Equal(3000u, holder.Current.ParentGameMeters);
 
-        var challenge = new ParentChallengeCoordinator(_clock);
-        ChallengeStartResponse start = Start(challenge, session);
-        Submit(challenge, session, start.Questions.Select(Solve));
-        Assert.Equal(SetParentProtectionResult.Success, (await SetProtection(config, session, false)).SetParentProtectionResp.Result);
+        // Đường về đích trò chơi (ParentGameCoordinator gọi) mới được tắt.
+        Assert.True(await config.ApplyParentProtectionAsync(false, 0, CancellationToken.None));
         Assert.False(holder.Current.ParentProtectionEnabled);
+
+        IpcPayload query = await config.HandleAsync(new IpcPayload { MessageId = 7, ConfigQuery = new ConfigQuery() }, session, CancellationToken.None);
+        Assert.Equal(3000u, query.ConfigResp.ParentGameMeters);
 
         using ConfigDb db = ConfigDb.Open(_configDbPath);
         Assert.False(db.ReadSnapshot().MonitoringState.ParentProtectionEnabled);
+        Assert.Equal(3000u, db.ReadSnapshot().MonitoringState.ParentGameMeters);
     }
 
     [Fact]
@@ -160,12 +249,13 @@ public class ParentProtectionTests : IDisposable
     }
 
     [Fact]
-    public void OldConfigWithoutNewFields_DefaultsToVietnameseAndProtectionOff()
+    public void OldConfigWithoutNewFields_DefaultsToVietnameseProtectionOffAnd1000Meters()
     {
         MonitoringStateData state = MonitoringStateData.CreateFirstRunDefault();
 
         Assert.Equal("vi", state.Language);
         Assert.False(state.ParentProtectionEnabled);
+        Assert.Equal(1000u, state.ParentGameMeters);
     }
 
     public void Dispose()

@@ -34,7 +34,7 @@ public sealed partial class SettingsPage : Page
             _parentSession,
             _parentSession.MarkLoggedOut,
             services.GetRequiredService<IParentProtectionFacade>(),
-            services.GetRequiredService<IParentChallengePromptService>());
+            services.GetRequiredService<IParentGameService>());
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         OverlayMessageLabel.Text = LocalizationService.Get("SettingsOverlayMessageLabel");
@@ -51,6 +51,11 @@ public sealed partial class SettingsPage : Page
         ParentProtectionHintText.Text = LocalizationService.Get("SettingsParentProtectionHint");
         ParentProtectionToggle.OnContent = LocalizationService.Get("SettingsParentProtectionOn");
         ParentProtectionToggle.OffContent = LocalizationService.Get("SettingsParentProtectionOff");
+        ParentGameDifficultyLabel.Text = LocalizationService.Get("SettingsGameDifficultyLabel");
+        foreach ((uint meters, string key) in new[] { (1000u, "GameDifficultyEasy"), (2000u, "GameDifficultyMedium"), (3000u, "GameDifficultyHard") })
+        {
+            ParentGameDifficultyCombo.Items.Add(new ComboBoxItem { Content = LocalizationService.Get(key), Tag = meters });
+        }
         ChangePasswordHeaderText.Text = LocalizationService.Get("SettingsChangePasswordHeader");
         OldPasswordLabel.Text = LocalizationService.Get("SettingsOldPasswordLabel");
         NewPasswordLabel.Text = LocalizationService.Get("SettingsNewPasswordLabel");
@@ -156,6 +161,7 @@ public sealed partial class SettingsPage : Page
         PerformanceModeRadios.SelectedIndex = ViewModel.PerformanceMode == PerformanceModeOption.MaximumProtection ? 1 : 0;
         _performanceModeInitialized = true;
         SetParentProtectionToggleSilently(ViewModel.ParentProtectionEnabled);
+        SetDifficultySilently(ViewModel.ParentGameMeters);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -215,6 +221,33 @@ public sealed partial class SettingsPage : Page
         _suppressParentProtectionToggle = false;
     }
 
+    private void SetDifficultySilently(uint meters)
+    {
+        _suppressParentProtectionToggle = true;
+        ParentGameDifficultyCombo.SelectedItem = ParentGameDifficultyCombo.Items.OfType<ComboBoxItem>().FirstOrDefault(i => i.Tag is uint m && m == meters);
+        _suppressParentProtectionToggle = false;
+    }
+
+    /// <summary>`PAUSE-047`: tăng độ khó đổi ngay; giảm độ khó khi chế độ đang bật phải về đích trò chơi ở độ khó hiện hành.</summary>
+    private async void OnParentGameDifficultyChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressParentProtectionToggle || ParentGameDifficultyCombo.SelectedItem is not ComboBoxItem { Tag: uint meters })
+        {
+            return;
+        }
+
+        ParentGameDifficultyCombo.IsEnabled = false;
+        try
+        {
+            await ViewModel.SetParentProtectionAsync(ViewModel.ParentProtectionEnabled, meters);
+            SetDifficultySilently(ViewModel.ParentGameMeters);
+        }
+        finally
+        {
+            ParentGameDifficultyCombo.IsEnabled = true;
+        }
+    }
+
     /// <summary>
     /// `PAUSE-040`: bật → hộp xác nhận giải thích trước; `PAUSE-042`: tắt → thử thách (trong ViewModel). Huỷ/thất bại → trả công
     /// tắc về đúng trạng thái Service đang lưu.
@@ -238,7 +271,7 @@ public sealed partial class SettingsPage : Page
                     Title = LocalizationService.Get("SettingsParentProtectionConfirmTitle"),
                     Content = new TextBlock { Text = LocalizationService.Get("SettingsParentProtectionConfirmBody"), TextWrapping = TextWrapping.Wrap },
                     PrimaryButtonText = LocalizationService.Get("SettingsParentProtectionConfirmButton"),
-                    CloseButtonText = LocalizationService.Get("ChallengeCancelButton"),
+                    CloseButtonText = LocalizationService.Get("AuthPromptCancelButton"),
                     DefaultButton = ContentDialogButton.Close,
                 };
                 if (Application.Current.Resources.TryGetValue("DefaultContentDialogStyle", out object style))
@@ -253,7 +286,7 @@ public sealed partial class SettingsPage : Page
                 }
             }
 
-            await ViewModel.SetParentProtectionAsync(enable, XamlRoot);
+            await ViewModel.SetParentProtectionAsync(enable);
             SetParentProtectionToggleSilently(ViewModel.ParentProtectionEnabled);
         }
         finally

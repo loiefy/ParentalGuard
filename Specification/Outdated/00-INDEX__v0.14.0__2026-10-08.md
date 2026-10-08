@@ -2,7 +2,7 @@
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
 > **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.15.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.18.0, `03-frontend-ui-spec.md` → v0.23.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.4.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.9.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.5.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Trạng thái spec**: `APPROVED v0.14.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.18.0, `03-frontend-ui-spec.md` → v0.23.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.3.1, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.9.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.5.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-07
 
 ---
@@ -75,7 +75,6 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
-| v0.15.0 | 2026-10-08 | **MINOR**: `07` v0.4.0 — trò chơi nhảy vượt rào thay thử thách phép tính (`PAUSE-044`–`048`, chủ dự án yêu cầu). Archive: `Outdated/07-pause-resume-spec__v0.3.1__2026-10-08.md`, `Outdated/00-INDEX__v0.14.0__2026-10-08.md` |
 | v0.14.0 | 2026-10-08 | **MINOR**: `03` v0.23.0 — `FE-063b` đổi ngôn ngữ áp dụng ngay, không khởi động lại (chủ dự án yêu cầu). Archive: `Outdated/03-frontend-ui-spec__v0.22.0__2026-10-08.md`, `Outdated/00-INDEX__v0.13.1__2026-10-08.md` |
 | v0.13.1 | 2026-10-07 | **PATCH**: `07` v0.3.1 — làm rõ `PAUSE-043` (thẻ giới thiệu luôn hiển thị; thử thách trước mật khẩu). Archive: `Outdated/07-pause-resume-spec__v0.3.0__2026-10-07.md`, `Outdated/00-INDEX__v0.13.0__2026-10-07.md` |
 | v0.13.0 | 2026-10-07 | **Chủ dự án yêu cầu hoàn thành toàn bộ TODO còn lại**: `02` v0.18.0 (`BE-071c` 10 cửa sổ/chu kỳ, `BE-034d` buộc đóng ứng dụng vi phạm), `03` v0.22.0 (`FE-063a` 6 ngôn ngữ, `FE-093` tab Giới thiệu/giấy phép), `07` v0.3.0 (`PAUSE-040`–`043` Bảo vệ cả phụ huynh), `08` v0.10.0 (`PERF-050c` giữ chế độ hiệu năng + giải thích, `PERF-020b`), `09` v0.9.0 (`IMG-020b`), `10` v0.7.0 (`MISC-011` xuất PDF). Archive: `Outdated/02-backend-spec__v0.17.0__2026-10-07.md`, `Outdated/08-performance-cpu-spec__v0.9.0__2026-10-07.md`, `Outdated/09-image-processing-spec__v0.8.0__2026-10-07.md`, `Outdated/07-pause-resume-spec__v0.2.2__2026-10-07.md`, `Outdated/10-additional-mechanisms-spec__v0.6.0__2026-10-07.md`, `Outdated/03-frontend-ui-spec__v0.21.0__2026-10-07.md`, `Outdated/00-INDEX__v0.12.0__2026-10-07.md` |

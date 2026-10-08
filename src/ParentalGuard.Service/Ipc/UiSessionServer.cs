@@ -35,10 +35,18 @@ public sealed class UiSessionServer(
     AuditLogCoordinator auditLogCoordinator,
     DashboardCoordinator dashboardCoordinator,
     AuditLogWriter auditLog,
-    ILogger logger,
-    ParentChallengeCoordinator? parentChallengeCoordinator = null)
+    ILogger logger)
 {
-    private readonly ParentChallengeCoordinator challengeCoordinator = parentChallengeCoordinator ?? new ParentChallengeCoordinator(authCoordinator.Clock);
+    // PAUSE-044..048 (2026-10-08): trò chơi nhảy rào — áp dụng tạm dừng/cài đặt qua đúng các coordinator sở hữu state.
+    private readonly ParentGameCoordinator gameCoordinator = new(
+        authCoordinator.Clock,
+        auditLog,
+        () => configCoordinator.ParentProtectionEnabled,
+        () => configCoordinator.ParentGameMeters,
+        pauseCoordinator.TryConsumePauseTokenAsync,
+        () => pauseCoordinator.IsPaused,
+        pauseCoordinator.ApplyPauseAsync,
+        configCoordinator.ApplyParentProtectionAsync);
 
     /// <summary>
     /// Khung <c>Hello</c> đầu tiên của UI chưa có khoá phiên nào để ký ("chữ ký rỗng", mục 5.3) —
@@ -184,12 +192,12 @@ public sealed class UiSessionServer(
     /// </summary>
     private Task<IpcPayload> DispatchAsync(IpcPayload request, AuditLogViewSession auditViewSession, UiParentSession parentSession, CancellationToken token) => request.BodyCase switch
     {
-        // PAUSE-041 (2026-10-07): "Bảo vệ cả phụ huynh" đang bật → tạm dừng phải đã vượt thử thách trên kết nối này; kiểm tra
-        // TRƯỚC khi chuyển cho PauseCoordinator để action_token KHÔNG bị tiêu thụ khi bị từ chối.
-        IpcPayload.BodyOneofCase.PauseMonitoringReq when configCoordinator.ParentProtectionEnabled && !parentSession.TryConsumeChallengePass() =>
+        // PAUSE-044 (2026-10-08): "Bảo vệ cả phụ huynh" đang bật → KHÔNG tạm dừng trực tiếp được; chỉ qua về đích trò chơi nhảy
+        // rào (ParentGameStart/Finish). Từ chối TRƯỚC PauseCoordinator để action_token KHÔNG bị tiêu thụ.
+        IpcPayload.BodyOneofCase.PauseMonitoringReq when configCoordinator.ParentProtectionEnabled =>
             Task.FromResult(ChallengeRequired(request)),
-        IpcPayload.BodyOneofCase.ChallengeStartReq or
-        IpcPayload.BodyOneofCase.ChallengeSubmitReq => challengeCoordinator.HandleAsync(request, parentSession),
+        IpcPayload.BodyOneofCase.ParentGameStartReq or
+        IpcPayload.BodyOneofCase.ParentGameFinishReq => gameCoordinator.HandleAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.SetParentProtectionReq or
         IpcPayload.BodyOneofCase.SetLanguageReq => configCoordinator.HandleAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.PauseMonitoringReq or

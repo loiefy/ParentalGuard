@@ -319,6 +319,7 @@ public sealed class ConfigDb : IDisposable
             UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
             ParentProtectionEnabled = state.ParentProtectionEnabled,
             Language = state.Language,
+            ParentGameMeters = state.ParentGameMeters,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -355,6 +356,7 @@ public sealed class ConfigDb : IDisposable
             UserWhitelistedProcessNames = [.. state.UserWhitelistedProcessNames],
             ParentProtectionEnabled = state.ParentProtectionEnabled,
             Language = state.Language,
+            ParentGameMeters = state.ParentGameMeters,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -401,6 +403,7 @@ public sealed class ConfigDb : IDisposable
         {
             ParentProtectionEnabled = json.ParentProtectionEnabled,
             Language = MonitoringStateData.SupportedLanguages.Contains(json.Language ?? "") ? json.Language! : MonitoringStateData.DefaultLanguage,
+            ParentGameMeters = json.ParentGameMeters is 1000 or 2000 or 3000 ? json.ParentGameMeters : MonitoringStateData.DefaultParentGameMeters,
         };
     }
 
@@ -642,6 +645,10 @@ public sealed class ConfigDb : IDisposable
         /// <summary>`FE-063a` (2026-10-07) — thiếu/không hợp lệ = "vi".</summary>
         [JsonPropertyName("language")]
         public string? Language { get; set; } = "vi";
+
+        /// <summary>`PAUSE-045` (2026-10-08) — thiếu/không hợp lệ = 1000.</summary>
+        [JsonPropertyName("parent_game_meters")]
+        public uint ParentGameMeters { get; set; } = 1000;
     }
 
     private sealed class PauseStateJson

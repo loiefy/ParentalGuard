@@ -20,7 +20,7 @@ public sealed class PauseFacade(UiIpcClient client) : IPauseFacade
         return await client.SendRequestAsync(request, MapPauseResponse, cancellationToken).ConfigureAwait(false);
     }
 
-    private static PauseDuration MapDuration(PauseDurationOption duration) => duration switch
+    internal static PauseDuration MapDuration(PauseDurationOption duration) => duration switch
     {
         PauseDurationOption.FifteenMinutes => PauseDuration.FifteenMinutes,
         PauseDurationOption.ThirtyMinutes => PauseDuration.ThirtyMinutes,

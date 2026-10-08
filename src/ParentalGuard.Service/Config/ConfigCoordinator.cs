@@ -57,6 +57,7 @@ public sealed class ConfigCoordinator(
         resp.UserWhitelistedProcessNames.AddRange(EffectiveWhitelist(state));
         resp.ParentProtectionEnabled = state.ParentProtectionEnabled;
         resp.Language = state.Language;
+        resp.ParentGameMeters = state.ParentGameMeters;
         response.ConfigResp = resp;
         return Task.FromResult(response);
     }
@@ -232,12 +233,12 @@ public sealed class ConfigCoordinator(
     }
 
     /// <summary>
-    /// `PAUSE-040`/`PAUSE-042` (2026-10-07): bật cần phiên phụ huynh; TẮT cần phiên phụ huynh VÀ đã vượt thử thách trên
-    /// kết nối này (chống lách: tắt chế độ rồi tạm dừng không cần thử thách).
+    /// `PAUSE-040`/`PAUSE-047` (2026-10-08): cần phiên phụ huynh. Chỉ BẬT chế độ / TĂNG quãng đường được đổi trực tiếp; TẮT hoặc GIẢM
+    /// quãng đường làm giảm bảo vệ → <c>CHALLENGE_REQUIRED</c>, phải về đích trò chơi nhảy rào (<see cref="Auth.ParentGameCoordinator"/>).
     /// </summary>
     private async Task<IpcPayload> HandleSetParentProtectionAsync(IpcPayload request, UiParentSession parentSession, CancellationToken cancellationToken)
     {
-        bool enable = request.SetParentProtectionReq.Enabled;
+        SetParentProtectionRequest req = request.SetParentProtectionReq;
         IpcPayload response = NewResponse(request);
         if (!parentSession.TryTouch())
         {
@@ -245,31 +246,51 @@ public sealed class ConfigCoordinator(
             return response;
         }
 
-        if (!enable && monitoringStateHolder.Current.ParentProtectionEnabled && !parentSession.TryConsumeChallengePass())
+        if (req.ParentGameMeters != 0 && !Auth.ParentGameCoordinator.AllowedMeters.Contains(req.ParentGameMeters))
+        {
+            response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.Unspecified };
+            return response;
+        }
+
+        MonitoringStateData current = monitoringStateHolder.Current;
+        if (current.ParentProtectionEnabled && Auth.ParentGameCoordinator.NeedsGame(req.Enabled, req.ParentGameMeters, current.ParentGameMeters))
         {
             response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.ChallengeRequired };
             return response;
         }
 
+        bool saved = await ApplyParentProtectionAsync(req.Enabled, req.ParentGameMeters, cancellationToken).ConfigureAwait(false);
+        response.SetParentProtectionResp = new SetParentProtectionResponse { Result = saved ? SetParentProtectionResult.Success : SetParentProtectionResult.Unspecified };
+        return response;
+    }
+
+    /// <summary>`PAUSE-045`: quãng đường hiện hành của trò chơi nhảy rào.</summary>
+    public uint ParentGameMeters => monitoringStateHolder.Current.ParentGameMeters;
+
+    /// <summary>
+    /// Ghi chế độ + quãng đường (0 = giữ nguyên) — gọi sau khi đã kiểm tra quyền (trực tiếp ở trên, hoặc về đích trò chơi).
+    /// </summary>
+    public async Task<bool> ApplyParentProtectionAsync(bool enabled, uint gameMeters, CancellationToken cancellationToken)
+    {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             MonitoringStateData current = monitoringStateHolder.Current;
-            if (current.ParentProtectionEnabled != enable)
+            uint meters = gameMeters == 0 ? current.ParentGameMeters : gameMeters;
+            if (current.ParentProtectionEnabled == enabled && current.ParentGameMeters == meters)
             {
-                MonitoringStateData updated = current with { ParentProtectionEnabled = enable };
-                if (!TryPersist(updated))
-                {
-                    response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.Unspecified };
-                    return response;
-                }
-
-                monitoringStateHolder.Update(updated);
-                await auditLog.AppendAsync("ConfigChanged", new { field = "parent_protection", enabled = enable }, CancellationToken.None).ConfigureAwait(false);
+                return true;
             }
 
-            response.SetParentProtectionResp = new SetParentProtectionResponse { Result = SetParentProtectionResult.Success };
-            return response;
+            MonitoringStateData updated = current with { ParentProtectionEnabled = enabled, ParentGameMeters = meters };
+            if (!TryPersist(updated))
+            {
+                return false;
+            }
+
+            monitoringStateHolder.Update(updated);
+            await auditLog.AppendAsync("ConfigChanged", new { field = "parent_protection", enabled, game_meters = meters }, CancellationToken.None).ConfigureAwait(false);
+            return true;
         }
         finally
         {

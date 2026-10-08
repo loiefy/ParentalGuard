@@ -636,30 +636,6 @@
   <data name="AboutThirdPartyNotice" xml:space="preserve">
     <value>La lista completa de componentes de terceros y sus licencias está en THIRD-PARTY-NOTICES.md, en la carpeta de instalación.</value>
   </data>
-  <data name="ChallengeTitle" xml:space="preserve">
-    <value>Desafío de verificación</value>
-  </data>
-  <data name="ChallengeIntro" xml:space="preserve">
-    <value>El modo "Proteger incluso frente a los padres" está activado. Responda correctamente las 5 operaciones siguientes en 60 segundos.</value>
-  </data>
-  <data name="ChallengeSubmitButton" xml:space="preserve">
-    <value>Enviar respuestas</value>
-  </data>
-  <data name="ChallengeCancelButton" xml:space="preserve">
-    <value>Cancelar</value>
-  </data>
-  <data name="ChallengeCountdown" xml:space="preserve">
-    <value>Tiempo restante: {0} segundos</value>
-  </data>
-  <data name="ChallengeWrong" xml:space="preserve">
-    <value>Hay respuestas incorrectas. Aquí tiene una serie nueva: quedan {0} intentos antes del bloqueo.</value>
-  </data>
-  <data name="ChallengeExpired" xml:space="preserve">
-    <value>Se acabó el tiempo. Aquí tiene una serie nueva: quedan {0} intentos antes del bloqueo.</value>
-  </data>
-  <data name="ChallengeLockedOut" xml:space="preserve">
-    <value>Ha fallado 3 veces seguidas. El desafío está bloqueado hasta las {0}.</value>
-  </data>
   <data name="DashboardChallengeRequired" xml:space="preserve">
     <value>Primero debe superar el desafío de verificación. Vuelva a realizar la acción.</value>
   </data>
@@ -667,7 +643,7 @@
     <value>Proteger incluso frente a los padres</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Si está activado, pausar la supervisión requiere la contraseña y un breve desafío de 5 operaciones en 60 segundos. Desactivar este modo también requiere superar el desafío.</value>
+    <value>Si está activado, pausar la supervisión requiere la contraseña correcta y después completar la carrera de vallas hasta la distancia elegida (1.000 m llevan unos 3 minutos). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Activado</value>
@@ -679,7 +655,7 @@
     <value>¿Activar "Proteger incluso frente a los padres"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: deberá resolver 5 operaciones en 60 segundos. Tres fallos seguidos bloquean el desafío durante 5 minutos. Desactivar este modo también requiere superar el desafío.</value>
+    <value>Una vez activado, ni siquiera un padre que conozca la contraseña podrá pausar la supervisión de inmediato: tras la contraseña deberá completar la carrera de vallas hasta la distancia elegida (al menos unos 3 minutos). Tocar una valla o cerrar el juego impide la pausa. Desactivar este modo o bajar la dificultad también requiere completar el juego.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Activar</value>
@@ -746,5 +722,69 @@
   </data>
   <data name="LanguageChangeFailed" xml:space="preserve">
     <value>No se pudo cambiar el idioma. Vuelva a intentarlo.</value>
+  </data>
+  <data name="GameWindowTitle" xml:space="preserve">
+    <value>ParentalGuard — Carrera de vallas</value>
+  </data>
+  <data name="GamePurposePause" xml:space="preserve">
+    <value>pausar la supervisión</value>
+  </data>
+  <data name="GamePurposeSettings" xml:space="preserve">
+    <value>cambiar el modo de protección</value>
+  </data>
+  <data name="GameStartPrompt" xml:space="preserve">
+    <value>Corra {0} m sin tocar ninguna valla para {1}.
+Pulse Espacio o haga clic izquierdo para empezar y vuelva a pulsar para saltar las vallas.</value>
+  </data>
+  <data name="GameControlsHint" xml:space="preserve">
+    <value>Espacio o clic izquierdo: saltar. Cerrar esta ventana es rendirse: no podrá {0}.</value>
+  </data>
+  <data name="GameDistanceFormat" xml:space="preserve">
+    <value>{0} / {1} m</value>
+  </data>
+  <data name="GameTimeFormat" xml:space="preserve">
+    <value>Tiempo: {0}</value>
+  </data>
+  <data name="GameWonChecking" xml:space="preserve">
+    <value>¡Meta! Confirmando el resultado…</value>
+  </data>
+  <data name="GameLostChecking" xml:space="preserve">
+    <value>¡Ha tocado una valla! Registrando el resultado…</value>
+  </data>
+  <data name="GameResultPaused" xml:space="preserve">
+    <value>¡Hecho! La supervisión se ha pausado.</value>
+  </data>
+  <data name="GameResultApplied" xml:space="preserve">
+    <value>¡Hecho! El cambio se ha aplicado.</value>
+  </data>
+  <data name="GameResultLost" xml:space="preserve">
+    <value>Ha tocado una valla a los {0} m. La acción no se ha realizado.</value>
+  </data>
+  <data name="GameResultTooFast" xml:space="preserve">
+    <value>El resultado del juego no es válido. La acción no se ha realizado.</value>
+  </data>
+  <data name="GameResultFailed" xml:space="preserve">
+    <value>No se pudo confirmar el resultado del juego. La acción no se ha realizado.</value>
+  </data>
+  <data name="GameCloseButton" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="DashboardGameNotPaused" xml:space="preserve">
+    <value>La supervisión no se pausó: el juego no se completó (valla tocada o juego cerrado).</value>
+  </data>
+  <data name="SettingsGameNotApplied" xml:space="preserve">
+    <value>Sin cambios: el juego no se completó (valla tocada o juego cerrado).</value>
+  </data>
+  <data name="SettingsGameDifficultyLabel" xml:space="preserve">
+    <value>Dificultad de la carrera de vallas (distancia que recorrer)</value>
+  </data>
+  <data name="GameDifficultyEasy" xml:space="preserve">
+    <value>Fácil — 1.000 m (unos 3 minutos)</value>
+  </data>
+  <data name="GameDifficultyMedium" xml:space="preserve">
+    <value>Media — 2.000 m (unos 6 minutos, más vallas)</value>
+  </data>
+  <data name="GameDifficultyHard" xml:space="preserve">
+    <value>Difícil — 3.000 m (unos 9 minutos, más vallas aún)</value>
   </data>
 </root>

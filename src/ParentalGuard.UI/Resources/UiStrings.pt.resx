@@ -636,30 +636,6 @@
   <data name="AboutThirdPartyNotice" xml:space="preserve">
     <value>A lista completa de componentes de terceiros e respetivas licenças está em THIRD-PARTY-NOTICES.md, na pasta de instalação.</value>
   </data>
-  <data name="ChallengeTitle" xml:space="preserve">
-    <value>Desafio de verificação</value>
-  </data>
-  <data name="ChallengeIntro" xml:space="preserve">
-    <value>O modo "Proteger também em relação aos pais" está ativo. Responda corretamente às 5 contas abaixo em 60 segundos.</value>
-  </data>
-  <data name="ChallengeSubmitButton" xml:space="preserve">
-    <value>Enviar respostas</value>
-  </data>
-  <data name="ChallengeCancelButton" xml:space="preserve">
-    <value>Cancelar</value>
-  </data>
-  <data name="ChallengeCountdown" xml:space="preserve">
-    <value>Tempo restante: {0} segundos</value>
-  </data>
-  <data name="ChallengeWrong" xml:space="preserve">
-    <value>Há respostas erradas. Eis um novo conjunto — restam {0} tentativas antes do bloqueio.</value>
-  </data>
-  <data name="ChallengeExpired" xml:space="preserve">
-    <value>O tempo esgotou. Eis um novo conjunto — restam {0} tentativas antes do bloqueio.</value>
-  </data>
-  <data name="ChallengeLockedOut" xml:space="preserve">
-    <value>Errou 3 vezes seguidas. O desafio está bloqueado até às {0}.</value>
-  </data>
   <data name="DashboardChallengeRequired" xml:space="preserve">
     <value>Primeiro é necessário concluir o desafio de verificação. Repita a ação.</value>
   </data>
@@ -667,7 +643,7 @@
     <value>Proteger também em relação aos pais</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>Quando ativo, pausar a monitorização exige a palavra-passe e um pequeno desafio de 5 contas em 60 segundos. Desativar este modo também exige passar o desafio.</value>
+    <value>Quando ativo, pausar a monitorização exige a palavra-passe correta e, depois, completar a corrida de barreiras até à distância escolhida (1000 m demoram cerca de 3 minutos). Tocar numa barreira ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>Ativo</value>
@@ -679,7 +655,7 @@
     <value>Ativar "Proteger também em relação aos pais"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Depois de ativo, nem um pai que saiba a palavra-passe consegue pausar a monitorização de imediato — tem de resolver 5 contas em 60 segundos. Três erros seguidos bloqueiam o desafio durante 5 minutos. Desativar este modo também exige passar o desafio.</value>
+    <value>Depois de ativo, nem um pai que saiba a palavra-passe consegue pausar a monitorização de imediato: depois da palavra-passe tem de concluir a corrida de barreiras até à distância escolhida (pelo menos cerca de 3 minutos). Tocar numa barreira ou fechar o jogo impede a pausa. Desativar este modo ou baixar a dificuldade também exige concluir o jogo.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Ativar</value>
@@ -746,5 +722,69 @@
   </data>
   <data name="LanguageChangeFailed" xml:space="preserve">
     <value>Não foi possível mudar o idioma. Tente novamente.</value>
+  </data>
+  <data name="GameWindowTitle" xml:space="preserve">
+    <value>ParentalGuard — Corrida de barreiras</value>
+  </data>
+  <data name="GamePurposePause" xml:space="preserve">
+    <value>pausar a monitorização</value>
+  </data>
+  <data name="GamePurposeSettings" xml:space="preserve">
+    <value>alterar o modo de proteção</value>
+  </data>
+  <data name="GameStartPrompt" xml:space="preserve">
+    <value>Corra {0} m sem tocar em nenhuma barreira para {1}.
+Prima Espaço ou clique com o botão esquerdo para começar e volte a premir para saltar as barreiras.</value>
+  </data>
+  <data name="GameControlsHint" xml:space="preserve">
+    <value>Espaço ou clique esquerdo: saltar. Fechar esta janela é desistir — não vai conseguir {0}.</value>
+  </data>
+  <data name="GameDistanceFormat" xml:space="preserve">
+    <value>{0} / {1} m</value>
+  </data>
+  <data name="GameTimeFormat" xml:space="preserve">
+    <value>Tempo: {0}</value>
+  </data>
+  <data name="GameWonChecking" xml:space="preserve">
+    <value>Chegou ao fim! A confirmar o resultado…</value>
+  </data>
+  <data name="GameLostChecking" xml:space="preserve">
+    <value>Tocou numa barreira! A registar o resultado…</value>
+  </data>
+  <data name="GameResultPaused" xml:space="preserve">
+    <value>Concluído! A monitorização foi pausada.</value>
+  </data>
+  <data name="GameResultApplied" xml:space="preserve">
+    <value>Concluído! A alteração foi aplicada.</value>
+  </data>
+  <data name="GameResultLost" xml:space="preserve">
+    <value>Tocou numa barreira aos {0} m. A ação não foi realizada.</value>
+  </data>
+  <data name="GameResultTooFast" xml:space="preserve">
+    <value>O resultado do jogo não é válido. A ação não foi realizada.</value>
+  </data>
+  <data name="GameResultFailed" xml:space="preserve">
+    <value>Não foi possível confirmar o resultado do jogo. A ação não foi realizada.</value>
+  </data>
+  <data name="GameCloseButton" xml:space="preserve">
+    <value>Fechar</value>
+  </data>
+  <data name="DashboardGameNotPaused" xml:space="preserve">
+    <value>A monitorização não foi pausada: o jogo não foi concluído (barreira tocada ou jogo fechado).</value>
+  </data>
+  <data name="SettingsGameNotApplied" xml:space="preserve">
+    <value>Sem alterações: o jogo não foi concluído (barreira tocada ou jogo fechado).</value>
+  </data>
+  <data name="SettingsGameDifficultyLabel" xml:space="preserve">
+    <value>Dificuldade da corrida de barreiras (distância a percorrer)</value>
+  </data>
+  <data name="GameDifficultyEasy" xml:space="preserve">
+    <value>Fácil — 1000 m (cerca de 3 minutos)</value>
+  </data>
+  <data name="GameDifficultyMedium" xml:space="preserve">
+    <value>Média — 2000 m (cerca de 6 minutos, mais barreiras)</value>
+  </data>
+  <data name="GameDifficultyHard" xml:space="preserve">
+    <value>Difícil — 3000 m (cerca de 9 minutos, ainda mais barreiras)</value>
   </data>
 </root>

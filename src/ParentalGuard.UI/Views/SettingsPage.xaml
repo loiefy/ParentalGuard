@@ -126,6 +126,9 @@
                     <StackPanel Spacing="8" Margin="24,0,0,0">
                         <TextBlock x:Name="ParentProtectionHintText" TextWrapping="Wrap" Opacity="0.7" />
                         <ToggleSwitch x:Name="ParentProtectionToggle" Toggled="OnParentProtectionToggled" />
+                        <!-- PAUSE-045 (2026-10-08): độ khó = quãng đường phải chạy trong trò chơi nhảy rào. -->
+                        <TextBlock x:Name="ParentGameDifficultyLabel" />
+                        <ComboBox x:Name="ParentGameDifficultyCombo" MinWidth="320" SelectionChanged="OnParentGameDifficultyChanged" />
                         <InfoBar Severity="Error" IsClosable="False"
                                  IsOpen="{x:Bind ViewModel.HasParentProtectionError, Mode=OneWay}"
                                  Message="{x:Bind ViewModel.ParentProtectionError, Mode=OneWay}" />

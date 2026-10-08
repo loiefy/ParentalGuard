@@ -1,0 +1,184 @@
+using System.Security.Cryptography;
+using Google.Protobuf;
+using ParentalGuard.Ipc.Framing;
+using ParentalGuard.Ipc.Protocol;
+using ParentalGuard.Service.Audit;
+
+namespace ParentalGuard.Service.Auth;
+
+/// <summary>
+/// `PAUSE-044`–`PAUSE-048` (2026-10-08) — trò chơi nhảy rào "Bảo vệ cả phụ huynh", thay thử thách phép tính.
+/// <list type="bullet">
+/// <item>Tạm dừng: mật khẩu TRƯỚC (<c>action_token</c> "pause_monitoring" tiêu thụ ngay lúc bắt đầu ván, vì token chỉ sống 15 giây),
+/// về đích → Service tự áp dụng tạm dừng với thời lượng đã chọn lúc bắt đầu. Vấp rào/thoát game → không tạm dừng.</item>
+/// <item>Tắt chế độ / giảm độ khó: cần phiên phụ huynh + về đích ở độ khó HIỆN HÀNH.</item>
+/// </list>
+/// Trò chơi chạy ở UI (tiến trình người dùng) nên Service không tin kết quả mù quáng: chặn mọi kết quả về đích sớm hơn thời gian
+/// tối thiểu để chạy hết quãng đường ở tốc độ cố định (<see cref="RunSpeedMetersPerSecond"/>) — 1000 m ≥ 3 phút với mọi độ khó.
+/// Ván chơi gắn với ĐÚNG kết nối pipe (<see cref="UiParentSession"/>), mỗi ván chỉ kết thúc được 1 lần.
+/// </summary>
+public sealed class ParentGameCoordinator(
+    MonotonicClock clock,
+    AuditLogWriter auditLog,
+    Func<bool> protectionEnabled,
+    Func<uint> currentGameMeters,
+    Func<ByteString, CancellationToken, Task<bool>> consumePauseToken,
+    Func<bool> isPaused,
+    Func<PauseDuration, CancellationToken, Task<(PauseResult Result, long ExpiresAtUnixMs)>> applyPause,
+    Func<bool, uint, CancellationToken, Task<bool>> applySettings)
+{
+    /// <summary>Tốc độ chạy cố định (m/giây) cho MỌI độ khó — 1000 m mất 181,8 giây (≥ 3 phút, `PAUSE-045`).</summary>
+    public const double RunSpeedMetersPerSecond = 5.5;
+
+    /// <summary>Dung sai đồng hồ giữa UI và Service khi kiểm tra thời gian tối thiểu.</summary>
+    public static readonly TimeSpan TimingTolerance = TimeSpan.FromSeconds(1.5);
+
+    /// <summary>Ván chưa kết thúc sau ngần này (ngoài thời gian chạy) thì bỏ — chống giữ ván treo vô hạn.</summary>
+    public static readonly TimeSpan AbandonAfter = TimeSpan.FromMinutes(20);
+
+    public static readonly IReadOnlyList<uint> AllowedMeters = [1000, 2000, 3000];
+
+    private readonly IpcMessageIdGenerator _messageIds = new();
+
+    public static long MinDurationMs(uint meters) =>
+        (long)((meters / RunSpeedMetersPerSecond * 1000) - TimingTolerance.TotalMilliseconds);
+
+    public Task<IpcPayload> HandleAsync(IpcPayload request, UiParentSession session, CancellationToken cancellationToken) => request.BodyCase switch
+    {
+        IpcPayload.BodyOneofCase.ParentGameStartReq => StartAsync(request, session, cancellationToken),
+        IpcPayload.BodyOneofCase.ParentGameFinishReq => FinishAsync(request, session, cancellationToken),
+        _ => throw new InvalidOperationException($"ParentGameCoordinator received unexpected message: {request.BodyCase}."),
+    };
+
+    private async Task<IpcPayload> StartAsync(IpcPayload request, UiParentSession session, CancellationToken cancellationToken)
+    {
+        ParentGameStartRequest req = request.ParentGameStartReq;
+        IpcPayload response = NewResponse(request);
+        ParentGameResult result = await ValidateStartAsync(req, session, cancellationToken).ConfigureAwait(false);
+        if (result != ParentGameResult.Started)
+        {
+            response.ParentGameStartResp = new ParentGameStartResponse { Result = result };
+            return response;
+        }
+
+        uint meters = currentGameMeters();
+        long now = clock.UtcNowUnixMs;
+        ulong seed = BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8));
+        session.SetPendingGame(new PendingParentGame(req.Purpose, req.Duration, req.SettingsEnabled, req.SettingsGameMeters, meters, now));
+        await auditLog.AppendAsync("ParentGameStarted", new { purpose = req.Purpose.ToString(), meters }, CancellationToken.None).ConfigureAwait(false);
+
+        response.ParentGameStartResp = new ParentGameStartResponse
+        {
+            Result = ParentGameResult.Started,
+            TargetMeters = meters,
+            Seed = seed,
+            MinDurationMs = (uint)MinDurationMs(meters),
+        };
+        return response;
+    }
+
+    private async Task<ParentGameResult> ValidateStartAsync(ParentGameStartRequest req, UiParentSession session, CancellationToken cancellationToken)
+    {
+        if (!protectionEnabled())
+        {
+            return ParentGameResult.NotRequired;
+        }
+
+        switch (req.Purpose)
+        {
+            case ParentGamePurpose.Pause:
+                // Token tiêu thụ TRƯỚC mọi kiểm tra khác — mật khẩu sai/hết hạn thì không được chơi.
+                if (!await consumePauseToken(req.ActionToken, cancellationToken).ConfigureAwait(false))
+                {
+                    return ParentGameResult.InvalidToken;
+                }
+
+                return isPaused() ? ParentGameResult.AlreadyPaused : ParentGameResult.Started;
+
+            case ParentGamePurpose.Settings:
+                if (!session.TryTouch())
+                {
+                    return ParentGameResult.NotAuthenticated;
+                }
+
+                return NeedsGame(req.SettingsEnabled, req.SettingsGameMeters, currentGameMeters())
+                    ? ParentGameResult.Started
+                    : ParentGameResult.NotRequired;
+
+            default:
+                return ParentGameResult.Failed;
+        }
+    }
+
+    /// <summary>`PAUSE-047`: chỉ TẮT chế độ hoặc GIẢM quãng đường mới phải chơi (bật/tăng độ khó không làm giảm bảo vệ).</summary>
+    public static bool NeedsGame(bool wantEnabled, uint wantMeters, uint currentMeters) =>
+        !wantEnabled || (wantMeters != 0 && wantMeters < currentMeters);
+
+    private async Task<IpcPayload> FinishAsync(IpcPayload request, UiParentSession session, CancellationToken cancellationToken)
+    {
+        ParentGameFinishRequest req = request.ParentGameFinishReq;
+        IpcPayload response = NewResponse(request);
+        var resp = new ParentGameFinishResponse();
+        response.ParentGameFinishResp = resp;
+
+        long now = clock.UtcNowUnixMs;
+        if (session.TakePendingGame() is not { } game
+            || now - game.StartedAtUnixMs > MinDurationMs(game.TargetMeters) + (long)AbandonAfter.TotalMilliseconds)
+        {
+            resp.Result = ParentGameResult.NoGame;
+            return response;
+        }
+
+        long elapsedMs = now - game.StartedAtUnixMs;
+        if (!req.Completed || req.MetersReached < game.TargetMeters)
+        {
+            resp.Result = ParentGameResult.Lost;
+            await AuditAsync("ParentGameFailed", game, req.MetersReached, elapsedMs, "lost").ConfigureAwait(false);
+            return response;
+        }
+
+        if (elapsedMs < MinDurationMs(game.TargetMeters))
+        {
+            resp.Result = ParentGameResult.TooFast;
+            await AuditAsync("ParentGameFailed", game, req.MetersReached, elapsedMs, "too_fast").ConfigureAwait(false);
+            return response;
+        }
+
+        await AuditAsync("ParentGamePassed", game, req.MetersReached, elapsedMs, null).ConfigureAwait(false);
+        if (game.Purpose == ParentGamePurpose.Pause)
+        {
+            (PauseResult pauseResult, long expiresAt) = await applyPause(game.Duration, cancellationToken).ConfigureAwait(false);
+            resp.Result = pauseResult switch
+            {
+                PauseResult.Success => ParentGameResult.Paused,
+                PauseResult.AlreadyPaused => ParentGameResult.AlreadyPaused,
+                _ => ParentGameResult.Failed,
+            };
+            resp.PauseExpiresAtUnixMs = expiresAt;
+            return response;
+        }
+
+        resp.Result = await applySettings(game.SettingsEnabled, game.SettingsGameMeters, cancellationToken).ConfigureAwait(false)
+            ? ParentGameResult.Applied
+            : ParentGameResult.Failed;
+        return response;
+    }
+
+    private Task AuditAsync(string eventType, PendingParentGame game, uint metersReached, long elapsedMs, string? reason) =>
+        auditLog.AppendAsync(
+            eventType,
+            new { purpose = game.Purpose.ToString(), target_meters = game.TargetMeters, meters_reached = metersReached, elapsed_ms = elapsedMs, reason },
+            CancellationToken.None);
+
+    private IpcPayload NewResponse(IpcPayload request) =>
+        IpcEnvelope.NewEnvelope(ProcessType.Service, _messageIds.Next(), correlationId: request.MessageId);
+}
+
+/// <summary>1 ván đang chơi của 1 kết nối UI.</summary>
+public sealed record PendingParentGame(
+    ParentGamePurpose Purpose,
+    PauseDuration Duration,
+    bool SettingsEnabled,
+    uint SettingsGameMeters,
+    uint TargetMeters,
+    long StartedAtUnixMs);

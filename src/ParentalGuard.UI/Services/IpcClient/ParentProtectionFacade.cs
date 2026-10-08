@@ -1,3 +1,4 @@
+using Google.Protobuf;
 using ParentalGuard.Ipc.Client;
 using ParentalGuard.Ipc.Protocol;
 
@@ -6,51 +7,67 @@ namespace ParentalGuard.UI.Services.IpcClient;
 /// <inheritdoc cref="IParentProtectionFacade"/>
 public sealed class ParentProtectionFacade(UiIpcClient client) : IParentProtectionFacade
 {
-    public async Task<ChallengeStart> StartChallengeAsync(CancellationToken cancellationToken)
+    public async Task<ParentGameStart> StartPauseGameAsync(byte[] actionToken, PauseDurationOption duration, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(actionToken);
+
         IpcPayload request = client.NewEnvelope();
-        request.ChallengeStartReq = new ChallengeStartRequest();
+        request.ParentGameStartReq = new ParentGameStartRequest
+        {
+            Purpose = ParentGamePurpose.Pause,
+            ActionToken = ByteString.CopyFrom(actionToken),
+            Duration = PauseFacade.MapDuration(duration),
+        };
         return await client.SendRequestAsync(request, MapStart, cancellationToken).ConfigureAwait(false);
     }
 
-    private static ChallengeStart MapStart(IpcPayload response)
+    public async Task<ParentGameStart> StartSettingsGameAsync(bool enabled, uint gameMeters, CancellationToken cancellationToken)
     {
-        ChallengeStartResponse resp = response.ChallengeStartResp;
-        return new ChallengeStart(MapResult(resp.Result), [.. resp.Questions], resp.ExpiresAtUnixMs, resp.LockedUntilUnixMs);
-    }
-
-    public async Task<ChallengeSubmitResult> SubmitChallengeAsync(IReadOnlyList<int> answers, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(answers);
-
         IpcPayload request = client.NewEnvelope();
-        var submit = new ChallengeSubmitRequest();
-        submit.Answers.AddRange(answers);
-        request.ChallengeSubmitReq = submit;
-        return await client.SendRequestAsync(request, MapSubmit, cancellationToken).ConfigureAwait(false);
+        request.ParentGameStartReq = new ParentGameStartRequest
+        {
+            Purpose = ParentGamePurpose.Settings,
+            SettingsEnabled = enabled,
+            SettingsGameMeters = gameMeters,
+        };
+        return await client.SendRequestAsync(request, MapStart, cancellationToken).ConfigureAwait(false);
     }
 
-    private static ChallengeSubmitResult MapSubmit(IpcPayload response)
+    private static ParentGameStart MapStart(IpcPayload response)
     {
-        ChallengeSubmitResponse resp = response.ChallengeSubmitResp;
-        return new ChallengeSubmitResult(MapResult(resp.Result), resp.LockedUntilUnixMs, resp.FailuresBeforeLockout);
+        ParentGameStartResponse resp = response.ParentGameStartResp;
+        return new ParentGameStart(MapResult(resp.Result), resp.TargetMeters, resp.Seed, resp.MinDurationMs);
     }
 
-    private static ChallengeOutcome MapResult(ChallengeResult result) => result switch
+    public async Task<ParentGameFinish> FinishGameAsync(bool completed, uint metersReached, CancellationToken cancellationToken)
     {
-        ChallengeResult.Success => ChallengeOutcome.Started,
-        ChallengeResult.Passed => ChallengeOutcome.Passed,
-        ChallengeResult.Wrong => ChallengeOutcome.Wrong,
-        ChallengeResult.Expired => ChallengeOutcome.Expired,
-        ChallengeResult.LockedOut => ChallengeOutcome.LockedOut,
-        ChallengeResult.NoChallenge => ChallengeOutcome.NoChallenge,
-        _ => throw new UiIpcConnectionException($"Unexpected ChallengeResult: {result}."),
+        IpcPayload request = client.NewEnvelope();
+        request.ParentGameFinishReq = new ParentGameFinishRequest { Completed = completed, MetersReached = metersReached };
+        return await client.SendRequestAsync(
+            request,
+            r => new ParentGameFinish(MapResult(r.ParentGameFinishResp.Result), r.ParentGameFinishResp.PauseExpiresAtUnixMs),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static ParentGameOutcome MapResult(ParentGameResult result) => result switch
+    {
+        ParentGameResult.Started => ParentGameOutcome.Started,
+        ParentGameResult.InvalidToken => ParentGameOutcome.InvalidToken,
+        ParentGameResult.NotAuthenticated => ParentGameOutcome.NotAuthenticated,
+        ParentGameResult.NotRequired => ParentGameOutcome.NotRequired,
+        ParentGameResult.AlreadyPaused => ParentGameOutcome.AlreadyPaused,
+        ParentGameResult.Paused => ParentGameOutcome.Paused,
+        ParentGameResult.Applied => ParentGameOutcome.Applied,
+        ParentGameResult.Lost => ParentGameOutcome.Lost,
+        ParentGameResult.TooFast => ParentGameOutcome.TooFast,
+        ParentGameResult.NoGame => ParentGameOutcome.NoGame,
+        _ => ParentGameOutcome.Failed,
     };
 
-    public async Task<SetParentProtectionOutcome> SetParentProtectionAsync(bool enabled, CancellationToken cancellationToken)
+    public async Task<SetParentProtectionOutcome> SetParentProtectionAsync(bool enabled, uint gameMeters, CancellationToken cancellationToken)
     {
         IpcPayload request = client.NewEnvelope();
-        request.SetParentProtectionReq = new SetParentProtectionRequest { Enabled = enabled };
+        request.SetParentProtectionReq = new SetParentProtectionRequest { Enabled = enabled, ParentGameMeters = gameMeters };
         return await client.SendRequestAsync(request, MapSetProtection, cancellationToken).ConfigureAwait(false);
     }
 

@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -301,6 +301,13 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 - `S4`: `ToggleSwitch` trong khối cần đăng nhập. Bật → hộp xác nhận giải thích; tắt → thử thách rồi mới gửi `SetParentProtectionRequest(false)`. Huỷ hoặc thất bại → công tắc trở về giá trị Service đang lưu.
 - Thẻ 4 "Bảo vệ cả phụ huynh" ở màn hình giới thiệu (`FE-032`) hiển thị.
 
+### Trò chơi nhảy vượt rào (v0.6.0, 2026-10-08, `PAUSE-044`–`048` — thay hộp thoại thử thách phép tính)
+
+- `Game/HurdleGameEngine` (C# thuần, test được): tốc độ cố định 5,5 m/giây, quãng đường tính theo thời gian thực; vật lý bước cố định 1/240 giây (khung hình giật không làm nhân vật "xuyên" rào); trọng lực 20 m/s², vận tốc nhảy 8 m/s (bay 0,8 giây ≈ 4,4 m, đỉnh 1,6 m), rào cao 0,9 m; khoảng cách rào theo độ khó: 1.000 m 13–22 m, 2.000 m 10–19 m, 3.000 m 8–16 m (seed do Service cấp, PRNG xorshift).
+- `Views/HurdleGameWindow`: cửa sổ WinUI riêng dựng bằng code (Canvas trong Viewbox, `CompositionTarget.Rendering`), luôn nằm trên cùng, không thu nhỏ/phóng to. Space/↑/chuột trái: bắt đầu/nhảy. Về đích/vấp rào → báo Service ngay; đóng cửa sổ khi chưa báo = thoát (báo `completed=false`).
+- `Services/ParentGameService` (seam `IParentGameService`): xin Service bắt đầu ván → mở cửa sổ → trả kết quả Service đã chấm.
+- `S2`: protection bật → `S5` (mật khẩu) → trò chơi → `PAUSED` thì cập nhật ngay, không gửi `PauseMonitoringRequest`. `S4`: công tắc + ComboBox độ khó; tắt/giảm độ khó khi đang bật → trò chơi; bật/tăng → gửi thẳng.
+
 ### Xuất PDF ở `S3` (v0.4.0, 2026-10-07, `MISC-011`)
 
 - Hàng "khoảng thời gian + Xuất PDF" chỉ hiện khi `AuditLogViewModel.IsGated`. Hộp thoại Lưu (`FileSavePicker` + `InitializeWithWindow` với `App.MainWindowHandle`) mở TRƯỚC khi tải dữ liệu — huỷ thì không gửi request nào.
@@ -320,6 +327,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.0 | 2026-10-08 | MINOR — trò chơi nhảy vượt rào (`PAUSE-044`–`048`) thay hộp thoại thử thách phép tính |
 | v0.5.0 | 2026-10-08 | MINOR — `FE-063b`: đổi ngôn ngữ tại chỗ (dựng lại Main Shell, giữ tab Cài đặt), ngôn ngữ giữ trong `LocalizationService` thay vì `CurrentUICulture` (sửa lỗi chỉ menu đổi ngôn ngữ) |
 | v0.4.0 | 2026-10-07 | MINOR — Bảo vệ cả phụ huynh phía UI: facade, hộp thoại thử thách, luồng thử thách trước `S5`, công tắc `S4`, thẻ giới thiệu 4 |
 | v0.3.0 | 2026-10-05 | MINOR — mục 6.8: `ParentSessionService` + khung đăng nhập dùng chung `S3`/`S4` (`PWD-024`, `FE-080`–`083`), giới thiệu lần đầu 5 thẻ (`FE-032`), giải thích mật khẩu (`FE-033`), ngôn ngữ song ngữ (`FE-064`), biểu đồ 4 khoảng + gộp tuần (`FE-071a`), "Máy tính đang được bảo vệ" (`FE-042`), nền dải chuyển màu (`FE-005e`), mục "Cách ứng dụng hoạt động" ở `S10` (`FE-092`) |

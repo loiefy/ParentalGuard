@@ -29,7 +29,7 @@ public sealed partial class DashboardPage : Page
             services.GetRequiredService<IPauseFacade>(),
             services.GetRequiredService<NavigationService>(),
             services.GetRequiredService<IConfigFacade>(),
-            services.GetRequiredService<IParentChallengePromptService>());
+            services.GetRequiredService<IParentGameService>());
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         ApplyStaticLabels();

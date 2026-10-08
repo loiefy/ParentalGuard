@@ -28,7 +28,7 @@ public sealed partial class DashboardViewModel(
     IPauseFacade pauseFacade,
     IAuthPromptService authPromptService,
     IConfigFacade? configFacade = null,
-    IParentChallengePromptService? challengePrompt = null) : ObservableObject
+    IParentGameService? gameService = null) : ObservableObject
 {
     private const string PauseActionContext = "pause_monitoring";
 
@@ -290,8 +290,9 @@ public sealed partial class DashboardViewModel(
     }
 
     /// <summary>
-    /// Mục 6.2.2 — mở `S5` (`pause_monitoring`) TRƯỚC khi gửi <c>PauseMonitoringRequest</c> thật. `PAUSE-041` (2026-10-07):
-    /// "Bảo vệ cả phụ huynh" đang bật → thử thách TRƯỚC `S5` (action_token chỉ sống 15 giây, không đủ để làm thử thách sau).
+    /// Mục 6.2.2 — mở `S5` (`pause_monitoring`) TRƯỚC khi gửi <c>PauseMonitoringRequest</c> thật. `PAUSE-044` (2026-10-08):
+    /// "Bảo vệ cả phụ huynh" đang bật → nhập đúng mật khẩu RỒI chơi nhảy vượt rào; về đích thì Service tự tạm dừng, vấp rào
+    /// hoặc thoát trò chơi thì không.
     /// </summary>
     public async Task PauseAsync(XamlRoot xamlRoot)
     {
@@ -299,14 +300,16 @@ public sealed partial class DashboardViewModel(
         IsBusy = true;
         try
         {
-            if (!await PassChallengeIfRequiredAsync(xamlRoot).ConfigureAwait(true))
+            bool protectionOn = await IsParentProtectionOnAsync().ConfigureAwait(true);
+            byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(PauseActionContext, xamlRoot).ConfigureAwait(true);
+            if (actionToken is null)
             {
                 return;
             }
 
-            byte[]? actionToken = await authPromptService.ShowAuthPromptAsync(PauseActionContext, xamlRoot).ConfigureAwait(true);
-            if (actionToken is null)
+            if (protectionOn)
             {
+                await PauseWithGameAsync(actionToken).ConfigureAwait(true);
                 return;
             }
 
@@ -322,16 +325,48 @@ public sealed partial class DashboardViewModel(
         }
     }
 
-    /// <summary>`PAUSE-041`: <c>true</c> nếu chế độ đang tắt hoặc đã vượt thử thách.</summary>
-    private async Task<bool> PassChallengeIfRequiredAsync(XamlRoot xamlRoot)
+    private async Task<bool> IsParentProtectionOnAsync()
     {
-        if (configFacade is null || challengePrompt is null)
+        if (configFacade is null || gameService is null)
         {
-            return true;
+            return false;
         }
 
         ConfigSnapshot config = await configFacade.GetConfigAsync(CancellationToken.None).ConfigureAwait(true);
-        return !config.ParentProtectionEnabled || await challengePrompt.ShowChallengeAsync(xamlRoot).ConfigureAwait(true);
+        return config.ParentProtectionEnabled;
+    }
+
+    /// <summary>`PAUSE-044`/`PAUSE-046`: token đã có (mật khẩu đúng) → chơi; Service chấm và tự tạm dừng khi về đích.</summary>
+    private async Task PauseWithGameAsync(byte[] actionToken)
+    {
+        ParentGameFinish result = await gameService!.PauseWithGameAsync(actionToken, SelectedPauseDurationChoice.Value).ConfigureAwait(true);
+        switch (result.Outcome)
+        {
+            case ParentGameOutcome.Paused:
+                ApplyPausedLocally(result.PauseExpiresAtUnixMs);
+                await PollAsync().ConfigureAwait(true);
+                break;
+            case ParentGameOutcome.AlreadyPaused:
+                await PollAsync().ConfigureAwait(true);
+                break;
+            case ParentGameOutcome.InvalidToken:
+                ErrorMessage = LocalizationService.Get("DashboardActionTokenExpired");
+                break;
+            case ParentGameOutcome.Lost:
+            case ParentGameOutcome.NoGame:
+                ErrorMessage = LocalizationService.Get("DashboardGameNotPaused");
+                break;
+            case ParentGameOutcome.TooFast:
+                ErrorMessage = LocalizationService.Get("GameResultTooFast");
+                break;
+            case ParentGameOutcome.NotRequired:
+                // Chế độ vừa bị tắt ở nơi khác giữa chừng — token đã không còn; bấm Tạm dừng lại như bình thường.
+                ErrorMessage = LocalizationService.Get("DashboardChallengeRequired");
+                break;
+            default:
+                ErrorMessage = LocalizationService.Get("GameResultFailed");
+                break;
+        }
     }
 
     /// <summary>

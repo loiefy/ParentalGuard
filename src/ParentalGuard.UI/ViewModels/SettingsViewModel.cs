@@ -25,7 +25,7 @@ public sealed partial class SettingsViewModel(
     IAuthPromptService authPromptService,
     Action? onSessionRejected = null,
     IParentProtectionFacade? parentProtectionFacade = null,
-    IParentChallengePromptService? challengePrompt = null) : ObservableObject, IDisposable
+    IParentGameService? gameService = null) : ObservableObject, IDisposable
 {
     private const string ManageWhitelistActionContext = "manage_whitelist";
 
@@ -109,6 +109,10 @@ public sealed partial class SettingsViewModel(
 
     public bool HasParentProtectionError => !string.IsNullOrEmpty(ParentProtectionError);
 
+    /// <summary>`PAUSE-045`: quãng đường trò chơi nhảy rào đang lưu ở Service (1000 / 2000 / 3000 m).</summary>
+    [ObservableProperty]
+    public partial uint ParentGameMeters { get; set; } = 1000;
+
     /// <summary>`FE-063a`: mã ngôn ngữ Service đang lưu (đọc lúc vào tab).</summary>
     public string Language { get; private set; } = "vi";
 
@@ -158,6 +162,7 @@ public sealed partial class SettingsViewModel(
             _lastSavedOverlayMessage = snapshot.OverlayMessage;
             PerformanceMode = snapshot.PerformanceMode;
             ParentProtectionEnabled = snapshot.ParentProtectionEnabled;
+            ParentGameMeters = snapshot.ParentGameMeters;
             Language = snapshot.Language;
             WhitelistedProcessNames = new ObservableCollection<string>(snapshot.WhitelistedProcessNames);
         }
@@ -260,29 +265,33 @@ public sealed partial class SettingsViewModel(
 
     /// <summary>Nút Xoá 1 dòng whitelist (mục 6.4, `MISC-030`) → `S5` (`manage_whitelist`).</summary>
     /// <summary>
-    /// `PAUSE-040`/`PAUSE-042`: bật chỉ cần phiên phụ huynh (hộp xác nhận giải thích do View hiện trước); TẮT phải vượt thử
-    /// thách trước. Trả <c>true</c> nếu Service đã lưu giá trị mới.
+    /// `PAUSE-040`/`PAUSE-047` (2026-10-08): bật chế độ / tăng quãng đường chỉ cần phiên phụ huynh (hộp xác nhận giải thích do View
+    /// hiện trước); TẮT chế độ hoặc GIẢM quãng đường khi chế độ đang bật phải về đích trò chơi nhảy rào ở độ khó hiện hành.
+    /// <paramref name="gameMeters"/> 0 = giữ nguyên. Trả <c>true</c> nếu Service đã lưu giá trị mới.
     /// </summary>
-    public async Task<bool> SetParentProtectionAsync(bool enable, XamlRoot xamlRoot)
+    public async Task<bool> SetParentProtectionAsync(bool enable, uint gameMeters = 0)
     {
         ParentProtectionError = null;
-        if (parentProtectionFacade is null || enable == ParentProtectionEnabled)
+        uint targetMeters = gameMeters == 0 ? ParentGameMeters : gameMeters;
+        if (parentProtectionFacade is null || (enable == ParentProtectionEnabled && targetMeters == ParentGameMeters))
         {
             return false;
         }
 
         try
         {
-            if (!enable && (challengePrompt is null || !await challengePrompt.ShowChallengeAsync(xamlRoot).ConfigureAwait(true)))
+            bool weakens = !enable || targetMeters < ParentGameMeters;
+            if (ParentProtectionEnabled && weakens)
             {
-                return false;
+                return await ChangeWithGameAsync(enable, targetMeters).ConfigureAwait(true);
             }
 
-            SetParentProtectionOutcome outcome = await parentProtectionFacade.SetParentProtectionAsync(enable, CancellationToken.None).ConfigureAwait(true);
+            SetParentProtectionOutcome outcome = await parentProtectionFacade.SetParentProtectionAsync(enable, targetMeters, CancellationToken.None).ConfigureAwait(true);
             switch (outcome)
             {
                 case SetParentProtectionOutcome.Success:
                     ParentProtectionEnabled = enable;
+                    ParentGameMeters = targetMeters;
                     return true;
                 case SetParentProtectionOutcome.NotAuthenticated:
                     ParentProtectionError = LocalizationService.Get("ParentSessionExpired");
@@ -300,6 +309,37 @@ public sealed partial class SettingsViewModel(
         {
             ParentProtectionError = ex.Message;
             return false;
+        }
+    }
+
+    private async Task<bool> ChangeWithGameAsync(bool enable, uint targetMeters)
+    {
+        if (gameService is null)
+        {
+            return false;
+        }
+
+        ParentGameFinish result = await gameService.ChangeSettingsWithGameAsync(enable, targetMeters).ConfigureAwait(true);
+        switch (result.Outcome)
+        {
+            case ParentGameOutcome.Applied:
+                ParentProtectionEnabled = enable;
+                ParentGameMeters = targetMeters;
+                return true;
+            case ParentGameOutcome.NotAuthenticated:
+                ParentProtectionError = LocalizationService.Get("ParentSessionExpired");
+                onSessionRejected?.Invoke();
+                return false;
+            case ParentGameOutcome.Lost:
+            case ParentGameOutcome.NoGame:
+                ParentProtectionError = LocalizationService.Get("SettingsGameNotApplied");
+                return false;
+            case ParentGameOutcome.TooFast:
+                ParentProtectionError = LocalizationService.Get("GameResultTooFast");
+                return false;
+            default:
+                ParentProtectionError = LocalizationService.Get("SettingsParentProtectionSaveFailed");
+                return false;
         }
     }
 

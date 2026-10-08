@@ -636,30 +636,6 @@
   <data name="AboutThirdPartyNotice" xml:space="preserve">
     <value>The full list of third-party components and their licences is in THIRD-PARTY-NOTICES.md in the installation folder.</value>
   </data>
-  <data name="ChallengeTitle" xml:space="preserve">
-    <value>Verification challenge</value>
-  </data>
-  <data name="ChallengeIntro" xml:space="preserve">
-    <value>"Protect against parents too" is on. Please answer all 5 sums below correctly within 60 seconds.</value>
-  </data>
-  <data name="ChallengeSubmitButton" xml:space="preserve">
-    <value>Submit answers</value>
-  </data>
-  <data name="ChallengeCancelButton" xml:space="preserve">
-    <value>Cancel</value>
-  </data>
-  <data name="ChallengeCountdown" xml:space="preserve">
-    <value>Time left: {0} seconds</value>
-  </data>
-  <data name="ChallengeWrong" xml:space="preserve">
-    <value>Some answers are wrong. Here is a new set of questions — {0} attempts left before lockout.</value>
-  </data>
-  <data name="ChallengeExpired" xml:space="preserve">
-    <value>Time is up. Here is a new set of questions — {0} attempts left before lockout.</value>
-  </data>
-  <data name="ChallengeLockedOut" xml:space="preserve">
-    <value>You answered wrongly 3 times in a row. The challenge is locked until {0}.</value>
-  </data>
   <data name="DashboardChallengeRequired" xml:space="preserve">
     <value>The verification challenge must be completed first. Please try the action again.</value>
   </data>
@@ -667,7 +643,7 @@
     <value>Protect against parents too</value>
   </data>
   <data name="SettingsParentProtectionHint" xml:space="preserve">
-    <value>When on, pausing monitoring needs both the password and a short challenge of 5 sums within 60 seconds. Turning this mode off also requires passing the challenge.</value>
+    <value>When on, pausing monitoring needs the correct password followed by the hurdle game run to the chosen distance (1,000 m takes about 3 minutes). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
   </data>
   <data name="SettingsParentProtectionOn" xml:space="preserve">
     <value>On</value>
@@ -679,7 +655,7 @@
     <value>Turn on "Protect against parents too"?</value>
   </data>
   <data name="SettingsParentProtectionConfirmBody" xml:space="preserve">
-    <value>Once on, even a parent who knows the password cannot pause monitoring immediately — they must answer 5 sums correctly within 60 seconds. Three wrong attempts in a row lock the challenge for 5 minutes. Turning this mode off also requires passing the challenge.</value>
+    <value>Once on, even a parent who knows the password cannot pause monitoring right away: after the password they must complete the hurdle game over the chosen distance (at least about 3 minutes). Hitting a hurdle or closing the game means no pause. Turning this mode off or lowering the difficulty also requires completing the game.</value>
   </data>
   <data name="SettingsParentProtectionConfirmButton" xml:space="preserve">
     <value>Turn on</value>
@@ -746,5 +722,69 @@
   </data>
   <data name="LanguageChangeFailed" xml:space="preserve">
     <value>Could not change the language. Please try again.</value>
+  </data>
+  <data name="GameWindowTitle" xml:space="preserve">
+    <value>ParentalGuard — Hurdle run</value>
+  </data>
+  <data name="GamePurposePause" xml:space="preserve">
+    <value>pause monitoring</value>
+  </data>
+  <data name="GamePurposeSettings" xml:space="preserve">
+    <value>change the protection mode</value>
+  </data>
+  <data name="GameStartPrompt" xml:space="preserve">
+    <value>Run {0} m without hitting a hurdle to {1}.
+Press Space or click the left mouse button to start, then press again to jump over hurdles.</value>
+  </data>
+  <data name="GameControlsHint" xml:space="preserve">
+    <value>Space or left click: jump. Closing this window means giving up — you will not {0}.</value>
+  </data>
+  <data name="GameDistanceFormat" xml:space="preserve">
+    <value>{0} / {1} m</value>
+  </data>
+  <data name="GameTimeFormat" xml:space="preserve">
+    <value>Time: {0}</value>
+  </data>
+  <data name="GameWonChecking" xml:space="preserve">
+    <value>Finished! Confirming the result…</value>
+  </data>
+  <data name="GameLostChecking" xml:space="preserve">
+    <value>You hit a hurdle! Recording the result…</value>
+  </data>
+  <data name="GameResultPaused" xml:space="preserve">
+    <value>Done! Monitoring has been paused.</value>
+  </data>
+  <data name="GameResultApplied" xml:space="preserve">
+    <value>Done! The change has been applied.</value>
+  </data>
+  <data name="GameResultLost" xml:space="preserve">
+    <value>You hit a hurdle at {0} m. The action was not carried out.</value>
+  </data>
+  <data name="GameResultTooFast" xml:space="preserve">
+    <value>The game result is not valid. The action was not carried out.</value>
+  </data>
+  <data name="GameResultFailed" xml:space="preserve">
+    <value>The game result could not be confirmed. The action was not carried out.</value>
+  </data>
+  <data name="GameCloseButton" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="DashboardGameNotPaused" xml:space="preserve">
+    <value>Monitoring was not paused: the game was not completed (hurdle hit or game closed).</value>
+  </data>
+  <data name="SettingsGameNotApplied" xml:space="preserve">
+    <value>Not changed: the game was not completed (hurdle hit or game closed).</value>
+  </data>
+  <data name="SettingsGameDifficultyLabel" xml:space="preserve">
+    <value>Hurdle game difficulty (distance to run)</value>
+  </data>
+  <data name="GameDifficultyEasy" xml:space="preserve">
+    <value>Easy — 1,000 m (about 3 minutes)</value>
+  </data>
+  <data name="GameDifficultyMedium" xml:space="preserve">
+    <value>Medium — 2,000 m (about 6 minutes, more hurdles)</value>
+  </data>
+  <data name="GameDifficultyHard" xml:space="preserve">
+    <value>Hard — 3,000 m (about 9 minutes, most hurdles)</value>
   </data>
 </root>

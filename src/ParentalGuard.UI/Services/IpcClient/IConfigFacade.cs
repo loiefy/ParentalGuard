@@ -31,12 +31,14 @@ public interface IConfigFacade
 
 /// <param name="ParentProtectionEnabled">`PAUSE-040` (2026-10-07).</param>
 /// <param name="Language">`FE-063a` (2026-10-07) — mã ngôn ngữ Service đang lưu.</param>
+/// <param name="ParentGameMeters">`PAUSE-045` (2026-10-08) — quãng đường trò chơi nhảy rào.</param>
 public sealed record ConfigSnapshot(
     string OverlayMessage,
     IReadOnlyList<string> WhitelistedProcessNames,
     PerformanceModeOption PerformanceMode,
     bool ParentProtectionEnabled = false,
-    string Language = "vi");
+    string Language = "vi",
+    uint ParentGameMeters = 1000);
 
 /// <summary>1-1 với <c>PerformanceMode</c> proto (trừ <c>UNSPECIFIED</c>, `PERF-050b` chỉ có đúng 2 mức).</summary>
 public enum PerformanceModeOption
