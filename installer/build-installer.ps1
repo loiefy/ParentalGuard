@@ -27,11 +27,17 @@ foreach ($proj in "ParentalGuard.Service", "ParentalGuard.Overlay", "ParentalGua
 New-Item -ItemType Directory -Force (Join-Path $out "models") | Out-Null
 Copy-Item (Join-Path $root "models\nsfw_marqo_384.onnx") (Join-Path $out "models") -Force
 
-& $Iscc /Q "/DAppVersion=$Version" (Join-Path $PSScriptRoot "ParentalGuard.iss")
+# Biên dịch ra thư mục tạm rồi chuyển về dist\: Windows Defender quét file .exe mới trong dist\ làm ISCC lỗi
+# "EndUpdateResource failed (110)" (gặp 2026-10-09) — không tắt/không thêm ngoại lệ cho Defender.
+$tempOut = Join-Path $env:TEMP "ParentalGuard-iss-out"
+New-Item -ItemType Directory -Force $tempOut | Out-Null
+& $Iscc /Q "/DAppVersion=$Version" "/O$tempOut" (Join-Path $PSScriptRoot "ParentalGuard.iss")
 if ($LASTEXITCODE -ne 0) { throw "Biên dịch installer thất bại." }
 
 $dist = Join-Path $root "dist"
+New-Item -ItemType Directory -Force $dist | Out-Null
 $setup = Join-Path $dist "ParentalGuard-Setup-$Version-win-x64.exe"
+Move-Item (Join-Path $tempOut (Split-Path $setup -Leaf)) $setup -Force
 $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 Set-Content -Path (Join-Path $dist "SHA256SUMS") -Value "$hash  $(Split-Path $setup -Leaf)" -Encoding ascii
 Write-Host "Xong: $setup" -ForegroundColor Green

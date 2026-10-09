@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.1.0 | Trạng thái: Draft | Cập nhật: 2026-10-08
+> Version: v0.1.1 | Trạng thái: Draft | Cập nhật: 2026-10-09
 
 ## 1. Mục đích
 
@@ -29,7 +29,7 @@ Hành vi `installer\ParentalGuard.iss`:
 | Thư mục | Cố định `%ProgramFiles%\ParentalGuard` (`DisableDirPage`) — Service/Watchdog/Uninstaller dùng đường dẫn này (`InstallPaths`/`UninstallerPaths`) |
 | Cài đè | `stop-services.ps1` (trước khi chép): chuyển `ParentalGuardWatchdog` + `ParentalGuardService` sang Disabled TRƯỚC rồi mới dừng (2 bên canh chừng lẫn nhau, dừng 1 bên thì bên kia bật lại), kill UI/Vision/Overlay còn giữ file |
 | Chép file | Toàn bộ `publish\release\ParentalGuard` |
-| Service | `setup-services.ps1` (sau khi chép): tạo/cập nhật 2 service LocalSystem, tự khởi động (`start= auto`), `binPath` **trong ngoặc kép** (tránh lỗ hổng unquoted service path — bản đăng ký thủ công cũ không có ngoặc kép), khởi động cả 2; lỗi → thông báo khởi động lại máy |
+| Service | `setup-services.ps1` (sau khi chép): tạo service bằng `New-Service` (gọi thẳng CreateService) nếu chưa có, rồi LUÔN ghi `ImagePath` **trong ngoặc kép** vào registry (tránh lỗ hổng unquoted service path; v0.1.1: truyền chuỗi có ngoặc kép cho `sc.exe` từ PowerShell 5.1 bị mất ngoặc kép — bản Setup đầu tiên dính lỗi này), `start= auto`, LocalSystem, khởi động cả 2; lỗi → thông báo khởi động lại máy |
 | Gỡ cài đặt | `HKLM\…\Uninstall\ParentalGuard`: `UninstallString` = `ParentalGuard.Uninstaller.exe` (bắt mật khẩu `ANTI`), `NoModify`/`NoRepair`; Uninstaller xoá khoá này ở bước dọn dẹp |
 | Shortcut | Start Menu (luôn) + Desktop (tuỳ chọn) → `ParentalGuard.UI.exe`; cuối cùng tuỳ chọn mở Dashboard dưới quyền người dùng gốc |
 | Ngôn ngữ trình cài đặt | Tiếng Việt (bản dịch cộng đồng Inno, `installer\Languages\Vietnamese.isl`), Anh, Pháp, Tây Ban Nha, Bồ Đào Nha; tiếng Trung chưa có bản dịch Inno → hiện tiếng Anh |
@@ -50,4 +50,5 @@ Hành vi `installer\ParentalGuard.iss`:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.1.1 | 2026-10-09 | PATCH — sửa đăng ký service mất ngoặc kép ở `binPath` (PowerShell 5.1 + `sc.exe`); ISCC biên dịch ra thư mục tạm rồi chuyển về `dist\` (Defender khoá file đầu ra) |
 | v0.1.0 | 2026-10-08 | Khởi tạo — chủ dự án yêu cầu "xây dựng bản cài đặt, bỏ cờ khung viền debug, chỉ giữ model Marqo": Inno Setup (ADR-160), script build một lệnh, mục gỡ cài đặt trỏ Uninstaller có mật khẩu, đăng ký 2 service với binPath có ngoặc kép |

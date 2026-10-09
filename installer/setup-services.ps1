@@ -4,22 +4,28 @@ param([Parameter(Mandatory = $true)][string]$AppDir)
 
 $ErrorActionPreference = "Continue"
 $services = @(
-    @{ Name = "ParentalGuardService"; Exe = "ParentalGuard.Service.exe"; Display = "ParentalGuard Service" },
-    @{ Name = "ParentalGuardWatchdog"; Exe = "ParentalGuard.Watchdog.exe"; Display = "ParentalGuard Watchdog" }
+    @{ Name = "ParentalGuardService"; Exe = "ParentalGuard.Service.exe"; Display = "ParentalGuard Service";
+       Description = "ParentalGuard - detects and covers sensitive on-screen content, entirely on this computer." },
+    @{ Name = "ParentalGuardWatchdog"; Exe = "ParentalGuard.Watchdog.exe"; Display = "ParentalGuard Watchdog";
+       Description = "ParentalGuard - watchdog that restarts ParentalGuard Service if it is stopped." }
 )
 
 foreach ($s in $services) {
-    # Đường dẫn có dấu cách → phải đặt trong ngoặc kép (tránh lỗ hổng "unquoted service path").
-    $bin = '"' + (Join-Path $AppDir $s.Exe) + '"'
-    if (Get-Service -Name $s.Name -ErrorAction SilentlyContinue) {
-        & sc.exe config $s.Name binPath= $bin start= auto obj= LocalSystem DisplayName= $s.Display | Out-Null
-    } else {
-        & sc.exe create $s.Name binPath= $bin start= auto obj= LocalSystem DisplayName= $s.Display | Out-Null
+    # Đường dẫn có dấu cách → BẮT BUỘC trong ngoặc kép (tránh lỗ hổng "unquoted service path": C:\Program.exe chạy với quyền SYSTEM).
+    # Bug 2026-10-09: truyền chuỗi có ngoặc kép cho sc.exe từ PowerShell 5.1 thì ngoặc kép bị bỏ mất — nên tạo bằng New-Service
+    # (gọi thẳng CreateService) và ghi ImagePath vào registry (cả khi service đã tồn tại từ bản cài cũ / đăng ký thủ công).
+    $quoted = '"' + (Join-Path $AppDir $s.Exe) + '"'
+    if (-not (Get-Service -Name $s.Name -ErrorAction SilentlyContinue)) {
+        New-Service -Name $s.Name -BinaryPathName $quoted -DisplayName $s.Display -Description $s.Description -StartupType Automatic | Out-Null
     }
-}
 
-& sc.exe description ParentalGuardService "ParentalGuard - detects and covers sensitive on-screen content, entirely on this computer." | Out-Null
-& sc.exe description ParentalGuardWatchdog "ParentalGuard - watchdog that restarts ParentalGuard Service if it is stopped." | Out-Null
+    $key = "HKLM:\SYSTEM\CurrentControlSet\Services\$($s.Name)"
+    Set-ItemProperty -Path $key -Name ImagePath -Value $quoted -Type ExpandString
+    Set-ItemProperty -Path $key -Name ObjectName -Value "LocalSystem"
+    Set-ItemProperty -Path $key -Name DisplayName -Value $s.Display
+    Set-ItemProperty -Path $key -Name Description -Value $s.Description
+    & sc.exe config $s.Name start= auto | Out-Null
+}
 
 foreach ($s in $services) {
     Start-Service -Name $s.Name -ErrorAction SilentlyContinue
