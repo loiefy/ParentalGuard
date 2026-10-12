@@ -131,32 +131,53 @@ using INsfwClassifier classifier = new NsfwClassifier(modelBytes, sessionOptions
 Array.Clear(modelBytes);
 DebugLog("NsfwClassifier OK.");
 
+// Bug real-hardware 2026-10-12: vừa đăng nhập (màn hình chào/desktop bảo mật) Desktop Duplication tạm thời bị từ chối. Trước đây lỗi
+// ở bước probe → thoát ngay mã 17 → Service hiểu là "thiếu quyền Low IL" và HẠ Vision xuống Medium IL tới lần khởi động Service sau.
+// Giờ thử lại tối đa 60 giây (kết nối IPC + heartbeat vẫn chạy song song) — chỉ thất bại kéo dài mới là lỗi quyền thật (ADR-49).
 DesktopDuplicationCapture capture;
-try
+DateTime probeDeadline = DateTime.UtcNow.AddSeconds(60);
+while (true)
 {
-    DebugLog("Trước new DesktopDuplicationCapture.");
-    capture = new DesktopDuplicationCapture();
-    // Architecture/05 mục 8.1 bước 2-3: probe khởi tạo Desktop Duplication TRƯỚC khi bắt đầu
-    // CaptureLoopWorker — bất kỳ lỗi nào ở đây bị coi là "có thể do Integrity Level" (ADR-49).
-    DebugLog("Trước AcquireNextFrame probe.");
-    // BUG FIX (Đợt 9, real-hardware crash): thiếu ReleaseFrame() sau probe — vi phạm đúng invariant
-    // ADR-42 mà DesktopDuplicationCapture.AcquireNextFrame tự ghi ("Caller phải gọi ReleaseFrame
-    // ngay sau khi copy xong"). Frame probe bị treo vĩnh viễn, tích luỹ qua nhiều chu kỳ capture
-    // thật (CaptureLoopWorker) cho tới khi Desktop Duplication API từ chối hẳn với
-    // DXGI_ERROR_INVALID_CALL sau vài giây — root cause của "Pipe has been ended" lặp lại sau khi
-    // đã sửa xong bug ACL + bug GpuWindowCropper.
-    using (IDisposable? probeFrame = capture.AcquireNextFrame(adapterIndex: 0, outputIndex: 0, timeoutMs: 100))
+    try
     {
-        capture.ReleaseFrame();
+        capture = ProbeCapture();
+        break;
     }
+    catch (CaptureInitializationException ex) when (DateTime.UtcNow < probeDeadline)
+    {
+        DebugLog("Capture probe chưa được (màn hình có thể chưa sẵn sàng) — thử lại sau 1 giây: " + ex.Message);
+        await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+    }
+    catch (CaptureInitializationException ex)
+    {
+        DebugLog("CaptureInitializationException kéo dài 60 giây — thoát CaptureInitAccessDenied:\n" + ex);
+        return VisionExitCodes.CaptureInitAccessDenied;
+    }
+}
 
-    DebugLog("Capture probe OK.");
-}
-catch (CaptureInitializationException ex)
+// Architecture/05 mục 8.1 bước 2-3: probe khởi tạo Desktop Duplication TRƯỚC khi bắt đầu CaptureLoopWorker.
+static DesktopDuplicationCapture ProbeCapture()
 {
-    DebugLog("CaptureInitializationException — thoát CaptureInitAccessDenied:\n" + ex);
-    return VisionExitCodes.CaptureInitAccessDenied;
+    var capture = new DesktopDuplicationCapture();
+    try
+    {
+        // BUG FIX (Đợt 9, real-hardware crash): PHẢI ReleaseFrame() sau probe — frame probe treo vĩnh viễn làm Desktop
+        // Duplication từ chối hẳn (DXGI_ERROR_INVALID_CALL) sau vài giây (invariant ADR-42).
+        using (IDisposable? probeFrame = capture.AcquireNextFrame(adapterIndex: 0, outputIndex: 0, timeoutMs: 100))
+        {
+            capture.ReleaseFrame();
+        }
+
+        return capture;
+    }
+    catch
+    {
+        capture.Dispose();
+        throw;
+    }
 }
+
+DebugLog("Capture probe OK.");
 
 // Architecture/05 mục 3.5 (ADR-65): context của output (adapter 0, output 0) đã tạo sẵn ở bước probe
 // trên — tái dùng làm OutputCaptureContext đầu tiên thay vì tạo trùng 1 ID3D11Device thứ 2.

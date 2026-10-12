@@ -320,6 +320,7 @@ public sealed class ConfigDb : IDisposable
             ParentProtectionEnabled = state.ParentProtectionEnabled,
             Language = state.Language,
             ParentGameMeters = state.ParentGameMeters,
+            ExcludeListRevision = state.ExcludeListRevision,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -357,6 +358,7 @@ public sealed class ConfigDb : IDisposable
             ParentProtectionEnabled = state.ParentProtectionEnabled,
             Language = state.Language,
             ParentGameMeters = state.ParentGameMeters,
+            ExcludeListRevision = state.ExcludeListRevision,
         };
         byte[] encrypted = DataProtectionHelper.Protect(JsonSerializer.SerializeToUtf8Bytes(json));
 
@@ -404,6 +406,7 @@ public sealed class ConfigDb : IDisposable
             ParentProtectionEnabled = json.ParentProtectionEnabled,
             Language = MonitoringStateData.SupportedLanguages.Contains(json.Language ?? "") ? json.Language! : MonitoringStateData.DefaultLanguage,
             ParentGameMeters = Auth.ParentGameCoordinator.NormalizeMeters(json.ParentGameMeters), // mốc cũ 1000/3000 → 800/2000 (PAUSE-045c)
+            ExcludeListRevision = json.ExcludeListRevision,
         };
     }
 
@@ -649,6 +652,10 @@ public sealed class ConfigDb : IDisposable
         /// <summary>`PAUSE-045c` (2026-10-08) — thiếu/không hợp lệ = 800.</summary>
         [JsonPropertyName("parent_game_meters")]
         public uint ParentGameMeters { get; set; } = 800;
+
+        /// <summary>`BE-073b` (2026-10-12) — thiếu (config.db cũ) = 0 → bổ sung bộ gõ tiếng Việt 1 lần lúc khởi động.</summary>
+        [JsonPropertyName("exclude_list_revision")]
+        public int ExcludeListRevision { get; set; }
     }
 
     private sealed class PauseStateJson

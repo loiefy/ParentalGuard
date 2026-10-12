@@ -87,7 +87,9 @@ public sealed class Worker(
         // Đợt 7 (gap fix — 10-ui-architecture.md mục 6.4/`ConfigCoordinator`): nguồn sự thật RAM cập
         // nhật được cho MonitoringStateData, thay cho việc đọc thẳng `config.MonitoringState` bất biến
         // suốt vòng đời (không có đường ghi lại lúc runtime trước gap fix này).
-        var monitoringStateHolder = new MonitoringStateHolder(config.MonitoringState);
+        var monitoringStateHolder = new MonitoringStateHolder(config.UsedFailSecureFallback
+            ? config.MonitoringState // fail-secure: giữ exclude-list rỗng, không bổ sung gì (BE-061)
+            : await MigrateExcludeListAsync(config.MonitoringState).ConfigureAwait(false));
 
         ApplyWfpBestEffort();
         ApplyWerPolicyBestEffort();
@@ -524,6 +526,33 @@ public sealed class Worker(
 
         _ = _auditLog!.AppendAsync("VisionCaptureFallbackMediumIl", new { }, CancellationToken.None)
             .ContinueWith(t => logger.LogError(t.Exception, "Failed to log VisionCaptureFallbackMediumIl."), TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    /// <summary>
+    /// `BE-073b` (2026-10-12): máy đã cài từ trước nhận thêm các mục khởi điểm mới của exclude-list (bộ gõ tiếng Việt) đúng 1 lần.
+    /// Ghi thất bại → vẫn chạy với danh sách cũ (thử lại ở lần khởi động sau), không chặn khởi động.
+    /// </summary>
+    private async Task<MonitoringStateData> MigrateExcludeListAsync(MonitoringStateData state)
+    {
+        if (state.MigrateExcludeList() is not { } migrated)
+        {
+            return state;
+        }
+
+        try
+        {
+            using ConfigDb db = ConfigDb.Open(InstallPaths.ConfigDbPath);
+            db.UpdateMonitoringState(migrated);
+        }
+        catch (ConfigLoadException ex)
+        {
+            logger.LogWarning(ex, "Could not persist exclude-list additions; will retry on next start.");
+            return state;
+        }
+
+        string[] added = [.. migrated.ExcludeProcessNames.Except(state.ExcludeProcessNames, StringComparer.OrdinalIgnoreCase)];
+        await _auditLog!.AppendAsync("ConfigChanged", new { field = "exclude_list", added, revision = migrated.ExcludeListRevision }, CancellationToken.None).ConfigureAwait(false);
+        return migrated;
     }
 
     private async Task HandleSessionChangeAsync(CancellationToken stoppingToken)

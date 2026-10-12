@@ -1,6 +1,6 @@
 # 02 — Backend Spec
 
-> Version: v0.18.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.19.0 | Trạng thái: Approved | Cập nhật: 2026-10-12
 
 "Backend" ở đây nghĩa là toàn bộ phần chạy nền không phải UI: Watchdog Service, Vision Engine (capture + AI), Overlay Controller, và lớp lưu trữ cấu hình local.
 
@@ -148,6 +148,7 @@ Lý do tách `Vision` thành process riêng: đây là module nhạy cảm nhấ
   - **Windows Settings** (`SystemSettings.exe`) — 1 số trang cài đặt hiển thị ảnh (chọn ảnh nền desktop/lock screen), rủi ro thấp nhưng vẫn có khả năng hiển thị ảnh nên không loại trừ toàn bộ process.
   - **Search UI** (`SearchHost.exe`) — kết quả tìm kiếm web có thể kèm ảnh preview.
   - File Office (Word/Excel/PowerPoint/WordPad), Mail/Calendar client, bất kỳ browser, trình xem ảnh/PDF, ứng dụng nhắn tin (Zalo, Messenger, Discord, Teams...), Paint, Photos app, bất kỳ media player nào — tất cả đều **luôn được giám sát**, không có ngoại lệ.
+- `BE-073b` **(ĐÃ CHỐT v0.19.0, 2026-10-12 — chủ dự án báo lỗi thật: cửa sổ UniKey bị che nhầm ngay sau khi đăng nhập)**: Bổ sung vào danh sách khởi điểm `BE-073a` các **bộ gõ tiếng Việt** — chỉ là thanh công cụ/hộp thoại chữ, không có khả năng hiển thị ảnh/video: UniKey (`UniKeyNT.exe`), EVKey (`EVKey64.exe`, `EVKey32.exe`), OpenKey (`OpenKey64.exe`, `OpenKey32.exe`, `OpenKey.exe`). Máy **đã cài từ trước** được bổ sung các mục này **đúng 1 lần** lúc Service khởi động (ghi nhận phiên bản danh sách trong cấu hình) — mục phụ huynh tự xoá sau đó (`MISC-030b`) không bị thêm lại; nhánh cấu hình dự phòng an toàn (`BE-061`) vẫn giữ danh sách rỗng.
 - `BE-074`: Với ứng dụng chạy chế độ **fullscreen exclusive** (một số video player/game dùng chế độ này thay vì borderless fullscreen), Desktop Duplication API có thể gặp giới hạn capture tuỳ driver GPU — cần kiểm thử thực tế trên các player phổ biến (VLC, MPC-HC, Windows Media Player) ở cả chế độ windowed và fullscreen, ghi nhận là rủi ro kỹ thuật cần xác minh sớm ở giai đoạn System Design.
 - `BE-075`: Danh sách ứng dụng đã xác nhận cần test kỹ ở Phase 1 (không phải whitelist giới hạn, chỉ là danh sách ưu tiên test):
 
@@ -196,6 +197,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.19.0 | 2026-10-12 | **MINOR**: `BE-073b` (mới) — bộ gõ tiếng Việt (UniKey/EVKey/OpenKey) vào exclude-list, bổ sung 1 lần cho máy đã cài (chủ dự án báo UniKey bị che nhầm). Archive: `Outdated/02-backend-spec__v0.18.0__2026-10-12.md` |
 | v0.18.0 | 2026-10-07 | **MINOR (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: `BE-071c` trần 10 cửa sổ/chu kỳ (supersedes con số 4 của `BE-071a`); `BE-034d` "Tắt nội dung" buộc đóng tiến trình sau 3 giây nếu `WM_CLOSE` không đóng được (supersedes phần "không kill" của `BE-034c`) |
 | v0.17.0 | 2026-10-01 | **MINOR — `BE-071b` (mới)**: xoay vòng các suất quét ngoài foreground qua mọi cửa sổ đang hiển thị — sửa lỗi cửa sổ thứ 5 trở đi không bao giờ được quét |
 | v0.16.0 | 2026-10-01 | **MINOR — `BE-088b`/`BE-089c` (mới, chủ dự án chốt trực tiếp)**: overlay full-screen chừa taskbar (work area); mỗi màn hình 1 overlay full-screen riêng chỉ cho cửa sổ của màn hình đó, nút/timeout chỉ đóng cửa sổ của màn hình đó, gỡ overlay nhỏ còn lại trên cùng màn hình (supersedes phạm vi toàn hệ thống của `BE-089a` và phần "toàn bộ màn hình" của `BE-088a`) |

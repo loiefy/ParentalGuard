@@ -249,6 +249,15 @@ public sealed class CaptureLoopWorker
             result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId, occluders);
             DebugLog($"_pipeline.Process OK (frameId={frameId}).");
         }
+        catch (CaptureInitializationException)
+        {
+            // Bug real-hardware 2026-10-12: ngay sau khi đăng nhập (màn hình chào, desktop bảo mật, UAC) Windows tạm thời không cho
+            // tạo Desktop Duplication. Đây KHÔNG phải pipeline hỏng — trước đây bị đếm như lỗi xử lý ảnh, 10 lần liên tiếp (~1 giây)
+            // là Vision tự thoát → Service bật lại → lặp ~25 giây, icon "đang khôi phục". Giờ chỉ báo trạng thái và chờ chu kỳ sau.
+            _ipcClient.DiagnosticState = "capture-unavailable";
+            Thread.Sleep(250);
+            return;
+        }
         catch (Exception ex)
         {
             // Crash-guard: pipeline.Process không có try/catch trước đây — exception bay lên Run()

@@ -90,7 +90,10 @@ public sealed class DesktopDuplicationCapture : IFrameCapture
             return;
         }
 
+        // Bug real-hardware 2026-10-12: trước đây chỉ Dispose mà không gán null — nếu DuplicateOutput bên dưới thất bại (vd vừa
+        // đăng nhập, màn hình chào chưa xong), lần gọi sau thấy _duplication != null cùng chỉ số → dùng tiếp đối tượng đã huỷ.
         _duplication?.Dispose();
+        _duplication = null;
         using IDXGIFactory1 factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
         if (!factory.EnumAdapters1((uint)adapterIndex, out IDXGIAdapter1? adapter).Success)
         {
