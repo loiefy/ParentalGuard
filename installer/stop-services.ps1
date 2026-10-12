@@ -33,7 +33,8 @@ if ($pending) {
     $prefix = "\??\" + $AppDir.TrimEnd("\")
     $kept = New-Object System.Collections.Generic.List[string]
     for ($i = 0; $i + 1 -lt $pending.Count; $i += 2) {
-        $source = $pending[$i]
+        # Windows có thể ghi kèm tiền tố cờ trước "\??\" (vd "*1\??\C:\..." — thấy trên máy thật 2026-10-12) — bỏ tiền tố trước khi so.
+        $source = $pending[$i] -replace '^(\*\d+|!)', ''
         $isOurs = $source.Equals($prefix, [StringComparison]::OrdinalIgnoreCase) -or
                   $source.StartsWith($prefix + "\", [StringComparison]::OrdinalIgnoreCase)
         if (-not $isOurs) {
