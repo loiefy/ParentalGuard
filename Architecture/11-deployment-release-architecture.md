@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.1.2 | Trạng thái: Draft | Cập nhật: 2026-10-12
+> Version: v0.1.3 | Trạng thái: Draft | Cập nhật: 2026-10-12
 
 ## 1. Mục đích
 
@@ -49,6 +49,7 @@ Hành vi `installer\ParentalGuard.iss`:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.1.3 | 2026-10-12 | PATCH — cài lại ngay sau khi gỡ (không cần khởi động lại máy): `stop-services.ps1` huỷ các lệnh "xoá khi khởi động lại" (PendingFileRenameOperations) trỏ vào thư mục cài đặt do trình gỡ bản cũ để lại; `setup-services.ps1` chờ tối đa 60 giây nếu dịch vụ cũ đang "chờ xoá" (DeleteFlag). Trình gỡ (Architecture/09 mục 5.5 bước 13) nay xoá toàn bộ thư mục bằng tiến trình cmd tách rời sau khi tự thoát thay cho hẹn xoá lúc khởi động lại |
 | v0.1.2 | 2026-10-12 | PATCH — trình cài đặt thêm tiếng Trung giản thể |
 | v0.1.1 | 2026-10-09 | PATCH — sửa đăng ký service mất ngoặc kép ở `binPath` (PowerShell 5.1 + `sc.exe`); ISCC biên dịch ra thư mục tạm rồi chuyển về `dist\` (Defender khoá file đầu ra) |
 | v0.1.0 | 2026-10-08 | Khởi tạo — chủ dự án yêu cầu "xây dựng bản cài đặt, bỏ cờ khung viền debug, chỉ giữ model Marqo": Inno Setup (ADR-160), script build một lệnh, mục gỡ cài đặt trỏ Uninstaller có mật khẩu, đăng ký 2 service với binPath có ngoặc kép |

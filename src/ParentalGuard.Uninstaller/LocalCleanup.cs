@@ -23,10 +23,34 @@ public sealed class LocalCleanup : ILocalCleanup
             return; // mục 5.5 bước 10: timeout — không tiếp tục 11-13, tránh xoá file Service.exe đang khoá.
         }
 
+        StopRemainingProcesses();
         DeleteProgramFilesExecutables();
         DeleteModelFiles();
         DeleteUninstallRegistryKey();
         SelfDelete();
+    }
+
+    /// <summary>Dashboard (và Vision/Overlay nếu chưa kịp thoát theo Service) còn giữ file → dừng trước khi xoá thư mục.</summary>
+    private static void StopRemainingProcesses()
+    {
+        foreach (string name in new[] { "ParentalGuard.UI", "ParentalGuard.Vision", "ParentalGuard.Overlay" })
+        {
+            foreach (System.Diagnostics.Process process in System.Diagnostics.Process.GetProcessesByName(name))
+            {
+                try
+                {
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+                {
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
     }
 
     private static async Task<bool> WaitForServiceExitAsync(CancellationToken cancellationToken)
@@ -85,16 +109,43 @@ public sealed class LocalCleanup : ILocalCleanup
         }
     }
 
-    /// <summary>Mục 5.5 bước 13 — không thể xoá ngay file thực thi đang chạy chính nó lẫn thư mục cha còn khoá.</summary>
+    /// <summary>
+    /// Mục 5.5 bước 13 — xoá chính <c>Uninstaller.exe</c> (đang chạy) và TOÀN BỘ thư mục cài đặt.
+    /// Bug 2026-10-12 (chủ dự án báo): bản cũ hẹn Windows xoá lúc KHỞI ĐỘNG LẠI (MoveFileEx DelayUntilReboot) → (1) cài bản mới trước
+    /// khi khởi động lại thì lần khởi động sau Windows xoá mất <c>Uninstaller.exe</c> của bản MỚI; (2) chỉ 5 file .exe bị xoá, hàng trăm
+    /// DLL ở lại vĩnh viễn (thư mục không rỗng thì lệnh hẹn xoá thư mục thất bại). Nay: 1 tiến trình <c>cmd.exe</c> tách rời chờ vài giây
+    /// cho Uninstaller thoát rồi <c>rmdir /s /q</c> thư mục cố định. Chỉ khi không tạo được tiến trình đó mới quay về cách hẹn khởi động lại.
+    /// </summary>
     private static void SelfDelete()
     {
+        string dir = UninstallerPaths.ProgramFilesDir;
+        try
+        {
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe"),
+                Arguments = $"/d /c ping -n 4 127.0.0.1 >nul & rmdir /s /q \"{dir}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = Environment.SystemDirectory, // không đứng trong thư mục sắp xoá
+            };
+            using System.Diagnostics.Process? process = System.Diagnostics.Process.Start(startInfo);
+            if (process is not null)
+            {
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+        }
+
         string? selfPath = Environment.ProcessPath;
         if (!string.IsNullOrEmpty(selfPath))
         {
             MoveFileExInterop.MoveFileEx(selfPath, null, MoveFileExInterop.MoveFileDelayUntilReboot);
         }
 
-        MoveFileExInterop.MoveFileEx(UninstallerPaths.ProgramFilesDir, null, MoveFileExInterop.MoveFileDelayUntilReboot);
+        MoveFileExInterop.MoveFileEx(dir, null, MoveFileExInterop.MoveFileDelayUntilReboot);
     }
 
     private static void DeleteIfExistsBestEffort(string path)

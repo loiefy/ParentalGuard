@@ -113,7 +113,7 @@ end;
 { Cài đè bản cũ: dừng Service + Watchdog (chuyển Disabled trước vì 2 bên canh chừng lẫn nhau) và các tiến trình đang giữ file. }
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
-  RunPowerShellScript('stop-services.ps1', '');
+  RunPowerShellScript('stop-services.ps1', '-AppDir "' + ExpandConstant('{app}') + '"');
   Result := '';
 end;
 

@@ -10,6 +10,16 @@ $services = @(
        Description = "ParentalGuard - watchdog that restarts ParentalGuard Service if it is stopped." }
 )
 
+# Bug 2026-10-12: vừa gỡ cài đặt xong, dịch vụ cũ có thể còn ở trạng thái "đánh dấu chờ xoá" (registry có DeleteFlag) cho tới khi
+# mọi chương trình đang giữ nó đóng lại — trong lúc đó KHÔNG tạo lại được dịch vụ cùng tên. Chờ tối đa 60 giây.
+$deadline = (Get-Date).AddSeconds(60)
+while ((Get-Date) -lt $deadline) {
+    $pendingDelete = @($services | Where-Object {
+        (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$($_.Name)" -Name DeleteFlag -ErrorAction SilentlyContinue).DeleteFlag -eq 1 })
+    if ($pendingDelete.Count -eq 0) { break }
+    Start-Sleep -Seconds 1
+}
+
 foreach ($s in $services) {
     # Đường dẫn có dấu cách → BẮT BUỘC trong ngoặc kép (tránh lỗ hổng "unquoted service path": C:\Program.exe chạy với quyền SYSTEM).
     # Bug 2026-10-09: truyền chuỗi có ngoặc kép cho sc.exe từ PowerShell 5.1 thì ngoặc kép bị bỏ mất — nên tạo bằng New-Service

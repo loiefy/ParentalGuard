@@ -73,7 +73,7 @@ internal static class Program
             UninstallFlowOutcome.Completed when serviceExitTimedOut =>
                 "Gỡ cài đặt có thể chưa hoàn tất — vui lòng khởi động lại máy và thử lại.",
             UninstallFlowOutcome.Completed =>
-                "Đã gỡ cài đặt ParentalGuard. Khởi động lại máy để dọn dẹp hoàn toàn."
+                "Đã gỡ cài đặt ParentalGuard. Thư mục chương trình sẽ được dọn trong vài giây."
                 + (result.AuditLogCopyPath is null ? string.Empty : $"\n\nNhật ký hoạt động đã lưu tại: {result.AuditLogCopyPath}"),
             _ => "Đã hoàn tất.",
         };
