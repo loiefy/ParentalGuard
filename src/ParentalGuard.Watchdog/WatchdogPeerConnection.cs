@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.IO.Pipes;
-using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using ParentalGuard.Ipc;
@@ -21,7 +20,6 @@ public sealed class WatchdogPeerConnection(ConcurrentQueue<WatchdogReportEvent> 
 {
     private static readonly int[] _retryDelaysMs = [200, 400, 800, 1600, 3200];
     private const int _connectTimeoutMs = 2000;
-    private static readonly TimeSpan _heartbeatMissThreshold = TimeSpan.FromSeconds(9); // ADR-87
     private static readonly string[] _restartedByWatchdogArgs = [RestartedByWatchdogDetector.Flag];
     private static readonly TimeSpan _attackWindow = TimeSpan.FromMinutes(30);
     private const int _attackThreshold = 5;
@@ -103,14 +101,14 @@ public sealed class WatchdogPeerConnection(ConcurrentQueue<WatchdogReportEvent> 
     private async Task RunConnectionAsync(NamedPipeClientStream pipe, CancellationToken cancellationToken)
     {
         var outbound = Channel.CreateUnbounded<IpcPayload>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
-        var lastPingReceivedUtc = new StrongBox<DateTimeOffset>(DateTimeOffset.UtcNow);
+        var hangDetector = new HeartbeatHangDetector(DateTimeOffset.UtcNow);
 
         FlushPendingReports(outbound);
 
         using CancellationTokenSource loopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Task readerTask = ReaderLoopAsync(pipe, outbound.Writer, lastPingReceivedUtc, loopCts.Token);
+        Task readerTask = ReaderLoopAsync(pipe, outbound.Writer, hangDetector, loopCts.Token);
         Task writerTask = WriterLoopAsync(pipe, outbound.Reader, loopCts.Token);
-        Task hangMonitorTask = HangMonitorAsync(lastPingReceivedUtc, loopCts.Token);
+        Task hangMonitorTask = HangMonitorAsync(hangDetector, loopCts.Token);
         Task[] all = [readerTask, writerTask, hangMonitorTask];
 
         Task first = await Task.WhenAny(all).ConfigureAwait(false);
@@ -145,14 +143,14 @@ public sealed class WatchdogPeerConnection(ConcurrentQueue<WatchdogReportEvent> 
         }
     }
 
-    private async Task ReaderLoopAsync(NamedPipeClientStream pipe, ChannelWriter<IpcPayload> outbound, StrongBox<DateTimeOffset> lastPingReceivedUtc, CancellationToken token)
+    private async Task ReaderLoopAsync(NamedPipeClientStream pipe, ChannelWriter<IpcPayload> outbound, HeartbeatHangDetector hangDetector, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             IpcPayload message = await IpcFrameTransport.ReadFrameAsync(pipe, IpcProtocol.WatchdogPipeKey, token).ConfigureAwait(false);
             if (message.BodyCase == IpcPayload.BodyOneofCase.HeartbeatPing)
             {
-                lastPingReceivedUtc.Value = DateTimeOffset.UtcNow;
+                hangDetector.PingReceived(DateTimeOffset.UtcNow);
                 IpcPayload ack = IpcEnvelope.NewEnvelope(ProcessType.Watchdog, _messageIds.Next(), correlationId: message.MessageId);
                 ack.HeartbeatAck = new HeartbeatAck { Sequence = message.HeartbeatPing.Sequence, DiagnosticState = "alive" };
                 await outbound.WriteAsync(ack, token).ConfigureAwait(false);
@@ -169,12 +167,12 @@ public sealed class WatchdogPeerConnection(ConcurrentQueue<WatchdogReportEvent> 
     }
 
     /// <summary>Mục 3.3 — phía client (Watchdog) tự phát hiện "Service còn kết nối nhưng ngừng ping" (treo), không chỉ chờ pipe vỡ.</summary>
-    private static async Task HangMonitorAsync(StrongBox<DateTimeOffset> lastPingReceivedUtc, CancellationToken token)
+    private static async Task HangMonitorAsync(HeartbeatHangDetector hangDetector, CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
             await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
-            if (DateTimeOffset.UtcNow - lastPingReceivedUtc.Value > _heartbeatMissThreshold)
+            if (hangDetector.IsHung(DateTimeOffset.UtcNow))
             {
                 throw new InvalidOperationException("Service missed heartbeat pings for 9s (Architecture/09 mục 3.3).");
             }
