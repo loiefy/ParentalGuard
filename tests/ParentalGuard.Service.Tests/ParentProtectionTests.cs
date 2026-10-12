@@ -80,7 +80,7 @@ public class ParentProtectionTests : IDisposable
         Assert.Equal(333, ParentGameCoordinator.SecondsToRun(1600), 6);  // Vừa
         Assert.Equal(405, ParentGameCoordinator.SecondsToRun(2000), 6);  // Khó
         Assert.Equal(187_500, ParentGameCoordinator.MinDurationMs(800));
-            }
+    }
 
     [Fact]
     public async Task PauseGame_FinishAfterMinDuration_PausesWithChosenDuration_GameUsableOnce()

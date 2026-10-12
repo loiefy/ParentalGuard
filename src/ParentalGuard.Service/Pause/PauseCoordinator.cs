@@ -22,10 +22,10 @@ namespace ParentalGuard.Service.Pause;
 /// </summary>
 public sealed class PauseCoordinator
 {
-    private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan BannerInterval = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan NormalVisionHeartbeatInterval = TimeSpan.FromSeconds(1);
-    private static readonly TimeSpan PausedVisionHeartbeatInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan _tickInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan _bannerInterval = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan _normalVisionHeartbeatInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan _pausedVisionHeartbeatInterval = TimeSpan.FromSeconds(10);
     private const string ActionContext = "pause_monitoring";
 
     private readonly string _configDbPath;
@@ -155,7 +155,7 @@ public sealed class PauseCoordinator
 
             _visionSupervisor.TryEnqueueBusinessMessage(payload => payload.ControlVision = _buildControlVisionCommand(false));
             _overlayDecisionCoordinator.ClearForPause(); // ADR-106
-            _visionSupervisor.SetHeartbeatInterval(PausedVisionHeartbeatInterval); // ADR-104
+            _visionSupervisor.SetHeartbeatInterval(_pausedVisionHeartbeatInterval); // ADR-104
             _iconStatusCoordinator.SetState(IconState.Paused, expiresAt);
 
             string durationLiteral = PauseDurationMapper.ToAuditLogValue(duration);
@@ -265,7 +265,7 @@ public sealed class PauseCoordinator
         {
             try
             {
-                await Task.Delay(TickInterval, token).ConfigureAwait(false);
+                await Task.Delay(_tickInterval, token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -302,7 +302,7 @@ public sealed class PauseCoordinator
             }
 
             long bannerBaseline = _lastBannerShownAtUnixMs ?? _state.PauseStartedAtUnixMs ?? trustedNow;
-            if (trustedNow - bannerBaseline >= BannerInterval.TotalMilliseconds)
+            if (trustedNow - bannerBaseline >= _bannerInterval.TotalMilliseconds)
             {
                 SendBannerReminder(trustedNow);
                 _lastBannerShownAtUnixMs = trustedNow;
@@ -336,7 +336,7 @@ public sealed class PauseCoordinator
         _lastBannerShownAtUnixMs = null;
 
         _visionSupervisor.TryEnqueueBusinessMessage(payload => payload.ControlVision = _buildControlVisionCommand(true));
-        _visionSupervisor.SetHeartbeatInterval(NormalVisionHeartbeatInterval); // ADR-104
+        _visionSupervisor.SetHeartbeatInterval(_normalVisionHeartbeatInterval); // ADR-104
         _iconStatusCoordinator.SetState(IconState.Active);
 
         await _auditLog.AppendAsync(

@@ -38,7 +38,7 @@ public sealed class UiSessionServer(
     ILogger logger)
 {
     // PAUSE-044..048 (2026-10-08): trò chơi nhảy rào — áp dụng tạm dừng/cài đặt qua đúng các coordinator sở hữu state.
-    private readonly ParentGameCoordinator gameCoordinator = new(
+    private readonly ParentGameCoordinator _gameCoordinator = new(
         authCoordinator.Clock,
         auditLog,
         () => configCoordinator.ParentProtectionEnabled,
@@ -197,7 +197,7 @@ public sealed class UiSessionServer(
         IpcPayload.BodyOneofCase.PauseMonitoringReq when configCoordinator.ParentProtectionEnabled =>
             Task.FromResult(ChallengeRequired(request)),
         IpcPayload.BodyOneofCase.ParentGameStartReq or
-        IpcPayload.BodyOneofCase.ParentGameFinishReq => gameCoordinator.HandleAsync(request, parentSession, token),
+        IpcPayload.BodyOneofCase.ParentGameFinishReq => _gameCoordinator.HandleAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.SetParentProtectionReq or
         IpcPayload.BodyOneofCase.SetLanguageReq => configCoordinator.HandleAsync(request, parentSession, token),
         IpcPayload.BodyOneofCase.PauseMonitoringReq or

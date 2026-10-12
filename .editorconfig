@@ -26,6 +26,16 @@ dotnet_naming_symbols.interfaces.applicable_kinds = interface
 dotnet_naming_style.i_pascal_case.capitalization = pascal_case
 dotnet_naming_style.i_pascal_case.required_prefix = I
 
+# Hằng private: code dùng cả PascalCase (MinWindowSidePx) lẫn _camelCase (_maxConsecutiveFailures) — không ép 1 kiểu.
+# PHẢI đứng TRƯỚC quy tắc trường private bên dưới (quy tắc khớp trước được áp dụng). 2026-10-12: để `dotnet format` trên CI chặn được.
+dotnet_naming_rule.private_constants_any.severity = none
+dotnet_naming_rule.private_constants_any.symbols = private_constants
+dotnet_naming_rule.private_constants_any.style = any_case
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+dotnet_naming_style.any_case.capitalization = pascal_case
+
 dotnet_naming_rule.private_fields_underscore_camel.severity = warning
 dotnet_naming_rule.private_fields_underscore_camel.symbols = private_fields
 dotnet_naming_rule.private_fields_underscore_camel.style = underscore_camel_case

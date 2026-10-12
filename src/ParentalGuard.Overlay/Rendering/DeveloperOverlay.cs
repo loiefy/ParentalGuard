@@ -130,11 +130,11 @@ internal sealed class DeveloperOverlay : IDisposable
         private const uint WdaExcludeFromCapture = 0x00000011;
         private const uint SwpNoActivate = 0x0010;
         private const uint SwpShowWindow = 0x0040;
-        private static readonly IntPtr HwndTopmost = new(-1);
-        private static readonly Color KeyColor = Color.FromArgb(1, 0, 1);
-        private static readonly Color FrameColor = Color.OrangeRed;
+        private static readonly IntPtr _hwndTopmost = new(-1);
+        private static readonly Color _keyColor = Color.FromArgb(1, 0, 1);
+        private static readonly Color _frameColor = Color.OrangeRed;
         // Mỗi vùng con 1 màu riêng — đúng thứ tự FrameClassificationPipeline.SubRegions: trên-trái, trên-phải, dưới-trái, dưới-phải, giữa.
-        private static readonly Color[] RegionColors =
+        private static readonly Color[] _regionColors =
         [
             Color.FromArgb(255, 255, 236, 139), // vàng nhạt
             Color.FromArgb(255, 0, 255, 255),   // cyan
@@ -143,7 +143,7 @@ internal sealed class DeveloperOverlay : IDisposable
             Color.FromArgb(255, 0, 191, 255),   // xanh da trời
         ];
 
-        private static readonly Color ContentRegionColor = Color.FromArgb(255, 186, 85, 211); // tím (vùng thứ 6)
+        private static readonly Color _contentRegionColor = Color.FromArgb(255, 186, 85, 211); // tím (vùng thứ 6)
 
         private Rectangle _bounds;
 
@@ -153,8 +153,8 @@ internal sealed class DeveloperOverlay : IDisposable
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
             TopMost = true;
-            BackColor = KeyColor;
-            TransparencyKey = KeyColor;
+            BackColor = _keyColor;
+            TransparencyKey = _keyColor;
             DoubleBuffered = true;
             AutoScaleMode = AutoScaleMode.None;
         }
@@ -193,7 +193,7 @@ internal sealed class DeveloperOverlay : IDisposable
 
             bool moved = bounds != _bounds;
             _bounds = bounds;
-            NativeMethods.SetWindowPos(Handle, HwndTopmost, bounds.X, bounds.Y, bounds.Width, bounds.Height, SwpNoActivate | SwpShowWindow);
+            NativeMethods.SetWindowPos(Handle, _hwndTopmost, bounds.X, bounds.Y, bounds.Width, bounds.Height, SwpNoActivate | SwpShowWindow);
             if (!Visible)
             {
                 Visible = true;
@@ -237,7 +237,7 @@ internal sealed class DeveloperOverlay : IDisposable
         protected override void OnPaint(PaintEventArgs e)
         {
             Graphics g = e.Graphics;
-            g.Clear(KeyColor);
+            g.Clear(_keyColor);
 
             // IMG-016: viền vàng nhạt cho từng vùng con + % nhỏ ở góc trên-trái vùng (vẽ trước để viền đỏ cam nằm trên cùng).
             using (var regionFont = new Font("Segoe UI", 8f, FontStyle.Bold))
@@ -246,7 +246,7 @@ internal sealed class DeveloperOverlay : IDisposable
                 foreach ((Rectangle r, float score, bool isContentRegion) in Regions)
                 {
                     // IMG-016a: vùng thứ 6 (vùng video/ảnh động) — viền tím nét đứt; 5 vùng cố định mỗi vùng 1 màu.
-                    Color color = isContentRegion ? ContentRegionColor : RegionColors[fixedIndex++ % RegionColors.Length];
+                    Color color = isContentRegion ? _contentRegionColor : _regionColors[fixedIndex++ % _regionColors.Length];
                     using var regionPen = new Pen(color, isContentRegion ? 2 : 1);
                     if (isContentRegion)
                     {
@@ -259,21 +259,21 @@ internal sealed class DeveloperOverlay : IDisposable
                 }
             }
 
-            using (var pen = new Pen(FrameColor, 2) { Alignment = PenAlignment.Inset })
+            using (var pen = new Pen(_frameColor, 2) { Alignment = PenAlignment.Inset })
             {
                 g.DrawRectangle(pen, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
             }
 
             // TransparencyKey + khử răng cưa sẽ để lại viền màu key — vẽ hình tròn không khử răng cưa.
             Rectangle circle = CircleBounds();
-            using (var fill = new SolidBrush(FrameColor))
+            using (var fill = new SolidBrush(_frameColor))
             {
                 g.FillEllipse(fill, circle);
             }
 
             string text = $"{Math.Round(Math.Clamp(RiskScore, 0f, 1f) * 100):0}%";
             using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            TextRenderer.DrawText(g, text, font, circle, Color.White, FrameColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            TextRenderer.DrawText(g, text, font, circle, Color.White, _frameColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }
     }
 }

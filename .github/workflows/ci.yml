@@ -1,6 +1,5 @@
-# DEV-030 — lớp kiểm tra khách quan độc lập: build + test cho mọi push/PR vào main.
-# Bước định dạng (dotnet format) hiện CHỈ BÁO CÁO, chưa chặn: code cũ còn nhiều cảnh báo IDE1006 (quy tắc đặt tên đang
-# bắt cả hằng const) — bật chặn sau khi đã dọn xong.
+# DEV-030 — lớp kiểm tra khách quan độc lập: build + test + định dạng code cho mọi push/PR vào main.
+# 2026-10-12: đã dọn hết cảnh báo cũ (IDE1006 bắt nhầm hằng const) — bước định dạng nay CHẶN như build/test.
 name: CI
 
 on:
@@ -48,6 +47,5 @@ jobs:
           path: TestResults/*.trx
           if-no-files-found: ignore
 
-      - name: Format check (report only)
-        continue-on-error: true
+      - name: Format check
         run: dotnet format ParentalGuard.sln --verify-no-changes --no-restore --verbosity minimal
