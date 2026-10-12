@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.1.1 | Trạng thái: Draft | Cập nhật: 2026-10-09
+> Version: v0.1.2 | Trạng thái: Draft | Cập nhật: 2026-10-12
 
 ## 1. Mục đích
 
@@ -32,7 +32,7 @@ Hành vi `installer\ParentalGuard.iss`:
 | Service | `setup-services.ps1` (sau khi chép): tạo service bằng `New-Service` (gọi thẳng CreateService) nếu chưa có, rồi LUÔN ghi `ImagePath` **trong ngoặc kép** vào registry (tránh lỗ hổng unquoted service path; v0.1.1: truyền chuỗi có ngoặc kép cho `sc.exe` từ PowerShell 5.1 bị mất ngoặc kép — bản Setup đầu tiên dính lỗi này), `start= auto`, LocalSystem, khởi động cả 2; lỗi → thông báo khởi động lại máy |
 | Gỡ cài đặt | `HKLM\…\Uninstall\ParentalGuard`: `UninstallString` = `ParentalGuard.Uninstaller.exe` (bắt mật khẩu `ANTI`), `NoModify`/`NoRepair`; Uninstaller xoá khoá này ở bước dọn dẹp |
 | Shortcut | Start Menu (luôn) + Desktop (tuỳ chọn) → `ParentalGuard.UI.exe`; cuối cùng tuỳ chọn mở Dashboard dưới quyền người dùng gốc |
-| Ngôn ngữ trình cài đặt | Tiếng Việt (bản dịch cộng đồng Inno, `installer\Languages\Vietnamese.isl`), Anh, Pháp, Tây Ban Nha, Bồ Đào Nha; tiếng Trung chưa có bản dịch Inno → hiện tiếng Anh |
+| Ngôn ngữ trình cài đặt | Tiếng Việt (bản dịch cộng đồng Inno, `installer\Languages\Vietnamese.isl`), Anh, Pháp, Tây Ban Nha, Bồ Đào Nha, Trung giản thể (`installer\Languages\ChineseSimplified.isl` — bản chính thức mới của repo Inno, chưa kèm trong Inno 6.7.3) |
 | Nén | `lzma2/max`, nén trong tiến trình riêng (`ultra64` làm ISCC 32-bit hết bộ nhớ) — ~95 MB từ ~310 MB |
 
 ## 4. Phát hành
@@ -44,11 +44,11 @@ Hành vi `installer\ParentalGuard.iss`:
 
 - **Ký số** Setup.exe + 6 executable qua SignPath (`SEC-030`) — chủ dự án để lại. Khi làm: ký executable TRƯỚC khi biên dịch installer, ký Setup.exe sau; Architecture/03 mục 4.2 điều kiện 3b (đối chiếu thumbprint) mới bật được.
 - **Kiểm thử trên máy sạch/máy ảo** trước khi phát hành: cài mới, cài đè, gỡ qua Settings (mật khẩu), Watchdog khôi phục Service. Máy dev của chủ dự án đang chạy chế độ thử nghiệm không có Watchdog — không chạy installer trực tiếp ở đó khi chưa test VM.
-- Bản dịch tiếng Trung cho trình cài đặt.
 
 ## 6. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.1.2 | 2026-10-12 | PATCH — trình cài đặt thêm tiếng Trung giản thể |
 | v0.1.1 | 2026-10-09 | PATCH — sửa đăng ký service mất ngoặc kép ở `binPath` (PowerShell 5.1 + `sc.exe`); ISCC biên dịch ra thư mục tạm rồi chuyển về `dist\` (Defender khoá file đầu ra) |
 | v0.1.0 | 2026-10-08 | Khởi tạo — chủ dự án yêu cầu "xây dựng bản cài đặt, bỏ cờ khung viền debug, chỉ giữ model Marqo": Inno Setup (ADR-160), script build một lệnh, mục gỡ cài đặt trỏ Uninstaller có mật khẩu, đăng ký 2 service với binPath có ngoặc kép |

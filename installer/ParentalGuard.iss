@@ -43,6 +43,7 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "fr"; MessagesFile: "compiler:Languages\French.isl"
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "pt"; MessagesFile: "compiler:Languages\Portuguese.isl"
+Name: "zh"; MessagesFile: "Languages\ChineseSimplified.isl"
 
 [CustomMessages]
 vi.DesktopIcon=Tạo biểu tượng trên màn hình Desktop
@@ -50,21 +51,25 @@ en.DesktopIcon=Create a desktop shortcut
 fr.DesktopIcon=Créer un raccourci sur le Bureau
 es.DesktopIcon=Crear un acceso directo en el escritorio
 pt.DesktopIcon=Criar um atalho no ambiente de trabalho
+zh.DesktopIcon=创建桌面快捷方式
 vi.OpenDashboard=Mở ParentalGuard
 en.OpenDashboard=Open ParentalGuard
 fr.OpenDashboard=Ouvrir ParentalGuard
 es.OpenDashboard=Abrir ParentalGuard
 pt.OpenDashboard=Abrir o ParentalGuard
+zh.OpenDashboard=打开 ParentalGuard
 vi.StartingServices=Đang khởi động dịch vụ bảo vệ…
 en.StartingServices=Starting the protection services…
 fr.StartingServices=Démarrage des services de protection…
 es.StartingServices=Iniciando los servicios de protección…
 pt.StartingServices=A iniciar os serviços de proteção…
+zh.StartingServices=正在启动保护服务…
 vi.ServicesFailed=Không khởi động được dịch vụ ParentalGuard. Vui lòng khởi động lại máy; nếu vẫn lỗi, hãy cài lại.
 en.ServicesFailed=The ParentalGuard services could not be started. Please restart the computer; if the problem persists, reinstall.
 fr.ServicesFailed=Impossible de démarrer les services ParentalGuard. Redémarrez l'ordinateur ; si le problème persiste, réinstallez.
 es.ServicesFailed=No se pudieron iniciar los servicios de ParentalGuard. Reinicie el equipo; si el problema continúa, vuelva a instalar.
 pt.ServicesFailed=Não foi possível iniciar os serviços do ParentalGuard. Reinicie o computador; se o problema persistir, reinstale.
+zh.ServicesFailed=无法启动 ParentalGuard 服务。请重启电脑；如果问题仍然存在，请重新安装。
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"
