@@ -29,6 +29,8 @@ public sealed class ExcludeListMigrationTests
         MonitoringStateData migrated = old.MigrateExcludeList()!;
 
         Assert.Contains("EVKey64.exe", migrated.ExcludeProcessNames);
+        Assert.Contains("notepad++.exe", migrated.ExcludeProcessNames);
+        Assert.Contains("StartMenuExperienceHost.exe", migrated.ExcludeProcessNames);
         Assert.DoesNotContain("notepad.exe", migrated.ExcludeProcessNames);
         Assert.Single(migrated.ExcludeProcessNames, n => n.Equals("UniKeyNT.exe", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(MonitoringStateData.CurrentExcludeListRevision, migrated.ExcludeListRevision);
@@ -36,6 +38,22 @@ public sealed class ExcludeListMigrationTests
         // Sau đó phụ huynh xoá UniKey → khởi động lại KHÔNG thêm lại.
         MonitoringStateData removed = migrated with { ExcludeProcessNames = [.. migrated.ExcludeProcessNames.Where(n => !n.StartsWith("UniKey", StringComparison.OrdinalIgnoreCase))] };
         Assert.Null(removed.MigrateExcludeList());
+    }
+
+    [Fact]
+    public void InstallAtRevision1_GetsOnlyRevision2Additions_NotRemovedUniKeyAgain()
+    {
+        // Máy đã nhận lượt 1 rồi phụ huynh xoá UniKey — lượt 2 chỉ thêm Notepad++/Start, KHÔNG thêm lại UniKey.
+        MonitoringStateData atRev1 = MonitoringStateData.CreateFirstRunDefault() with
+        {
+            ExcludeProcessNames = ["Taskmgr.exe", "EVKey64.exe"],
+            ExcludeListRevision = 1,
+        };
+
+        MonitoringStateData migrated = atRev1.MigrateExcludeList()!;
+
+        Assert.Equal(["Taskmgr.exe", "EVKey64.exe", "notepad++.exe", "StartMenuExperienceHost.exe"], migrated.ExcludeProcessNames);
+        Assert.Equal(2, migrated.ExcludeListRevision);
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 # 02 — Backend Spec
 
-> Version: v0.19.0 | Trạng thái: Approved | Cập nhật: 2026-10-12
+> Version: v0.20.0 | Trạng thái: Approved | Cập nhật: 2026-10-12
 
 "Backend" ở đây nghĩa là toàn bộ phần chạy nền không phải UI: Watchdog Service, Vision Engine (capture + AI), Overlay Controller, và lớp lưu trữ cấu hình local.
 
@@ -149,6 +149,13 @@ Lý do tách `Vision` thành process riêng: đây là module nhạy cảm nhấ
   - **Search UI** (`SearchHost.exe`) — kết quả tìm kiếm web có thể kèm ảnh preview.
   - File Office (Word/Excel/PowerPoint/WordPad), Mail/Calendar client, bất kỳ browser, trình xem ảnh/PDF, ứng dụng nhắn tin (Zalo, Messenger, Discord, Teams...), Paint, Photos app, bất kỳ media player nào — tất cả đều **luôn được giám sát**, không có ngoại lệ.
 - `BE-073b` **(ĐÃ CHỐT v0.19.0, 2026-10-12 — chủ dự án báo lỗi thật: cửa sổ UniKey bị che nhầm ngay sau khi đăng nhập)**: Bổ sung vào danh sách khởi điểm `BE-073a` các **bộ gõ tiếng Việt** — chỉ là thanh công cụ/hộp thoại chữ, không có khả năng hiển thị ảnh/video: UniKey (`UniKeyNT.exe`), EVKey (`EVKey64.exe`, `EVKey32.exe`), OpenKey (`OpenKey64.exe`, `OpenKey32.exe`, `OpenKey.exe`). Máy **đã cài từ trước** được bổ sung các mục này **đúng 1 lần** lúc Service khởi động (ghi nhận phiên bản danh sách trong cấu hình) — mục phụ huynh tự xoá sau đó (`MISC-030b`) không bị thêm lại; nhánh cấu hình dự phòng an toàn (`BE-061`) vẫn giữ danh sách rỗng.
+- `BE-073c` **(ĐÃ CHỐT v0.20.0, 2026-10-12 — chủ dự án yêu cầu, đội phát triển đánh giá rủi ro từng mục)**: Bổ sung exclude-list:
+  - **Notepad++** (`notepad++.exe`) — chỉ hiển thị chữ.
+  - **Menu Start** (`StartMenuExperienceHost.exe`) — chỉ biểu tượng/tên ứng dụng và tên file gần đây; ô tìm kiếm web là `SearchHost.exe`, vẫn giám sát (`BE-073a`).
+  - **Khay biểu tượng ẩn** ở góc phải dưới — cửa sổ của `explorer.exe` nên **không** loại trừ theo tên tiến trình (File Explorer vẫn phải giám sát, `BE-073a`); chỉ bỏ qua đúng loại cửa sổ (window class) `TopLevelWindowForOverflowXamlIsland` (Windows 11) / `NotifyIconOverflowWindow` (Windows 10) thuộc `explorer.exe`, cố định trong mã. Cửa sổ File Explorer, thanh taskbar và khung xem trước cửa sổ trên taskbar vẫn được giám sát.
+  - Đã có sẵn từ trước: Windows Terminal, Notepad, Calculator, UniKey (`BE-073a`/`BE-073b`). Lưu ý: từ bản 1.22, Windows Terminal hiển thị được ảnh qua công cụ dòng lệnh (Sixel) — rủi ro thấp nhưng có thật; giữ nguyên trong danh sách theo `BE-073a`, cần chủ dự án quyết nếu muốn bỏ ra.
+  - **Chưa thêm — chờ chủ dự án quyết** (rủi ro bỏ lọt): VS Code (`Code.exe` — mở ảnh/video, có trình duyệt tích hợp, rủi ro cao), Paint (`mspaint.exe` — mở mọi file ảnh, rủi ro cao), Sticky Notes (dán được ảnh, rủi ro trung bình), Settings (`SystemSettings.exe` — ảnh xem trước hình nền, rủi ro thấp–trung bình; `BE-073a` hiện cấm).
+  - Máy đã cài nhận các mục mới đúng 1 lần (cùng cơ chế phiên bản danh sách của `BE-073b`).
 - `BE-074`: Với ứng dụng chạy chế độ **fullscreen exclusive** (một số video player/game dùng chế độ này thay vì borderless fullscreen), Desktop Duplication API có thể gặp giới hạn capture tuỳ driver GPU — cần kiểm thử thực tế trên các player phổ biến (VLC, MPC-HC, Windows Media Player) ở cả chế độ windowed và fullscreen, ghi nhận là rủi ro kỹ thuật cần xác minh sớm ở giai đoạn System Design.
 - `BE-075`: Danh sách ứng dụng đã xác nhận cần test kỹ ở Phase 1 (không phải whitelist giới hạn, chỉ là danh sách ưu tiên test):
 
@@ -197,6 +204,7 @@ _Hiện không còn câu hỏi mở nào trong file này._
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.20.0 | 2026-10-12 | **MINOR**: `BE-073c` (mới, chủ dự án yêu cầu) — Notepad++, menu Start, khay biểu tượng ẩn (theo loại cửa sổ của explorer.exe) vào exclude-list; ghi rõ các mục rủi ro chưa thêm (VS Code, Paint, Sticky Notes, Settings) và lưu ý Sixel của Windows Terminal. Archive: `Outdated/02-backend-spec__v0.19.0__2026-10-12.md` |
 | v0.19.0 | 2026-10-12 | **MINOR**: `BE-073b` (mới) — bộ gõ tiếng Việt (UniKey/EVKey/OpenKey) vào exclude-list, bổ sung 1 lần cho máy đã cài (chủ dự án báo UniKey bị che nhầm). Archive: `Outdated/02-backend-spec__v0.18.0__2026-10-12.md` |
 | v0.18.0 | 2026-10-07 | **MINOR (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh)**: `BE-071c` trần 10 cửa sổ/chu kỳ (supersedes con số 4 của `BE-071a`); `BE-034d` "Tắt nội dung" buộc đóng tiến trình sau 3 giây nếu `WM_CLOSE` không đóng được (supersedes phần "không kill" của `BE-034c`) |
 | v0.17.0 | 2026-10-01 | **MINOR — `BE-071b` (mới)**: xoay vòng các suất quét ngoài foreground qua mọi cửa sổ đang hiển thị — sửa lỗi cửa sổ thứ 5 trở đi không bao giờ được quét |

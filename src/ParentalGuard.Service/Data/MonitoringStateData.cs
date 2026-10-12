@@ -55,6 +55,16 @@ public sealed record MonitoringStateData(
         "OpenKey.exe",
     ];
 
+    /// <summary>`BE-073c` (2026-10-12, chủ dự án yêu cầu): Notepad++ (chỉ chữ), menu Start (chỉ biểu tượng/tên ứng dụng và file gần đây).</summary>
+    public static readonly IReadOnlyList<string> ExcludeListAdditionsRevision2 =
+    [
+        "notepad++.exe",
+        "StartMenuExperienceHost.exe",
+    ];
+
+    /// <summary>Các lượt bổ sung theo thứ tự phiên bản — phần tử thứ i là lượt của phiên bản i+1.</summary>
+    private static IReadOnlyList<IReadOnlyList<string>> ExcludeListAdditions => [ExcludeListAdditionsRevision1, ExcludeListAdditionsRevision2];
+
     /// <summary>Danh sách khởi điểm BE-073a (Specification/02-backend-spec.md mục 6).</summary>
     public static readonly IReadOnlyList<string> InitialExcludeProcessNames =
     [
@@ -80,10 +90,11 @@ public sealed record MonitoringStateData(
         // BE-073b (2026-10-12): bộ gõ tiếng Việt — chỉ là thanh công cụ/hộp thoại chữ, không hiển thị ảnh/video. Bản cài thật bị che
         // nhầm cửa sổ UniKey ngay sau khi đăng nhập.
         .. ExcludeListAdditionsRevision1,
+        .. ExcludeListAdditionsRevision2,
     ];
 
     /// <summary>Phiên bản danh sách khởi điểm hiện hành — tăng mỗi khi bổ sung mục mới cho máy đã cài (xem <see cref="MigrateExcludeList"/>).</summary>
-    public const int CurrentExcludeListRevision = 1;
+    public const int CurrentExcludeListRevision = 2;
 
     /// <summary>
     /// Phiên bản danh sách đã áp dụng cho máy này. config.db cũ (thiếu trường) = 0. Tách khỏi nội dung danh sách để mục phụ huynh đã
@@ -103,11 +114,14 @@ public sealed record MonitoringStateData(
         }
 
         var names = new List<string>(ExcludeProcessNames);
-        foreach (string name in ExcludeListAdditionsRevision1)
+        for (int revision = ExcludeListRevision + 1; revision <= CurrentExcludeListRevision; revision++)
         {
-            if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            foreach (string name in ExcludeListAdditions[revision - 1])
             {
-                names.Add(name);
+                if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
+                {
+                    names.Add(name);
+                }
             }
         }
 
