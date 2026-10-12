@@ -72,8 +72,13 @@ public static class PeerServiceRecovery
         return Path.Combine(ownDirectory, peerExecutableFileName);
     }
 
+    /// <summary>
+    /// Bug 2026-10-12: <c>binPath= "C:\Program Files\…"</c> — sc.exe bỏ cặp ngoặc kép BAO NGOÀI khi tách tham số, nên dịch vụ được
+    /// đăng ký lại có <c>ImagePath</c> KHÔNG ngoặc kép (lỗ hổng "unquoted service path": <c>C:\Program.exe</c> chạy với quyền SYSTEM).
+    /// Ngoặc kép phải nằm TRONG giá trị → bọc thêm 1 lớp đã escape: <c>binPath= "\"C:\Program Files\…\""</c>.
+    /// </summary>
     internal static string BuildCreateArguments(string serviceName, string displayName, string binaryPath) =>
-        $"create {serviceName} binPath= \"{binaryPath}\" start= auto obj= LocalSystem DisplayName= \"{displayName}\"";
+        $"create {serviceName} binPath= \"\\\"{binaryPath}\\\"\" start= auto obj= LocalSystem DisplayName= \"{displayName}\"";
 
     private static void TryStopGraceful(string serviceName)
     {
