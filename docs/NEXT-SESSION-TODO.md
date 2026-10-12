@@ -1,5 +1,29 @@
 # Việc cần làm — phiên làm việc tiếp theo
 
+## Trạng thái 2026-10-12 (đọc mục này trước)
+
+Spec `APPROVED v0.20.0`, 656/656 test pass tại máy và trên CI (CI chặn cả `dotnet format`). Bản cài production:
+`installer\build-installer.ps1` → `dist\ParentalGuard-Setup-<version>-win-x64.exe` + `SHA256SUMS` (Inno Setup, chưa ký số).
+Máy chủ dự án: đã chạy Setup thật (có Watchdog), chủ dự án đã test phần chống gỡ cài đặt — chạy đúng.
+
+Đã làm từ 2026-10-08 tới 2026-10-12: trò chơi nhảy rào thay thử thách phép tính (`PAUSE-044`–`049`, `045c`/`046c`), đổi ngôn ngữ
+tức thì (`FE-063b`), bộ cài Inno (`Architecture/11`), sửa Vision lúc vừa đăng nhập, Watchdog nhầm "thức dậy từ Sleep" là Service treo,
+đường dẫn service thiếu ngoặc kép (bộ cài + Watchdog đăng ký lại), exclude-list `BE-073b`/`BE-073c` (UniKey/EVKey/OpenKey, Notepad++,
+menu Start, khay biểu tượng ẩn theo window class), CI format chặn, tiếng Trung cho trình cài đặt.
+
+**Chỉ chủ dự án quyết được (chưa làm):**
+- Chọn giấy phép dự án → thêm `LICENSE` (tab Giới thiệu đang hiện "(đang cập nhật)").
+- Ký số bản build (SignPath, `SEC-030`) — chủ dự án để lại.
+- Ký commit (`DEV-004`) — cần khoá GPG/SSH của chủ dự án.
+- Người bản ngữ duyệt bản dịch en/fr/es/pt/zh-Hans (AI tạo).
+- 4 mục whitelist rủi ro chưa thêm (`BE-073c`): VS Code, Paint (cao), Sticky Notes (trung bình), Settings (thấp–trung bình; `BE-073a` cấm).
+- Windows Terminal hiển thị được ảnh qua Sixel (từ 1.22) — đang nằm trong exclude-list theo `BE-073a`; quyết có bỏ ra không.
+
+**Theo dõi:** chủ dự án báo 1 cửa sổ nhỏ góc phải dưới bị che nhầm (2026-10-12) — nhiều khả năng là khay biểu tượng ẩn (đã loại trừ
+ở `BE-073c`); nếu còn tái diễn, xem tab Lịch sử để lấy tên ứng dụng.
+
+---
+
 > Ghi lại: 2026-10-01 (cuối phiên); cập nhật 2026-10-05: mục 2, 8, 10–16 đã làm (Spec `APPROVED v0.9.0`, 547 test pass).
 > **Cập nhật 2026-10-07: TẤT CẢ 16 mục đã làm** (Spec `APPROVED v0.13.1`, 601/601 test pass tại máy và trên CI). Chỉ còn: chủ dự án
 > chọn giấy phép dự án (mục 6), ký số bản build (SignPath `SEC-030` — chủ dự án để lại), người bản ngữ duyệt bản dịch (mục 5). Trạng thái lúc dừng: Spec `APPROVED v0.8.8`, commit `3bde5ad`, 510/510 test pass,
