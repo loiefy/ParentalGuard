@@ -1,6 +1,6 @@
 # 03 — Frontend / UI Spec
 
-> Version: v0.23.0 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.24.0 | Trạng thái: Approved | Cập nhật: 2026-10-15
 
 ## 1. Nguyên tắc thiết kế
 
@@ -80,6 +80,7 @@
 - `FE-022`: Hover vào icon hiện tooltip nhỏ, không hiện thông tin nhạy cảm (không hiện số liệu chi tiết ở đây, chỉ trạng thái chung).
 - `FE-022a` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp, bổ sung cho `FE-022`, không supersede)**: Khi di chuột lên icon, hiển thị **1 dòng chữ ngay bên cạnh icon** (phía còn trống của màn hình — icon ở nửa phải thì chữ hiện bên trái và ngược lại), biến mất khi chuột rời icon, không chiếm focus, không chặn click. Nội dung theo trạng thái `FE-021`: Đang hoạt động → **"ParentalGuard đang hoạt động"**; Tạm dừng → "ParentalGuard đang tạm dừng — còn mm:ss"; Lỗi-gián đoạn → "ParentalGuard đang khôi phục…". Vẫn tuân thủ `FE-022` (chỉ trạng thái chung, không số liệu chi tiết).
 - `FE-023` **(ĐÃ CHỐT v0.11.0, 2026-10-01 — chủ dự án yêu cầu trực tiếp)**: **Double-click vào icon mở Dashboard** (`S2`). Nếu Dashboard đang mở thì đưa cửa sổ đó lên trước (single-instance), không mở cửa sổ thứ 2. Không yêu cầu mật khẩu ở bước mở (giống mở từ Start Menu) — các thao tác nhạy cảm bên trong Dashboard vẫn gate bằng mật khẩu như cũ (`S5`). Kéo-thả icon (`FE-020a`) giữ nguyên.
+- `FE-023a` **(ĐÃ CHỐT v0.24.0, 2026-10-15 — chủ dự án yêu cầu trực tiếp, bổ sung `FE-023`, không supersede)**: Có thêm **icon ParentalGuard trong khay hệ thống** của Windows (vùng thông báo cạnh đồng hồ, gồm cả khay biểu tượng ẩn). **Click (chuột trái hoặc phải) vào icon mở Dashboard** — cùng hành vi `FE-023`: đang mở thì đưa lên trước, không gate mật khẩu ở bước mở. Tooltip chỉ hiện "ParentalGuard" (`FE-022`). Icon khay là **tiện ích mở nhanh, không phải cơ chế bảo vệ**: icon trạng thái nổi `FE-020`–`FE-022a` giữ nguyên là chỉ báo trạng thái chính thức; người dùng ẩn/tắt icon khay (qua cài đặt khay của Windows hoặc kết thúc tiến trình) không ảnh hưởng giám sát. Tự xuất hiện sau khi cài và mỗi lần đăng nhập Windows.
 
 ### 3.3 S1 — Onboarding
 
@@ -165,6 +166,7 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.24.0 | 2026-10-15 | **MINOR**: `FE-023a` (mới, chủ dự án yêu cầu) — icon ParentalGuard trong khay hệ thống, click mở Dashboard. Archive: `Outdated/03-frontend-ui-spec__v0.23.0__2026-10-15.md` |
 | v0.23.0 | 2026-10-08 | **MINOR**: `FE-063b` (mới, chủ dự án yêu cầu) — đổi ngôn ngữ áp dụng ngay, không khởi động lại Dashboard; supersedes phần tương ứng của `FE-063a` (đánh dấu DEPRECATED phần đó). Bối cảnh: bản cài thật chỉ đổi được menu, các trang khác vẫn tiếng Việt. Archive: `Outdated/03-frontend-ui-spec__v0.22.0__2026-10-08.md` |
 | v0.22.0 | 2026-10-07 | **MINOR**: `FE-063a` 6 ngôn ngữ (bản dịch AI, chờ duyệt), lưu ở Service, đổi ngôn ngữ không cần đăng nhập, Dashboard tự khởi động lại; `FE-093` tab Giới thiệu: mã nguồn mở, GitHub, giấy phép, ghi công Marqo (chủ dự án yêu cầu "làm hết" 2026-10-07; chi tiết do đội phát triển chọn, ghi rõ để chủ dự án điều chỉnh) |
 | v0.21.0 | 2026-10-06 | **MINOR (chủ dự án yêu cầu trực tiếp)**: `FE-031a` bỏ ô tick xác nhận ở màn hình giới thiệu lần đầu; `FE-032a` thẻ không nền riêng, nhỏ hơn, `S1` cùng tông Dashboard + hình mờ ngẫu nhiên, nút Tiếp tục to hơn; `FE-091a` Donate thành tab riêng |

@@ -30,10 +30,10 @@ public sealed class LocalCleanup : ILocalCleanup
         SelfDelete();
     }
 
-    /// <summary>Dashboard (và Vision/Overlay nếu chưa kịp thoát theo Service) còn giữ file → dừng trước khi xoá thư mục.</summary>
+    /// <summary>Dashboard, icon khay (và Vision/Overlay nếu chưa kịp thoát theo Service) còn giữ file → dừng trước khi xoá thư mục.</summary>
     private static void StopRemainingProcesses()
     {
-        foreach (string name in new[] { "ParentalGuard.UI", "ParentalGuard.Vision", "ParentalGuard.Overlay" })
+        foreach (string name in new[] { "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Vision", "ParentalGuard.Overlay" })
         {
             foreach (System.Diagnostics.Process process in System.Diagnostics.Process.GetProcessesByName(name))
             {
@@ -103,6 +103,10 @@ public sealed class LocalCleanup : ILocalCleanup
         try
         {
             RegistryDeleteInterop.RegDeleteTree(RegistryDeleteInterop.HKeyLocalMachine, UninstallerPaths.UninstallRegistryKeyPath);
+
+            // FE-023a: icon khay tự chạy lúc đăng nhập — gỡ cài đặt thì bỏ luôn mục khởi động này.
+            RegistryDeleteInterop.RegDeleteKeyValue(
+                RegistryDeleteInterop.HKeyLocalMachine, UninstallerPaths.RunRegistryKeyPath, UninstallerPaths.TrayRunValueName);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

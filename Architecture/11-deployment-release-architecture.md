@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.1.3 | Trạng thái: Draft | Cập nhật: 2026-10-12
+> Version: v0.2.0 | Trạng thái: Draft | Cập nhật: 2026-10-15
 
 ## 1. Mục đích
 
@@ -10,7 +10,7 @@ Ký số (SignPath, `SEC-030`/`DEV-012`) **chưa làm** — chủ dự án để
 ## 2. Bản build phát hành
 
 - Cờ build: `ParentalGuardDeveloperMode=false` (bắt buộc — bỏ khung viền/điểm debug `DEV-050`–`052`), các cờ debug khác giữ mặc định `false`, `ParentalGuardModel=Marqo` (xem `docs/BUILD-FLAGS.md`).
-- Publish 6 executable self-contained `win-x64` vào `publish\release\ParentalGuard`, **`ParentalGuard.Vision` cuối cùng** (UI/Overlay ghi đè DLL dùng chung — đã gây crash Vision 2026-10-08 khi bỏ qua thứ tự này).
+- Publish 7 executable self-contained `win-x64` vào `publish\release\ParentalGuard`, **`ParentalGuard.Vision` cuối cùng** (UI/Overlay ghi đè DLL dùng chung — đã gây crash Vision 2026-10-08 khi bỏ qua thứ tự này).
 - Model: **chỉ** `models\nsfw_marqo_384.onnx` (`IMG-014a`, checksum `MISC-090`) — không kèm GantMan/Falconsai.
 - Một lệnh: `installer\build-installer.ps1 -Version x.y.z` (publish + chép model + biên dịch installer + `SHA256SUMS`).
 
@@ -27,10 +27,11 @@ Hành vi `installer\ParentalGuard.iss`:
 |---|---|
 | Quyền | `PrivilegesRequired=admin`, chỉ Windows 10 1809+ x64 |
 | Thư mục | Cố định `%ProgramFiles%\ParentalGuard` (`DisableDirPage`) — Service/Watchdog/Uninstaller dùng đường dẫn này (`InstallPaths`/`UninstallerPaths`) |
-| Cài đè | `stop-services.ps1` (trước khi chép): chuyển `ParentalGuardWatchdog` + `ParentalGuardService` sang Disabled TRƯỚC rồi mới dừng (2 bên canh chừng lẫn nhau, dừng 1 bên thì bên kia bật lại), kill UI/Vision/Overlay còn giữ file |
+| Cài đè | `stop-services.ps1` (trước khi chép): chuyển `ParentalGuardWatchdog` + `ParentalGuardService` sang Disabled TRƯỚC rồi mới dừng (2 bên canh chừng lẫn nhau, dừng 1 bên thì bên kia bật lại), kill UI/Tray/Vision/Overlay còn giữ file |
 | Chép file | Toàn bộ `publish\release\ParentalGuard` |
 | Service | `setup-services.ps1` (sau khi chép): tạo service bằng `New-Service` (gọi thẳng CreateService) nếu chưa có, rồi LUÔN ghi `ImagePath` **trong ngoặc kép** vào registry (tránh lỗ hổng unquoted service path; v0.1.1: truyền chuỗi có ngoặc kép cho `sc.exe` từ PowerShell 5.1 bị mất ngoặc kép — bản Setup đầu tiên dính lỗi này), `start= auto`, LocalSystem, khởi động cả 2; lỗi → thông báo khởi động lại máy |
 | Gỡ cài đặt | `HKLM\…\Uninstall\ParentalGuard`: `UninstallString` = `ParentalGuard.Uninstaller.exe` (bắt mật khẩu `ANTI`), `NoModify`/`NoRepair`; Uninstaller xoá khoá này ở bước dọn dẹp |
+| Icon khay (`FE-023a`) | Giá trị `ParentalGuardTray` trong `HKLM\…\Run` → `ParentalGuard.Tray.exe` (chạy lúc đăng nhập, mọi tài khoản); chạy ngay sau khi cài dưới quyền người dùng gốc. Uninstaller xoá giá trị này + kết thúc tiến trình (Architecture/10 mục 9a) |
 | Shortcut | Start Menu (luôn) + Desktop (tuỳ chọn) → `ParentalGuard.UI.exe`; cuối cùng tuỳ chọn mở Dashboard dưới quyền người dùng gốc |
 | Ngôn ngữ trình cài đặt | Tiếng Việt (bản dịch cộng đồng Inno, `installer\Languages\Vietnamese.isl`), Anh, Pháp, Tây Ban Nha, Bồ Đào Nha, Trung giản thể (`installer\Languages\ChineseSimplified.isl` — bản chính thức mới của repo Inno, chưa kèm trong Inno 6.7.3) |
 | Nén | `lzma2/max`, nén trong tiến trình riêng (`ultra64` làm ISCC 32-bit hết bộ nhớ) — ~95 MB từ ~310 MB |
@@ -42,13 +43,14 @@ Hành vi `installer\ParentalGuard.iss`:
 
 ## 5. Việc còn lại
 
-- **Ký số** Setup.exe + 6 executable qua SignPath (`SEC-030`) — chủ dự án để lại. Khi làm: ký executable TRƯỚC khi biên dịch installer, ký Setup.exe sau; Architecture/03 mục 4.2 điều kiện 3b (đối chiếu thumbprint) mới bật được.
+- **Ký số** Setup.exe + 7 executable qua SignPath (`SEC-030`) — chủ dự án để lại. Khi làm: ký executable TRƯỚC khi biên dịch installer, ký Setup.exe sau; Architecture/03 mục 4.2 điều kiện 3b (đối chiếu thumbprint) mới bật được.
 - **Kiểm thử trên máy sạch/máy ảo** trước khi phát hành: cài mới, cài đè, gỡ qua Settings (mật khẩu), Watchdog khôi phục Service. Máy dev của chủ dự án đang chạy chế độ thử nghiệm không có Watchdog — không chạy installer trực tiếp ở đó khi chưa test VM.
 
 ## 6. Changelog file này
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.0 | 2026-10-15 | MINOR — thêm executable thứ 7 `ParentalGuard.Tray` (icon khay, `FE-023a`): publish, khoá `Run`, chạy sau khi cài, dừng khi cài đè |
 | v0.1.3 | 2026-10-12 | PATCH — cài lại ngay sau khi gỡ (không cần khởi động lại máy): `stop-services.ps1` huỷ các lệnh "xoá khi khởi động lại" (PendingFileRenameOperations) trỏ vào thư mục cài đặt do trình gỡ bản cũ để lại; `setup-services.ps1` chờ tối đa 60 giây nếu dịch vụ cũ đang "chờ xoá" (DeleteFlag). Trình gỡ (Architecture/09 mục 5.5 bước 13) nay xoá toàn bộ thư mục bằng tiến trình cmd tách rời sau khi tự thoát thay cho hẹn xoá lúc khởi động lại |
 | v0.1.2 | 2026-10-12 | PATCH — trình cài đặt thêm tiếng Trung giản thể |
 | v0.1.1 | 2026-10-09 | PATCH — sửa đăng ký service mất ngoặc kép ở `binPath` (PowerShell 5.1 + `sc.exe`); ISCC biên dịch ra thư mục tạm rồi chuyển về `dist\` (Defender khoá file đầu ra) |

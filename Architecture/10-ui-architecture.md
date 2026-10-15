@@ -1,6 +1,6 @@
 # 10 — UI Architecture (Dashboard WinUI 3)
 
-> Version: v0.7.2 | Trạng thái: Approved | Cập nhật: 2026-10-08
+> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-10-15
 
 ## 0. Ghi chú tổ chức tài liệu
 
@@ -267,6 +267,24 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 | `using_fallback_config=true` (`BE-061b`) | Cảnh báo rõ trong Health check — liên kết đúng ý nghĩa đã thiết kế ở `04-data-architecture.md` mục 6.2 |
 | `action_token` hết hạn giữa `S5` và hành động thật | Xem mục 6.5 — mở lại `S5` từ đầu, không silent-retry |
 
+## 9a. Icon khay hệ thống (`FE-023a`, ADR-161)
+
+**ADR-161** — icon khay nằm trong 1 tiến trình RIÊNG `ParentalGuard.Tray.exe` (WinForms, ~10 KB code, không tham chiếu `Ipc`/`Service`), KHÔNG trong `Overlay` hay Dashboard:
+- `Overlay` chạy Low IL — Explorer (Medium IL) từ chối `Shell_NotifyIcon` từ tiến trình Low IL (UIPI). Đo trực tiếp 2026-10-15: cùng 1 chương trình thử, Low IL → `NIM_ADD` thất bại, Medium IL → thành công. Hạ cấp `Overlay` lên Medium IL thì bỏ mất lớp sandbox (Architecture/02) — không chấp nhận.
+- Dashboard (WinUI 3) không chạy thường trực; giữ nó chạy nền chỉ để có icon thì tốn bộ nhớ hơn nhiều so với 1 exe WinForms nhỏ.
+- Icon khay chỉ là lối tắt mở Dashboard (spec: "không phải cơ chế bảo vệ") → không cần Service spawn/giám sát như `Vision`/`Overlay`. Khởi chạy lúc đăng nhập bằng giá trị `ParentalGuardTray` trong `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` (trình cài đặt ghi, chạy cho mọi tài khoản, dưới quyền chính người dùng đó), và chạy ngay sau khi cài (`[Run]` `runasoriginaluser`).
+
+Hành vi:
+
+| Mục | Chi tiết |
+|---|---|
+| 1 icon/phiên | Mutex `Local\ParentalGuard.Tray.SingleInstance`; phiên thứ 2 thoát ngay |
+| Icon/tooltip | `ParentalGuard.ico` nhúng trong exe, cỡ icon nhỏ theo DPI; tooltip "ParentalGuard" (tên riêng — không cần dịch, không đọc ngôn ngữ từ Service) |
+| Click | Trái hoặc phải → chạy `ParentalGuard.UI.exe` cạnh chính exe, không tham số; `AllowSetForegroundWindow(ASFW_ANY)` trước để phiên UI mới đưa được cửa sổ đang mở lên trước (single-instance ADR-117a). Chống bấm liên tục: tối đa 1 lần/2 giây (`LaunchThrottle`, cùng ngưỡng `DashboardLauncher`) |
+| Explorer khởi động lại / chưa sẵn sàng lúc đăng nhập | `NotifyIcon` của WinForms tự thêm lại icon khi nhận `TaskbarCreated` |
+| Cài đè / gỡ | `stop-services.ps1` và Uninstaller kết thúc `ParentalGuard.Tray`; Uninstaller xoá exe + giá trị `Run` (Architecture/11) |
+| Exclude-list | Không cần — tiến trình không có cửa sổ hiển thị (chỉ cửa sổ ẩn nhận thông báo của `NotifyIcon`) |
+
 ## 10. Bảng ADR (không map trực tiếp 1 Requirement ID)
 
 | # | Quyết định | Lý do |
@@ -349,6 +367,7 @@ WinUI 3 cung cấp accessibility cơ bản (contrast, keyboard nav, screen reade
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.0 | 2026-10-15 | MINOR — mục 9a: icon khay hệ thống `ParentalGuard.Tray.exe` (`FE-023a`, ADR-161) — tiến trình riêng Medium IL vì Low IL không tạo được icon khay |
 | v0.7.2 | 2026-10-09 | PATCH — `S6`/trang lỗi kết nối cùng nền Dashboard; cửa sổ trò chơi: icon + màu thanh tiêu đề như cửa sổ chính |
 | v0.7.1 | 2026-10-08 | PATCH — trò chơi: mốc 800/1600/2000 m, pace nhanh nhất 3; bỏ khung giới thiệu; bầu trời ngày → đêm (`PAUSE-045c`/`046c`) |
 | v0.7.0 | 2026-10-08 | MINOR — trò chơi: pace 6 → 2, hố, mật độ ×2, nhảy thấp hơn, thông báo khi thua + Donate (`PAUSE-045b`/`046b`/`049`); Dashboard dừng poll khi Unloaded |

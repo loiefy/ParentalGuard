@@ -84,6 +84,8 @@ Name: "{autoprograms}\ParentalGuard"; Filename: "{app}\ParentalGuard.UI.exe"
 Name: "{autodesktop}\ParentalGuard"; Filename: "{app}\ParentalGuard.UI.exe"; Tasks: desktopicon
 
 [Registry]
+; FE-023a: icon khay (click mở Dashboard) tự chạy mỗi lần đăng nhập, mọi tài khoản. Uninstaller xoá giá trị này.
+Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ParentalGuardTray"; ValueData: """{app}\ParentalGuard.Tray.exe"""
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayName"; ValueData: "ParentalGuard"
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "Publisher"; ValueData: "ParentalGuard (open-source community project)"
@@ -95,6 +97,8 @@ Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Paren
 Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: dword; ValueName: "NoRepair"; ValueData: 1
 
 [Run]
+; Icon khay hiện ngay sau khi cài (không phải chờ đăng nhập lại), dưới quyền người dùng gốc.
+Filename: "{app}\ParentalGuard.Tray.exe"; Flags: nowait runasoriginaluser
 Filename: "{app}\ParentalGuard.UI.exe"; Description: "{cm:OpenDashboard}"; Flags: postinstall nowait skipifsilent runasoriginaluser
 
 [Code]

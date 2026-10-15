@@ -17,10 +17,16 @@ internal static class UninstallerPaths
         "ParentalGuard.Vision.exe",
         "ParentalGuard.Overlay.exe",
         "ParentalGuard.UI.exe",
+        "ParentalGuard.Tray.exe",
         "ParentalGuard.Watchdog.exe",
     ];
 
     public const string ServiceName = "ParentalGuardService";
+
+    /// <summary>`FE-023a`: trình cài đặt ghi giá trị này để icon khay tự chạy lúc đăng nhập.</summary>
+    public const string RunRegistryKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+
+    public const string TrayRunValueName = "ParentalGuardTray";
 
     public const string UninstallRegistryKeyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard";
 }

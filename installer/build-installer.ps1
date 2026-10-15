@@ -1,4 +1,4 @@
-﻿# Build bản cài đặt phát hành: publish 6 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
+﻿# Build bản cài đặt phát hành: publish 7 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
 # publish\release\ParentalGuard, chép CHỈ model Marqo, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
 # Dùng:  powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-Version 0.9.0]
 param(
@@ -15,7 +15,7 @@ if (-not (Test-Path $Iscc)) { $Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISC
 if (-not (Test-Path $Iscc)) { throw "Không tìm thấy ISCC.exe — cài Inno Setup 6: winget install JRSoftware.InnoSetup --scope user" }
 if (Test-Path $out) { throw "Thư mục $out đã tồn tại — xoá thủ công trước để bản cài không lẫn file cũ." }
 
-foreach ($proj in "ParentalGuard.Service", "ParentalGuard.Overlay", "ParentalGuard.UI", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller", "ParentalGuard.Vision") {
+foreach ($proj in "ParentalGuard.Service", "ParentalGuard.Overlay", "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller", "ParentalGuard.Vision") {
     $csproj = Join-Path $root "src\$proj\$proj.csproj"
     dotnet build $csproj -c Release -r win-x64 --self-contained true --no-incremental @flags
     if ($LASTEXITCODE -ne 0) { throw "Build $proj thất bại." }

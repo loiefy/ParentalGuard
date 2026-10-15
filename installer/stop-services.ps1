@@ -22,8 +22,8 @@ foreach ($name in $names) {
     }
 }
 
-# Tiến trình con (Vision/Overlay chạy trong phiên người dùng) và Dashboard có thể còn giữ file.
-Get-Process -Name "ParentalGuard.UI", "ParentalGuard.Vision", "ParentalGuard.Overlay", "ParentalGuard.Service", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller" -ErrorAction SilentlyContinue |
+# Tiến trình con (Vision/Overlay chạy trong phiên người dùng), Dashboard và icon khay có thể còn giữ file.
+Get-Process -Name "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Vision", "ParentalGuard.Overlay", "ParentalGuard.Service", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller" -ErrorAction SilentlyContinue |
     Stop-Process -Force -ErrorAction SilentlyContinue
 
 # PendingFileRenameOperations: REG_MULTI_SZ theo CẶP (nguồn, đích). Bỏ các cặp có nguồn nằm trong thư mục cài đặt; giữ nguyên mọi cặp khác.

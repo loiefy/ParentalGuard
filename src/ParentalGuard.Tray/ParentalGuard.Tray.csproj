@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- FE-023a (Specification/03 v0.24.0): icon khay hệ thống, click mở Dashboard — Architecture/10-ui-architecture.md mục 9a.
+       Tiến trình RIÊNG chạy quyền người dùng thường (Medium IL): Overlay chạy Low IL nên Windows chặn Shell_NotifyIcon (đo
+       2026-10-15). CỐ Ý không tham chiếu Ipc/Service — chỉ là lối tắt mở ParentalGuard.UI.exe, không phải cơ chế bảo vệ. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>ParentalGuard.Tray</RootNamespace>
+    <AssemblyName>ParentalGuard.Tray</AssemblyName>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationIcon>..\ParentalGuard.UI\Assets\ParentalGuard.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\ParentalGuard.UI\Assets\ParentalGuard.ico" LogicalName="ParentalGuard.ico" />
+  </ItemGroup>
+
+</Project>
