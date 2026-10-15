@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-07
+> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-10-15
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -50,6 +50,9 @@
   - Căn cứ (đo trên màn hình thật của chủ dự án, cùng khung hình cho cả 3 model): ảnh bình thường bị GantMan báo nhầm (cận mặt hút vape 91%, đám đông phát biểu 73%) — Marqo 6–7%, Falconsai 0%; kết hợp `IMG-016`, Marqo bắt được 56/58 khung video khiêu dâm thật, 0/22 báo nhầm (ngưỡng 70%).
 - `IMG-016` **(ĐÃ CHỐT v0.7.0, 2026-10-06)**: **Chấm điểm theo vùng con** — risk score của 1 cửa sổ = **giá trị lớn nhất** giữa điểm của **cả cửa sổ** và điểm của **5 vùng con** (4 vùng góc chồng lấn, mỗi vùng 60% chiều rộng × 60% chiều cao, và 1 vùng giữa). Lý do: nội dung vi phạm thường chỉ chiếm một phần cửa sổ (video dọc giữa trang web, ảnh trong bài viết) — chấm cả cửa sổ làm nội dung bị "pha loãng" (đo thực tế: chỉ bắt được 0–28% khung video khiêu dâm ở ngưỡng 70%). Để giới hạn CPU, có thể chỉ chấm vùng con khi điểm cả cửa sổ vượt 1 mức sàn thấp (giá trị cụ thể ở System Design, phải thấp hơn hẳn điểm thấp nhất đo được trên nội dung vi phạm thật).
 - `IMG-016a` **(ĐÃ CHỐT v0.8.0, 2026-10-06 — chủ dự án yêu cầu trực tiếp, bổ sung `IMG-016`)**: Ngoài 5 vùng con cố định, chấm thêm **vùng con thứ 6 xác định động** theo vị trí và kích thước vùng video/ảnh trong cửa sổ (ví dụ khung video giữa trang web), để chỉ chấm đúng phần nội dung, không lẫn giao diện/nền xung quanh. Cách xác định **không dùng thêm model AI**: ưu tiên vùng đang **chuyển động** giữa 2 lần quét; nếu không có chuyển động thì lấy vùng liền khối lớn nhất có đặc trưng **giống ảnh chụp** (độ tương phản và độ đậm màu cao — giao diện web phần lớn là nền phẳng và chữ). Vùng được nới biên một chút; vùng quá nhỏ hoặc gần như cả cửa sổ thì bỏ qua. Vùng thứ 6 được chấm mỗi khi tìm thấy (không phụ thuộc mức sàn của `IMG-016`); risk score vẫn là giá trị lớn nhất. Không lưu thêm dữ liệu ảnh nào ngoài hash đã cho phép ở `IMG-011`. Ở chế độ developer (`DEV-051`) vùng này vẽ **viền nét đứt màu tím**.
+- `IMG-016b` **(ĐÃ CHỐT v0.10.0, 2026-10-15 — chủ dự án yêu cầu trực tiếp, bổ sung `IMG-016`/`IMG-016a`, không supersede)**: **Lọc màu da cho điểm sát ngưỡng** — áp cho từng vùng được chấm (cả cửa sổ, 5 vùng con, vùng con thứ 6): nếu điểm của vùng **dưới 0.9**, vùng đó **có màu rõ** (ít nhất 20% điểm ảnh có màu, không xám) và **gần như không có màu da** (dưới 0.5% điểm ảnh rơi vào dải màu da), thì điểm vùng đó bị hạ xuống **tối đa 0.5** (dưới ngưỡng chặn mặc định 0.7, `BE-090`). Điểm từ 0.9 trở lên và ảnh đen trắng/ít màu giữ nguyên như cũ. Tính ngay trên buffer pixel đang xử lý, trước khi zero (`IMG-003`) — không lưu gì thêm.
+  - Căn cứ: trang đăng nhập Microsoft Teams (chủ dự án báo 2026-10-15) bị che nhầm — hình 3D trang trí tông tím-hồng ở vùng con góc phải-dưới được Marqo chấm 0.737 (cả cửa sổ 0.28), vùng đó có 82% điểm ảnh có màu nhưng chỉ 0.1% màu da.
+  - Rủi ro đã chấp nhận: nội dung thật dưới ánh đèn màu mạnh (da không còn màu da) có điểm 0.7–0.9 có thể bị bỏ lọt; chưa đo được trên ảnh thật (không có bộ ảnh kiểm thử). Ngưỡng 0.5% được chọn thấp hơn mức 1% đã nêu với chủ dự án để giảm khả năng bỏ lọt ảnh nhỏ trong vùng lớn.
 - `IMG-015` (ĐÃ CHỐT v0.5.0): **An toàn network của model được đảm bảo bởi 2 lớp độc lập**, không phụ thuộc vào việc "tin tưởng" thư viện/model đã chọn:
   1. File `.onnx` sau khi convert là **dữ liệu tĩnh** (trọng số số học) — không chứa code thực thi, về bản chất không có khả năng tự thực hiện network call dưới bất kỳ hình thức nào.
   2. `Vision` process (nơi load model + chạy ONNX Runtime) đã bị **chặn network tuyệt đối ở tầng OS** (Windows Filtering Platform outbound rule) theo `SEC-016`/`SEC-017`/`SEC-018` ở `04-security-spec.md` — lớp phòng thủ độc lập này chặn được kể cả nếu có thành phần nào đó (ONNX Runtime, dependency ẩn...) cố gắng kết nối mạng ngoài dự kiến, không phụ thuộc vào việc model/thư viện có "sạch" hay không.
@@ -94,6 +97,7 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.10.0 | 2026-10-15 | **MINOR — `IMG-016b` (mới, chủ dự án yêu cầu)**: lọc màu da cho điểm sát ngưỡng (dưới 0.9, có màu rõ, màu da dưới 0.5% → hạ điểm tối đa 0.5). Bối cảnh: trang Teams bị che nhầm vì hình 3D tím-hồng. Archive: `Outdated/09-image-processing-spec__v0.9.0__2026-10-15.md` |
 | v0.9.0 | 2026-10-07 | **MINOR — `IMG-020b`**: trần 10 cửa sổ/chu kỳ theo `BE-071c` |
 | v0.8.0 | 2026-10-06 | **MINOR — `IMG-016a` (mới)**: vùng con thứ 6 xác định động theo vùng video/ảnh (chuyển động hoặc vùng giống ảnh chụp), không dùng model AI; viền tím nét đứt ở chế độ developer |
 | v0.7.0 | 2026-10-06 | **MINOR (chủ dự án quyết định)**: `IMG-014a` model mặc định Marqo/nsfw-image-detection-384 (Apache-2.0, ViT-tiny 384, 2 lớp) supersedes `IMG-014` (GantMan → DEPRECATED, giữ làm lựa chọn build); `IMG-016` chấm điểm = max(cả cửa sổ, 5 vùng con) |

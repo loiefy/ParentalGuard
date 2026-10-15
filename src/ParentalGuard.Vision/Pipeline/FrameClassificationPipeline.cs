@@ -224,7 +224,10 @@ public sealed class FrameClassificationPipeline
         try
         {
             FrameResizerNormalizer.Resize(_pixelBuffer, width, height, region, _inputTensor, _classifier.InputLayout);
-            return RiskScoreAggregator.Aggregate(_classifier.Classify(_inputTensor));
+            float score = RiskScoreAggregator.Aggregate(_classifier.Classify(_inputTensor));
+
+            // IMG-016b: chạy khi buffer pixel còn nguyên (trước khi zero ở finally của Process).
+            return SkinToneGate.Apply(score, _pixelBuffer, width, region);
         }
         finally
         {

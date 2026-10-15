@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.5.2 | Trạng thái: Approved | Cập nhật: 2026-10-12
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-15
 
 ## 1. Mục đích và phạm vi
 
@@ -352,6 +352,7 @@ Namespace đề xuất: `ParentalGuard.Vision.Capture` (bước 1-3), `ParentalG
 - **Xác định tên input + layout tensor động (ADR-48)**: đọc `session.InputMetadata` lúc khởi tạo để lấy đúng tên input node và thứ tự trục (NHWC mặc định của Keras/TensorFlow hay NCHW nếu bước convert `tf2onnx` có transpose) — không hard-code 1 layout cụ thể, vì phụ thuộc vào cách file `.onnx` thực tế được convert (công đoạn chuẩn bị asset, ngoài phạm vi code Vision).
 - `session.Run(...)` → output 5 xác suất lớp (`drawing`/`hentai`/`neutral`/`porn`/`sexy`, `IMG-014`).
 - **`RiskScoreAggregator`** (ADR-47, **PROPOSED** — chờ xác nhận benchmark, liên kết câu hỏi mở đã có ở `09-image-processing-spec.md` mục 8): `risk_score = P(hentai) + P(porn) + P(sexy)` (bỏ `drawing` — tranh vẽ không nhạy cảm thực sự, `neutral` — nội dung an toàn), clamp `[0.0, 1.0]` (đề phòng sai số dấu phẩy động khi tổng 3 lớp vượt nhẹ 1.0). Đây là công thức phổ biến trong cộng đồng dùng `GantMan/nsfw_model`, được chọn vì đơn giản/minh bạch, **không** phải quyết định cuối cùng — sẽ được xác nhận/hiệu chỉnh cùng lúc benchmark chọn ngưỡng mặc định (`BE-090`), đúng đúng tinh thần "chi tiết công thức để ở System Design" mà `IMG-014` đã uỷ quyền.
+- **`SkinToneGate`** (`IMG-016b`, namespace `ParentalGuard.Vision.Pipeline`): áp ngay sau `RiskScoreAggregator` cho **từng vùng** (`FrameClassificationPipeline.ClassifyRegion` — cả cửa sổ, 5 vùng con, vùng con thứ 6), khi buffer pixel BGRA8 còn nguyên (trước bước zero `IMG-003`, mục 6). Chỉ đo khi điểm nằm trong (0.5, 0.9): lấy mẫu 1/4 điểm ảnh của vùng, đổi sang YCbCr (BT.601); "màu da" = 77 ≤ Cb ≤ 127 và 133 ≤ Cr ≤ 173 (Chai & Ngan), "có màu" = |Cb−128| + |Cr−128| > 12. Có màu ≥ 20% và màu da < 0.5% → điểm vùng = 0.5. Không cấp phát, không giữ kết quả đo. Đo trên ảnh trang Teams 2026-10-15: vùng con góc phải-dưới 0.737 → 0.5 (màu da 0.1%, có màu 82%); điểm max cửa sổ còn 0.5 < ngưỡng 0.7.
 
 ### 4.4 Bước 7 — Gửi kết quả
 
@@ -481,6 +482,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.0 | 2026-10-15 | MINOR — `IMG-016b` (Spec 09 v0.10.0): `SkinToneGate` hạ điểm vùng sát ngưỡng có màu rõ nhưng không có màu da (mục 4.3) — sửa che nhầm trang đăng nhập Teams |
 | v0.5.2 | 2026-10-12 | PATCH — bug real-hardware lúc đăng nhập: (1) probe Desktop Duplication lúc khởi động thử lại tối đa 60 giây trước khi thoát mã 17 (lỗi tạm thời của màn hình chào/desktop bảo mật trước đây khiến Service hạ Vision xuống Medium IL — ADR-49 chỉ dành cho lỗi quyền kéo dài); (2) `CaptureInitializationException` trong vòng chụp không còn tính là lỗi pipeline (trước đây 10 lần ~1 giây → thoát mã 19 → Service bật lại liên tục ~25 giây, icon "đang khôi phục"), báo `capture-unavailable` và chờ; (3) `EnsureDuplication` gán `_duplication = null` sau Dispose (trước đây dùng lại đối tượng đã huỷ khi `DuplicateOutput` thất bại) |
 | v0.5.1 | 2026-10-06 | PATCH — `IMG-016a`: `ContentRegionDetector` trên lưới 33×32 ô của hash khối: (1) chuyển động = ô có bit hash đổi so với hash khung trước (lấy qua `WindowHashCache.TryCopyPreviousHash` TRƯỚC khi cache ghi đè — không lưu thêm dữ liệu ảnh), lấy khung bao thành phần liên thông (8 hướng) lớn nhất ≥ 4 ô; (2) không có chuyển động → ô "giống ảnh chụp" (độ lệch chuẩn độ sáng ≥ 10 và độ đậm màu ≥ 14, lấy mẫu cách 1 pixel), thành phần liên thông (4 hướng) lớn nhất. Vùng hợp lệ chiếm 3%–90% cửa sổ, nới 5% mỗi cạnh; chấm mỗi khi nội dung đổi và tìm được vùng, không qua mức sàn. `DebugRegionScore.is_content_region` (field 3) → Overlay vẽ viền tím nét đứt 2px |
 | v0.5.0 | 2026-10-06 | MINOR — `IMG-014a`/`IMG-016`/`PERF-032a` (Spec v0.11.0): model mặc định Marqo (cờ `ParentalGuardModel` mặc định `Marqo`); `FrameClassificationPipeline` chấm cả cửa sổ, nếu điểm ≥ `DefaultSubRegionGate` (0.10) chấm thêm 5 vùng con (`SubRegions`: 4 góc 60%×60% + vùng giữa 60%×80%), risk = max — toàn bộ chạy TRƯỚC khi zero buffer pixel, tensor zero sau MỖI lần phân loại (IMG-003). `FrameResizerNormalizer.Resize` thêm overload theo vùng (không cấp buffer trung gian). Kiểm chứng trên máy chủ dự án 60s: cửa sổ video khiêu dâm thật 40/41 lượt ≥ 70% (trung bình 86%), cửa sổ bình thường 0 lượt (tối đa 43%) |
