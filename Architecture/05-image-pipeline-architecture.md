@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.7.0 | Trạng thái: Approved | Cập nhật: 2026-10-20
+> Version: v0.8.0 | Trạng thái: Approved | Cập nhật: 2026-10-20
 
 ## 1. Mục đích và phạm vi
 
@@ -356,6 +356,7 @@ Namespace đề xuất: `ParentalGuard.Vision.Capture` (bước 1-3), `ParentalG
 - **`NudeNetDetector`** (`IMG-016c`, namespace `ParentalGuard.Vision.Inference`, sau interface `IBodyPartDetector`): `InferenceSession` thứ 2 cho `models/nudenet_640m.onnx`, tạo eager 1 lần ngay sau `NsfwClassifier`, **cùng `SessionOptions`** (DirectML/CPU fallback, `IntraOpNumThreads`). Input `images` NCHW `[1,3,640,640]`, RGB `[0,1]`; output `output0` `[1, 22, anchors]` = 4 kênh khung + 18 nhãn. Chỉ cần độ tin cậy cao nhất: mỗi anchor mang nhãn điểm cao nhất của nó (giống `nudenet.py`), lấy max trên các anchor có nhãn thuộc 5 nhãn "lộ rõ" — không giải mã khung, không NMS.
   - **Điểm gọi** (`FrameClassificationPipeline.ProcessFrame`, nhánh `content_changed = true`): sau khi đã có điểm cả cửa sổ, 5 vùng con và vùng con thứ 6 (mỗi vùng đã qua `SkinToneGate`), nếu `max ≥ riskThreshold` (giá trị `ControlVisionCommand.risk_threshold`, truyền `CaptureLoopWorker` → `Process`) thì `ConfirmBodyParts`: lấy các vùng có điểm `≥ riskThreshold`, sắp giảm dần, tối đa `MaxVerifiedRegions = 2`; mỗi vùng `FrameResizerNormalizer.ResizeLetterbox` (giữ tỉ lệ, đệm đen phải/dưới như `_read_image` của NudeNet) vào tensor detector rồi chạy. Có vùng `≥ ExposedConfidenceThreshold = 0.25` → giữ điểm; không → `riskScore = riskThreshold × RejectedScoreFactor (0.7)`. Điểm đã quyết định được ghi vào `WindowHashCache` như mọi lần — khung không đổi không chạy lại detector.
   - **Khởi tạo** (`Program.cs`): file có → đọc 1 lần, `OnnxChecksumVerifier` với `ExpectedModelChecksum.DetectorSha256Hex` (sai → thoát `ModelIntegrityCheckFailed`, như model chính — model giả có thể bác bỏ mọi vi phạm); file thiếu → `detector = null`, pipeline giữ nguyên điểm Marqo (chặn nhiều hơn), `DiagnosticState` thêm `;detector=missing`.
+  - **Chế độ developer (`DEV-051a`)**: `Detect` trả thêm danh sách vật thể (điểm nhãn cao nhất ≥ 0.25, khung cx/cy/w/h → góc trên-trái, NMS không phân biệt nhãn IoU 0.45 như `nudenet.py`). `ToWindowDetection` đổi khung từ ảnh letterbox sang toạ độ cửa sổ (`× max(cạnh vùng)/640` + gốc vùng + `_lastCropOffsetInWindow`). Bản developer gửi kèm `VisionInferenceResult.debug_detections`/`debug_detector_ran` (field 20/21) → Service chép sang `DebugWindowScore.detections`/`detector_ran` (field 6/7) → `DeveloperOverlay` liệt kê nhãn cạnh ô tròn %, khoanh nét đứt đỏ vật thể nhãn "lộ rõ"; giữ nguyên khi `content_changed = false`. Bản production không điền 2 field này.
   - **Chi phí đo 2026-10-20** (máy chủ dự án): ~170 ms/lần DirectML (tối đa 310 ms), ~0.9 s/lần CPU; chỉ phát sinh khi Marqo đã báo vi phạm. RAM thêm cỡ kích thước model (~100 MB) + tensor 4.9 MB.
 
 ### 4.4 Bước 7 — Gửi kết quả
@@ -488,6 +489,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.8.0 | 2026-10-20 | MINOR — `BE-071d` (Spec 02 v0.21.0): `CandidateWindowChecks.IsLargeEnoughToAnalyze` — cửa sổ rộng hoặc cao ≤ 100 px (pixel vật lý, `WindowRectResolver.Resolve`) có `IsMonitorable = false` trong `CaptureLoopWorker.SnapshotWindowsInZOrder`, nên không chiếm suất quét nhưng vẫn là vật che. `DEV-051a` (Spec 12 v0.6.0): nhãn + khung vật thể NudeNet lên khung developer (mục 4.3) |
 | v0.7.0 | 2026-10-20 | MINOR — `IMG-016c` (Spec 09 v0.11.0): `NudeNetDetector` (NudeNet 640m) xác minh bộ phận cơ thể nhạy cảm lộ rõ trên vùng Marqo báo vi phạm (mục 4.3), resize letterbox, 2 dòng mới ở bảng zero-out (mục 6). Đo trang Teams: 600 cửa sổ cắt, chỉ Marqo che nhầm 60, Marqo + NudeNet che nhầm 0 |
 | v0.6.0 | 2026-10-15 | MINOR — `IMG-016b` (Spec 09 v0.10.0): `SkinToneGate` hạ điểm vùng sát ngưỡng có màu rõ nhưng không có màu da (mục 4.3) — sửa che nhầm trang đăng nhập Teams |
 | v0.5.2 | 2026-10-12 | PATCH — bug real-hardware lúc đăng nhập: (1) probe Desktop Duplication lúc khởi động thử lại tối đa 60 giây trước khi thoát mã 17 (lỗi tạm thời của màn hình chào/desktop bảo mật trước đây khiến Service hạ Vision xuống Medium IL — ADR-49 chỉ dành cho lỗi quyền kéo dài); (2) `CaptureInitializationException` trong vòng chụp không còn tính là lỗi pipeline (trước đây 10 lần ~1 giây → thoát mã 19 → Service bật lại liên tục ~25 giây, icon "đang khôi phục"), báo `capture-unavailable` và chờ; (3) `EnsureDuplication` gán `_duplication = null` sau Dispose (trước đây dùng lại đối tượng đã huỷ khi `DuplicateOutput` thất bại) |

@@ -44,6 +44,13 @@ internal sealed class DeveloperOverlay : IDisposable
             frame.Regions = [.. score.Regions.Select(r => (new Rectangle(r.Rect.X, r.Rect.Y, r.Rect.Width, r.Rect.Height), r.RiskScore, r.IsContentRegion))];
         }
 
+        if (score.ContentChanged)
+        {
+            // DEV-051a: nội dung đổi → thay bằng kết quả NudeNet của khung này (không chạy = xoá); không đổi → giữ nguyên.
+            frame.DetectorRan = score.DetectorRan;
+            frame.Detections = [.. score.Detections.Select(d => (new Rectangle(d.Rect.X, d.Rect.Y, d.Rect.Width, d.Rect.Height), d.Label, d.Confidence, d.IsExposed))];
+        }
+
         Rectangle? bounds = DwmInterop.GetExtendedFrameBounds(new IntPtr(unchecked((long)score.WindowHandle)))
             ?? (score.Bbox is { } b ? new Rectangle(b.X, b.Y, b.Width, b.Height) : null);
         if (bounds is { } r)
@@ -144,6 +151,8 @@ internal sealed class DeveloperOverlay : IDisposable
         ];
 
         private static readonly Color _contentRegionColor = Color.FromArgb(255, 186, 85, 211); // tím (vùng thứ 6)
+        private static readonly Color _exposedColor = Color.FromArgb(255, 220, 20, 20);        // đỏ (vật thể vi phạm, DEV-051a)
+        private static readonly Color _labelBackColor = Color.FromArgb(255, 40, 40, 40);       // nền nhãn NudeNet khác
 
         private Rectangle _bounds;
 
@@ -168,6 +177,14 @@ internal sealed class DeveloperOverlay : IDisposable
         /// <summary>IMG-016: vùng con (toạ độ tương đối cửa sổ) + điểm — mỗi vùng 1 màu viền riêng.</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public IReadOnlyList<(Rectangle Rect, float Score, bool IsContentRegion)> Regions { get; set; } = [];
+
+        /// <summary>DEV-051a: NudeNet đã chạy cho nội dung đang hiển thị.</summary>
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public bool DetectorRan { get; set; }
+
+        /// <summary>DEV-051a: vật thể NudeNet nhận ra (toạ độ tương đối cửa sổ) — nhãn vi phạm được khoanh nét đứt đỏ.</summary>
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public IReadOnlyList<(Rectangle Rect, string Label, float Confidence, bool IsExposed)> Detections { get; set; } = [];
 
         protected override bool ShowWithoutActivation => true;
 
@@ -274,7 +291,41 @@ internal sealed class DeveloperOverlay : IDisposable
             string text = $"{Math.Round(Math.Clamp(RiskScore, 0f, 1f) * 100):0}%";
             using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
             TextRenderer.DrawText(g, text, font, circle, Color.White, _frameColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+
+            if (DetectorRan)
+            {
+                DrawDetections(g, circle);
+            }
         }
+
+        /// <summary>DEV-051a: khung nét đứt đỏ quanh vật thể vi phạm + danh sách nhãn bên phải ô tròn %.</summary>
+        private void DrawDetections(Graphics g, Rectangle circle)
+        {
+            using var labelFont = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            using (var exposedPen = new Pen(_exposedColor, 2) { DashStyle = DashStyle.Dash })
+            {
+                foreach ((Rectangle r, string label, float confidence, bool isExposed) in Detections.Where(d => d.IsExposed))
+                {
+                    g.DrawRectangle(exposedPen, r.X, r.Y, Math.Max(1, r.Width - 1), Math.Max(1, r.Height - 1));
+                    TextRenderer.DrawText(g, $"{label} {Percent(confidence)}", labelFont, new Point(r.X + 3, r.Y + 2), Color.White, _exposedColor, TextFormatFlags.NoPadding);
+                }
+            }
+
+            string[] lines = Detections.Count == 0
+                ? ["NudeNet: không nhận ra vật thể nào"]
+                : ["NudeNet:", .. Detections.OrderByDescending(d => d.Confidence).Take(6).Select(d => $"{d.Label} {Percent(d.Confidence)}")];
+            int lineHeight = TextRenderer.MeasureText(g, "Ag", labelFont, Size.Empty, TextFormatFlags.NoPadding).Height + 2;
+            int x = circle.Right + 6;
+            int y = circle.Bottom - (lines.Length * lineHeight);
+            foreach (string line in lines)
+            {
+                bool exposed = Detections.Any(d => d.IsExposed && line.StartsWith(d.Label + " ", StringComparison.Ordinal));
+                TextRenderer.DrawText(g, line, labelFont, new Point(x, y), Color.White, exposed ? _exposedColor : _labelBackColor, TextFormatFlags.NoPadding);
+                y += lineHeight;
+            }
+        }
+
+        private static string Percent(float value) => $"{Math.Round(Math.Clamp(value, 0f, 1f) * 100):0}%";
     }
 }
 #endif

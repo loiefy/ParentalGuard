@@ -48,7 +48,13 @@ public sealed class NudeNetDetector : IBodyPartDetector
         _outputName = _session.OutputMetadata.First().Key;
     }
 
-    public float MaxExposedConfidence(DenseTensor<float> input)
+    /// <summary>Mức thấp nhất NudeNet tự báo 1 vật thể (<c>cv2.dnn.NMSBoxes</c> score 0.25) — cũng là ngưỡng xác nhận của `IMG-016c`.</summary>
+    public const float MinReportedConfidence = 0.25f;
+
+    /// <summary>IoU của NMS trong <c>nudenet.py</c>.</summary>
+    private const float _nmsIou = 0.45f;
+
+    public BodyPartDetectionResult Detect(DenseTensor<float> input)
     {
         ArgumentNullException.ThrowIfNull(input);
 
@@ -57,7 +63,7 @@ public sealed class NudeNetDetector : IBodyPartDetector
         float[] output = results.First().AsEnumerable<float>().ToArray();
         try
         {
-            return MaxExposedConfidence(output, Labels.Length);
+            return new BodyPartDetectionResult(MaxExposedConfidence(output, Labels.Length), Decode(output, Labels.Length, MinReportedConfidence));
         }
         finally
         {
@@ -101,6 +107,70 @@ public sealed class NudeNetDetector : IBodyPartDetector
         }
 
         return best;
+    }
+
+    /// <summary>
+    /// Hàm thuần: vật thể có điểm nhãn cao nhất ≥ <paramref name="minConfidence"/>, khung (cx, cy, w, h) đổi sang góc trên-trái,
+    /// rồi NMS không phân biệt nhãn (IoU 0.45) như <c>nudenet.py</c> — giữ khung điểm cao hơn.
+    /// </summary>
+    internal static IReadOnlyList<BodyPartDetection> Decode(ReadOnlySpan<float> output, int classCount, float minConfidence)
+    {
+        int channels = 4 + classCount;
+        if (output.Length == 0 || output.Length % channels != 0)
+        {
+            throw new InvalidOperationException($"Unexpected detector output length {output.Length} for {channels} channels.");
+        }
+
+        int anchors = output.Length / channels;
+        var candidates = new List<BodyPartDetection>();
+        for (int anchor = 0; anchor < anchors; anchor++)
+        {
+            int topClass = 0;
+            float topScore = output[(4 * anchors) + anchor];
+            for (int c = 1; c < classCount; c++)
+            {
+                float score = output[((4 + c) * anchors) + anchor];
+                if (score > topScore)
+                {
+                    topScore = score;
+                    topClass = c;
+                }
+            }
+
+            if (topScore < minConfidence)
+            {
+                continue;
+            }
+
+            float w = output[(2 * anchors) + anchor];
+            float h = output[(3 * anchors) + anchor];
+            float x = output[anchor] - (w / 2);
+            float y = output[anchors + anchor] - (h / 2);
+            candidates.Add(new BodyPartDetection(Labels[topClass], _isExposedClass[topClass], topScore, x, y, w, h));
+        }
+
+        candidates.Sort((a, b) => b.Confidence.CompareTo(a.Confidence));
+        var kept = new List<BodyPartDetection>();
+        foreach (BodyPartDetection candidate in candidates)
+        {
+            if (kept.TrueForAll(k => IntersectionOverUnion(k, candidate) <= _nmsIou))
+            {
+                kept.Add(candidate);
+            }
+        }
+
+        return kept;
+    }
+
+    private static float IntersectionOverUnion(BodyPartDetection a, BodyPartDetection b)
+    {
+        float left = Math.Max(a.X, b.X);
+        float top = Math.Max(a.Y, b.Y);
+        float right = Math.Min(a.X + a.Width, b.X + b.Width);
+        float bottom = Math.Min(a.Y + a.Height, b.Y + b.Height);
+        float intersection = Math.Max(0, right - left) * Math.Max(0, bottom - top);
+        float union = (a.Width * a.Height) + (b.Width * b.Height) - intersection;
+        return union <= 0 ? 0 : intersection / union;
     }
 
     public void Dispose() => _session.Dispose();

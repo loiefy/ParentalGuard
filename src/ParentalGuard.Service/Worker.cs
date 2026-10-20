@@ -200,8 +200,10 @@ public sealed class Worker(
                     Bbox = debugResult.Bbox,
                     RiskScore = debugResult.RiskScore,
                     ContentChanged = debugResult.ContentChanged,
+                    DetectorRan = debugResult.DebugDetectorRan, // DEV-051a
                 };
                 debug.Regions.AddRange(debugResult.DebugRegions);
+                debug.Detections.AddRange(debugResult.DebugDetections);
                 payload.DebugWindowScore = debug;
             });
 #endif

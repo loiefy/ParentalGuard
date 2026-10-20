@@ -201,6 +201,10 @@ message VisionInferenceResult {
                                                // điểm từng vùng con vừa chấm (rỗng nếu không chấm vùng con chu kỳ này)
 
   reserved 10 to 19; // dành cho IMG-031 nếu mở lại phạm vi
+
+  // 2026-10-20 (DEV-051a, IMG-016c) — CHỈ điền ở bản build chế độ developer: vật thể NudeNet nhận ra ở khung này.
+  repeated DebugDetection debug_detections = 20;
+  bool debug_detector_ran = 21; // true = NudeNet đã chạy ở khung này (detections rỗng = không nhận ra gì)
 }
 
 message OverlayRectListCommand {
@@ -737,6 +741,8 @@ message DebugWindowScore {
   float risk_score = 3; // [0,1]
   repeated DebugRegionScore regions = 4; // vùng con (IMG-016) vừa chấm — rỗng nếu chu kỳ này không chấm vùng con
   bool content_changed = 5; // false = điểm tái dùng (nội dung không đổi) — Overlay giữ nguyên vùng con đã vẽ
+  repeated DebugDetection detections = 6; // DEV-051a: vật thể NudeNet nhận ra (chỉ ý nghĩa khi detector_ran)
+  bool detector_ran = 7;
 }
 
 // DEV-051 (2026-10-06): 1 vùng con của cửa sổ và điểm của nó — rect tính theo toạ độ TƯƠNG ĐỐI góc trên-trái cửa sổ.
@@ -744,6 +750,14 @@ message DebugRegionScore {
   Rect rect = 1;
   float risk_score = 2;
   bool is_content_region = 3; // IMG-016a: vùng con thứ 6 (vùng video/ảnh phát hiện động) — Overlay vẽ viền tím nét đứt
+}
+
+// DEV-051a (2026-10-20): 1 vật thể NudeNet nhận ra — rect tính theo toạ độ TƯƠNG ĐỐI góc trên-trái cửa sổ.
+message DebugDetection {
+  string label = 1;      // nhãn NudeNet, vd FEMALE_BREAST_EXPOSED
+  float confidence = 2;  // [0,1]
+  Rect rect = 3;
+  bool is_exposed = 4;   // 1 trong 5 nhãn vi phạm của IMG-016c — Overlay khoanh nét đứt đỏ
 }
 
 // --- 2026-10-07, BE-034d — buộc đóng ứng dụng vi phạm (field 69 khối Overlay) ---

@@ -31,6 +31,13 @@ public static class CandidateWindowChecks
     public static bool IsVisibleTopLevelWindow(IntPtr hwnd) =>
         IsWindowVisible(hwnd) && !IsIconic(hwnd) && GetWindowTextLengthW(hwnd) > 0 && !IsCloaked(hwnd);
 
+    /// <summary>`BE-071d`: cạnh ngắn nhất phải lớn hơn mức này (pixel vật lý) mới phân tích — nhỏ hơn thì không phát được video nào.</summary>
+    public const int MaxIgnoredSide = 100;
+
+    /// <summary>`BE-071d`: <c>false</c> nếu rộng hoặc cao ≤ <see cref="MaxIgnoredSide"/> (hoặc không lấy được khung) — vẫn được tính là vật che.</summary>
+    public static bool IsLargeEnoughToAnalyze(WindowRect? rect) =>
+        rect is { } r && r.Width > MaxIgnoredSide && r.Height > MaxIgnoredSide;
+
     private static bool IsCloaked(IntPtr hwnd) =>
         DwmGetWindowAttribute(hwnd, _dwmwaCloaked, out int cloaked, sizeof(int)) == 0 && cloaked != 0;
 }

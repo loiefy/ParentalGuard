@@ -167,11 +167,13 @@ public sealed class CaptureLoopWorker
             }
 
             string? processName = ForegroundWindowTracker.ResolveProcessName(hwnd);
-            bool monitorable = !IsOwnProcess(processName)
+            WindowRect? rect = WindowRectResolver.Resolve(hwnd);
+            bool monitorable = CandidateWindowChecks.IsLargeEnoughToAnalyze(rect) // BE-071d
+                && !IsOwnProcess(processName)
                 && !ExcludeProcessMatcher.IsExcluded(processName, excludeProcessNames)
                 && !ShellUiWindowFilter.IsExcludedShellWindow(processName, ShellUiWindowFilter.GetClassName(hwnd)) // BE-073c
                 && MonitorSelector.GetMonitorForWindow(hwnd) != IntPtr.Zero;
-            snapshots.Add(new WindowSnapshot(hwnd, WindowRectResolver.Resolve(hwnd), IsShown: true, monitorable));
+            snapshots.Add(new WindowSnapshot(hwnd, rect, IsShown: true, monitorable));
         }
 
         return snapshots;

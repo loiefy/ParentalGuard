@@ -40,7 +40,7 @@ public sealed class FrameClassificationPipeline
     private readonly DenseTensor<float>? _detectorTensor;
 
     /// <summary>`IMG-016c`: NudeNet tìm thấy bộ phận nhạy cảm lộ rõ từ độ tin cậy này — đúng mức thấp nhất NudeNet tự báo 1 phát hiện (NMS 0.25).</summary>
-    public const float ExposedConfidenceThreshold = 0.25f;
+    public const float ExposedConfidenceThreshold = NudeNetDetector.MinReportedConfidence;
 
     /// <summary>`IMG-016c`: số vùng vượt ngưỡng tối đa được xác minh mỗi khung (mỗi lần ~170 ms DirectML, ~0.9 s CPU).</summary>
     public const int MaxVerifiedRegions = 2;
@@ -137,6 +137,8 @@ public sealed class FrameClassificationPipeline
         WindowRect crop = cropRect ?? rect;
         bool contentChanged = false;
         var debugRegions = new List<DebugRegionScore>();
+        var detections = new List<DebugDetection>();
+        bool detectorRan = false;
         float riskScore;
         try
         {
@@ -216,7 +218,8 @@ public sealed class FrameClassificationPipeline
                 }
 
                 // IMG-016c: Marqo báo vi phạm → NudeNet xác minh trên chính vùng đó; buffer pixel vẫn còn nguyên ở đây.
-                if (riskScore >= riskThreshold && !ConfirmBodyParts(crop.Width, crop.Height, scoredRegions, riskThreshold))
+                detectorRan = riskScore >= riskThreshold && _detector is not null;
+                if (detectorRan && !ConfirmBodyParts(crop.Width, crop.Height, scoredRegions, riskThreshold, detections))
                 {
                     riskScore = riskThreshold * RejectedScoreFactor;
                 }
@@ -245,6 +248,10 @@ public sealed class FrameClassificationPipeline
             ContentChanged = contentChanged,
         };
         result.DebugRegions.AddRange(debugRegions);
+#if PARENTALGUARD_DEVELOPER_MODE
+        result.DebugDetections.AddRange(detections);
+        result.DebugDetectorRan = detectorRan;
+#endif
         return result;
     }
 
@@ -271,7 +278,8 @@ public sealed class FrameClassificationPipeline
     /// `IMG-016c`: <c>true</c> nếu NudeNet tìm thấy bộ phận nhạy cảm lộ rõ trong 1 trong các vùng (điểm cao nhất trước) đã vượt
     /// ngưỡng chặn, hoặc không có detector. Kết quả lưu vào <see cref="WindowHashCache"/> cùng điểm — khung không đổi không chạy lại.
     /// </summary>
-    private bool ConfirmBodyParts(int width, int height, List<(WindowRect Region, float Score)> scoredRegions, float riskThreshold)
+    /// <param name="detections">`DEV-051a`: vật thể nhận ra ở mọi vùng đã chạy, toạ độ tương đối góc trên-trái cửa sổ.</param>
+    private bool ConfirmBodyParts(int width, int height, List<(WindowRect Region, float Score)> scoredRegions, float riskThreshold, List<DebugDetection> detections)
     {
         if (_detector is null || _detectorTensor is null)
         {
@@ -283,7 +291,9 @@ public sealed class FrameClassificationPipeline
             try
             {
                 FrameResizerNormalizer.ResizeLetterbox(_pixelBuffer, width, height, region, _detectorTensor);
-                if (_detector.MaxExposedConfidence(_detectorTensor) >= ExposedConfidenceThreshold)
+                BodyPartDetectionResult found = _detector.Detect(_detectorTensor);
+                detections.AddRange(found.Detections.Select(d => ToWindowDetection(d, region, _detector.InputSize)));
+                if (found.MaxExposedConfidence >= ExposedConfidenceThreshold)
                 {
                     return true;
                 }
@@ -297,6 +307,29 @@ public sealed class FrameClassificationPipeline
         }
 
         return false;
+    }
+
+    /// <summary>Khung trong ảnh letterbox của detector (cạnh <paramref name="inputSize"/>) → toạ độ cửa sổ, cắt về trong vùng.</summary>
+    internal DebugDetection ToWindowDetection(BodyPartDetection detection, WindowRect region, int inputSize)
+    {
+        float ratio = Math.Max(region.Width, region.Height) / (float)inputSize;
+        int left = Math.Clamp((int)MathF.Round(detection.X * ratio), 0, region.Width);
+        int top = Math.Clamp((int)MathF.Round(detection.Y * ratio), 0, region.Height);
+        int right = Math.Clamp((int)MathF.Round((detection.X + detection.Width) * ratio), left, region.Width);
+        int bottom = Math.Clamp((int)MathF.Round((detection.Y + detection.Height) * ratio), top, region.Height);
+        return new DebugDetection
+        {
+            Label = detection.Label,
+            Confidence = detection.Confidence,
+            IsExposed = detection.IsExposed,
+            Rect = new Rect
+            {
+                X = region.X + left + _lastCropOffsetInWindow.X,
+                Y = region.Y + top + _lastCropOffsetInWindow.Y,
+                Width = right - left,
+                Height = bottom - top,
+            },
+        };
     }
 
     /// <summary>`IMG-016`: 4 vùng góc chồng lấn (60%×60%) + 1 vùng giữa — đúng bộ vùng đã đánh giá trên máy chủ dự án 2026-10-06.</summary>

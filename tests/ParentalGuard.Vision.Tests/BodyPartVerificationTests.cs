@@ -74,11 +74,11 @@ public class BodyPartVerificationTests
 
         public int InputSize => 32;
 
-        public float MaxExposedConfidence(DenseTensor<float> input)
+        public BodyPartDetectionResult Detect(DenseTensor<float> input)
         {
             Calls++;
             SawNonZeroInput |= input.Buffer.Span.IndexOfAnyExcept(0f) >= 0;
-            return confidence;
+            return new BodyPartDetectionResult(confidence, [new BodyPartDetection("FEMALE_BREAST_EXPOSED", true, confidence, 8, 4, 16, 8)]);
         }
 
         public void Dispose()
@@ -167,6 +167,29 @@ public class BodyPartVerificationTests
 
         Assert.Equal(first, second);
         Assert.Equal(callsAfterFirst, detector.Calls);
+    }
+
+    /// <summary>DEV-051a: khung trong ảnh letterbox (cạnh 32) → toạ độ cửa sổ; vùng 64×48 nên tỉ lệ 2, cộng gốc vùng.</summary>
+    [Fact]
+    public void ToWindowDetection_ScalesByLetterboxRatio_AndOffsetsByRegion()
+    {
+        var pipeline = new FrameClassificationPipeline(new FixedClassifier(0f));
+
+        DebugDetection d = pipeline.ToWindowDetection(new BodyPartDetection("ANUS_EXPOSED", true, 0.8f, 8, 4, 16, 8), new WindowRect(10, 20, 64, 48), inputSize: 32);
+
+        Assert.Equal((26, 28, 32, 16), (d.Rect.X, d.Rect.Y, d.Rect.Width, d.Rect.Height));
+        Assert.True(d.IsExposed);
+        Assert.Equal("ANUS_EXPOSED", d.Label);
+    }
+
+    [Fact]
+    public void ToWindowDetection_BoxInPadding_ClampedInsideRegion()
+    {
+        var pipeline = new FrameClassificationPipeline(new FixedClassifier(0f));
+
+        DebugDetection d = pipeline.ToWindowDetection(new BodyPartDetection("FACE_MALE", false, 0.5f, -4, 20, 40, 20), new WindowRect(0, 0, 64, 48), inputSize: 32);
+
+        Assert.Equal((0, 40, 64, 8), (d.Rect.X, d.Rect.Y, d.Rect.Width, d.Rect.Height));
     }
 
     /// <summary>IMG-003: tensor đầu vào detector được zero sau MỖI lần chạy.</summary>

@@ -1,6 +1,6 @@
 # 12 — Dev Process & Code Management Standards
 
-> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-06
+> Version: v0.6.0 | Trạng thái: Approved | Cập nhật: 2026-10-20
 
 ## 1. Mục đích & phạm vi
 
@@ -67,6 +67,7 @@ Bối cảnh quan trọng ảnh hưởng toàn bộ tài liệu này:
 
 - `DEV-050`: Có **"Chế độ developer"** phục vụ debug, chỉ bật/tắt được **trong mã nguồn/cấu hình build** (không có tuỳ chọn nào trên giao diện, không bật được lúc chạy). Code của chế độ này luôn nằm trong mã nguồn.
 - `DEV-051`: Khi bật, mỗi cửa sổ ứng dụng đang được theo dõi (đã được Vision phân tích) có **đường viền hình chữ nhật màu đỏ cam, dày 2 pixel** bao quanh, bám theo vị trí cửa sổ, vẽ được cả khi cửa sổ trải qua nhiều màn hình. Ở **góc dưới bên trái** đường viền có **1 ô tròn** hiển thị **% khả năng nội dung là nhạy cảm** (risk score gần nhất). Lớp vẽ không nhận chuột/bàn phím, không che thao tác của người dùng.
+- `DEV-051a` **(ĐÃ CHỐT v0.6.0, 2026-10-20 — chủ dự án yêu cầu trực tiếp, bổ sung `DEV-051`)**: Ở chế độ developer, khi mô hình phát hiện bộ phận cơ thể (`IMG-016c`) chạy cho 1 cửa sổ, **cạnh ô tròn %** hiển thị thêm **các nhãn vật thể nó nhận ra** kèm độ tin cậy (ví dụ `FACE_FEMALE 83%`), hoặc ghi rõ không nhận ra gì. Mỗi vật thể mang **nhãn vi phạm** (5 nhãn "lộ rõ" của `IMG-016c`) được khoanh bằng **hình chữ nhật nét đứt màu đỏ** đúng vị trí vật thể trong cửa sổ. Thông tin giữ nguyên khi nội dung cửa sổ không đổi, xoá khi nội dung đổi mà mô hình không chạy lại.
 - `DEV-052`: Mặc định **bật** cho mọi bản build phát triển/thử nghiệm cho tới khi chủ dự án yêu cầu build bản production. Bản **production phát hành cho người dùng bắt buộc tắt** chế độ này (build với cấu hình tắt). Chế độ developer không thay đổi hành vi bảo vệ (ngưỡng, che, ghi log) — chỉ thêm lớp hiển thị.
 
 ## 7. Câu hỏi mở
@@ -79,6 +80,7 @@ Bối cảnh quan trọng ảnh hưởng toàn bộ tài liệu này:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.6.0 | 2026-10-20 | **MINOR — `DEV-051a` (mới, chủ dự án yêu cầu)**: chế độ developer hiện nhãn vật thể NudeNet cạnh ô %, khoanh nét đứt đỏ vật thể mang nhãn vi phạm. Archive: `Outdated/12-dev-process-standards__v0.5.0__2026-10-20.md` |
 | v0.5.0 | 2026-10-06 | **MINOR — `DEV-050`–`DEV-052` (mới, chủ dự án yêu cầu trực tiếp)**: chế độ developer bật/tắt trong code — viền đỏ cam 2px quanh cửa sổ đang theo dõi + ô tròn % rủi ro; mặc định bật cho bản dev, tắt ở bản production |
 | v0.4.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.4.0 | 2026-09-17 | **Thêm nguyên tắc viết code mới**: `DEV-026` — code tinh gọn, không viết thừa, không comment rườm rà (mục 4). `DEV-040`–`DEV-043` (mục 6 mới) — bắt buộc đánh giá fail case/exception trước khi code, cập nhật spec tương ứng cho exception mới trước khi code xử lý; bắt buộc duy trì Dependency Map (hàm ↔ file ↔ caller/callee) để hỗ trợ impact analysis, cập nhật map mỗi lần thêm/sửa/xoá hàm hoặc quan hệ gọi. Thêm câu hỏi mở về định dạng Dependency Map |
