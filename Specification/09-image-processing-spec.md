@@ -1,6 +1,6 @@
 # 09 — Image Processing Pipeline Spec
 
-> Version: v0.10.0 | Trạng thái: Approved | Cập nhật: 2026-10-15
+> Version: v0.11.0 | Trạng thái: Approved | Cập nhật: 2026-10-20
 
 ## 1. Nguyên tắc tuyệt đối
 
@@ -53,6 +53,15 @@
 - `IMG-016b` **(ĐÃ CHỐT v0.10.0, 2026-10-15 — chủ dự án yêu cầu trực tiếp, bổ sung `IMG-016`/`IMG-016a`, không supersede)**: **Lọc màu da cho điểm sát ngưỡng** — áp cho từng vùng được chấm (cả cửa sổ, 5 vùng con, vùng con thứ 6): nếu điểm của vùng **dưới 0.9**, vùng đó **có màu rõ** (ít nhất 20% điểm ảnh có màu, không xám) và **gần như không có màu da** (dưới 0.5% điểm ảnh rơi vào dải màu da), thì điểm vùng đó bị hạ xuống **tối đa 0.5** (dưới ngưỡng chặn mặc định 0.7, `BE-090`). Điểm từ 0.9 trở lên và ảnh đen trắng/ít màu giữ nguyên như cũ. Tính ngay trên buffer pixel đang xử lý, trước khi zero (`IMG-003`) — không lưu gì thêm.
   - Căn cứ: trang đăng nhập Microsoft Teams (chủ dự án báo 2026-10-15) bị che nhầm — hình 3D trang trí tông tím-hồng ở vùng con góc phải-dưới được Marqo chấm 0.737 (cả cửa sổ 0.28), vùng đó có 82% điểm ảnh có màu nhưng chỉ 0.1% màu da.
   - Rủi ro đã chấp nhận: nội dung thật dưới ánh đèn màu mạnh (da không còn màu da) có điểm 0.7–0.9 có thể bị bỏ lọt; chưa đo được trên ảnh thật (không có bộ ảnh kiểm thử). Ngưỡng 0.5% được chọn thấp hơn mức 1% đã nêu với chủ dự án để giảm khả năng bỏ lọt ảnh nhỏ trong vùng lớn.
+- `IMG-016c` **(ĐÃ CHỐT v0.11.0, 2026-10-20 — chủ dự án yêu cầu trực tiếp, bổ sung `IMG-016`/`IMG-016a`/`IMG-016b`, không supersede)**: **Xác minh bằng mô hình phát hiện bộ phận cơ thể** — dùng song song với Marqo (`IMG-014a`) mô hình phát hiện vật thể **[NudeNet v3.4 `640m`](https://github.com/notAI-tech/NudeNet)** (YOLOv8m, ảnh đầu vào 640×640, 18 nhãn bộ phận cơ thể, license **AGPL-3.0**). Chỉ khi điểm Marqo của cửa sổ (sau `IMG-016b`) **đạt ngưỡng chặn** (`BE-090`) thì NudeNet mới chạy, trên **chính các vùng đã vượt ngưỡng** (cả cửa sổ / vùng con / vùng con thứ 6 — vùng điểm cao nhất trước, tối đa 2 vùng mỗi khung):
+  - Tìm thấy **bộ phận nhạy cảm lộ rõ** — nhãn `FEMALE_GENITALIA_EXPOSED`, `MALE_GENITALIA_EXPOSED`, `FEMALE_BREAST_EXPOSED`, `BUTTOCKS_EXPOSED`, `ANUS_EXPOSED` — với độ tin cậy **từ 0.25** (mức thấp nhất NudeNet tự báo 1 phát hiện) ở bất kỳ vùng nào → giữ nguyên điểm Marqo (chặn như cũ).
+  - Không tìm thấy → điểm cửa sổ hạ xuống **dưới ngưỡng chặn** (ngưỡng × 0.7) — không chặn.
+  - Kết quả xác minh được lưu cùng điểm theo hash nội dung (`IMG-011`): khung không đổi không chạy lại NudeNet. Ảnh đầu vào NudeNet giữ nguyên tỉ lệ (đệm đen), tensor được zero sau mỗi lần chạy (`IMG-003`), không lưu gì thêm.
+  - File mô hình được kiểm checksum như model chính (`MISC-090`): sai checksum → Vision thoát như khi model chính bị sửa. **Thiếu file** → chạy chỉ với Marqo (chặn nhiều hơn chứ không ít hơn, không có lợi cho người muốn vượt qua).
+  - Ngoại lệ có chủ đích với `PERF-032` (model nhẹ): chủ dự án chọn bản `640m` thay vì `320n` (đã so sánh: 640m nhìn rõ bộ phận nhỏ hơn — ảnh vào 640 thay vì 320 — đổi lại nặng hơn ~35 lần, file 103.5 MB, bản cài tăng khoảng 95 MB). Chi phí chỉ phát sinh khi Marqo đã báo vi phạm: đo trên máy chủ dự án 2026-10-20, mỗi lần chạy trung bình ~170 ms với DirectML, ~0.9 s với CPU.
+  - Căn cứ: trang đăng nhập Microsoft Teams vẫn bị che nhầm sau `IMG-016b` (chủ dự án báo 2026-10-20) — quét 2000 khung cắt của trang (mô phỏng cuộn/đổi kích thước cửa sổ), Marqo chấm 19 khung từ 0.90–0.94, vượt mức trần 0.9 của `IMG-016b`. NudeNet bác bỏ cả 19 (độ tin cậy "lộ" cao nhất 0.004); trên ảnh chân dung bình thường NudeNet nhận đúng khuôn mặt (0.83) và không báo bộ phận nhạy cảm nào. Chạy đầu-cuối cả pipeline với 600 cửa sổ cắt từ trang này: chỉ Marqo che nhầm 60 cửa sổ, Marqo + NudeNet che nhầm 0.
+  - Rủi ro đã chấp nhận: NudeNet học chủ yếu trên ảnh chụp người thật — **tranh vẽ/hentai**, người rất nhỏ hoặc ở xa có thể không được xác nhận và bị bỏ lọt; nội dung khiêu dâm không lộ 5 bộ phận trên (ví dụ chỉ đồ lót) cũng không bị chặn. Chưa đo được tỉ lệ bỏ lọt trên nội dung vi phạm thật (không có bộ ảnh kiểm thử) — cần đánh giá trên máy thật như đã làm với `IMG-014a`.
+  - License: AGPL-3.0 của NudeNet (và Ultralytics YOLOv8) phải được ghi trong `THIRD-PARTY-NOTICES.md` và cân nhắc khi chủ dự án chọn giấy phép của dự án (`FE-093`).
 - `IMG-015` (ĐÃ CHỐT v0.5.0): **An toàn network của model được đảm bảo bởi 2 lớp độc lập**, không phụ thuộc vào việc "tin tưởng" thư viện/model đã chọn:
   1. File `.onnx` sau khi convert là **dữ liệu tĩnh** (trọng số số học) — không chứa code thực thi, về bản chất không có khả năng tự thực hiện network call dưới bất kỳ hình thức nào.
   2. `Vision` process (nơi load model + chạy ONNX Runtime) đã bị **chặn network tuyệt đối ở tầng OS** (Windows Filtering Platform outbound rule) theo `SEC-016`/`SEC-017`/`SEC-018` ở `04-security-spec.md` — lớp phòng thủ độc lập này chặn được kể cả nếu có thành phần nào đó (ONNX Runtime, dependency ẩn...) cố gắng kết nối mạng ngoài dự kiến, không phụ thuộc vào việc model/thư viện có "sạch" hay không.
@@ -97,6 +106,7 @@
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.11.0 | 2026-10-20 | **MINOR — `IMG-016c` (mới, chủ dự án yêu cầu)**: NudeNet 640m xác minh bộ phận cơ thể nhạy cảm lộ rõ trên vùng Marqo báo vi phạm; không tìm thấy → không chặn. Bối cảnh: trang Teams vẫn bị che nhầm (Marqo 0.90–0.94, vượt trần `IMG-016b`). Archive: `Outdated/09-image-processing-spec__v0.10.0__2026-10-20.md` |
 | v0.10.0 | 2026-10-15 | **MINOR — `IMG-016b` (mới, chủ dự án yêu cầu)**: lọc màu da cho điểm sát ngưỡng (dưới 0.9, có màu rõ, màu da dưới 0.5% → hạ điểm tối đa 0.5). Bối cảnh: trang Teams bị che nhầm vì hình 3D tím-hồng. Archive: `Outdated/09-image-processing-spec__v0.9.0__2026-10-15.md` |
 | v0.9.0 | 2026-10-07 | **MINOR — `IMG-020b`**: trần 10 cửa sổ/chu kỳ theo `BE-071c` |
 | v0.8.0 | 2026-10-06 | **MINOR — `IMG-016a` (mới)**: vùng con thứ 6 xác định động theo vùng video/ảnh (chuyển động hoặc vùng giống ảnh chụp), không dùng model AI; viền tím nét đứt ở chế độ developer |

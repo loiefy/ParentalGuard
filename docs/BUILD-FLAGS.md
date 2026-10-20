@@ -34,12 +34,16 @@ powershell -ExecutionPolicy Bypass -File installeruild-installer.ps1 -Version 0
 ```
 
 Script publish đủ 6 executable với `ParentalGuardDeveloperMode=false` (Vision cuối cùng) vào `publishelease\ParentalGuard`,
-chép **chỉ** model Marqo, biên dịch `installer\ParentalGuard.iss`, ghi `dist\ParentalGuard-Setup-<version>-win-x64.exe` +
+chép model Marqo + NudeNet 640m, biên dịch `installer\ParentalGuard.iss`, ghi `dist\ParentalGuard-Setup-<version>-win-x64.exe` +
 `dist\SHA256SUMS`. Thiết kế: `Architecture/11-deployment-release-architecture.md`.
 
 ## Mô hình AI
 
 - `models/nsfw_marqo_384.onnx` (22 MB) có trong repo.
+- `models/nudenet_640m.onnx` (103.5 MB, `IMG-016c` — xác minh bộ phận cơ thể trên vùng Marqo báo vi phạm) KHÔNG có trong repo
+  (vượt giới hạn 100 MB/file của GitHub) — tải bằng `powershell -ExecutionPolicy Bypass -File tools\download_nudenet_model.ps1`
+  (kiểm SHA-256; `build-installer.ps1` tự gọi). Thiếu file này Vision vẫn chạy nhưng chỉ với Marqo (chặn nhiều hơn; trạng thái
+  Vision trên Dashboard có thêm `detector=missing`).
 - `models/nsfw_falconsai_224.onnx` (343 MB) KHÔNG có trong repo — tạo lại bằng `python tools/export_nsfw_models.py models`
   (cần `torch`, `timm`, `transformers`, `onnx`).
 - Đổi file model ⇒ phải cập nhật SHA-256 trong `src/ParentalGuard.Vision/ModelIntegrity/ExpectedModelChecksum.cs` (`MISC-090`).

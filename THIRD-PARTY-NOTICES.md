@@ -14,6 +14,8 @@ distributed under the licence shown. Full licence texts are in the `third-party-
 |---|---|---|---|
 | **Marqo/nsfw-image-detection-384** (mô hình nhận diện mặc định, chuyển sang ONNX bằng `tools/export_nsfw_models.py`; trọng số không bị sửa đổi, chỉ bọc thêm bước chuẩn hoá ảnh và softmax) | Marqo | Apache-2.0 | https://huggingface.co/Marqo/nsfw-image-detection-384 |
 | timm `vit_tiny_patch16_384.augreg_in21k_ft_in1k` (mô hình nền của Marqo) | Ross Wightman / PyTorch Image Models | Apache-2.0 | https://github.com/huggingface/pytorch-image-models |
+| **NudeNet v3.4 `640m.onnx`** (mô hình phát hiện bộ phận cơ thể, xác minh vùng Marqo báo vi phạm; file gốc không sửa đổi) | notAI-tech | AGPL-3.0 | https://github.com/notAI-tech/NudeNet |
+| Ultralytics YOLOv8 (kiến trúc nền của NudeNet 640m) | Ultralytics | AGPL-3.0 | https://github.com/ultralytics/ultralytics |
 
 Các mô hình chỉ dùng cho so sánh/thử nghiệm (không đóng gói trong bản phát hành chuẩn): `GantMan/nsfw_model` (MIT,
 https://github.com/GantMan/nsfw_model), `Falconsai/nsfw_image_detection` (Apache-2.0,

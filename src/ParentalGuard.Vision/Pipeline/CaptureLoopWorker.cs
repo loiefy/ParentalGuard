@@ -130,7 +130,7 @@ public sealed class CaptureLoopWorker
             IReadOnlyList<MonitorSelector.OutputInfo> outputs = MonitorSelector.EnumerateOutputs(factory);
             DebugLog($"EnumerateOutputs OK, {outputs.Count} output(s). Trước ProcessCycle.");
             long cycleStartedMs = Environment.TickCount64;
-            bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames, config.CoveredWindowHandles);
+            bool foregroundExcludedNoCandidates = ProcessCycle(outputs, config.ExcludeProcessNames, config.CoveredWindowHandles, config.RiskThreshold);
             DebugLog("ProcessCycle xong.");
             if (foregroundExcludedNoCandidates)
             {
@@ -182,7 +182,7 @@ public sealed class CaptureLoopWorker
         processName is not null && processName.StartsWith("ParentalGuard.", StringComparison.OrdinalIgnoreCase);
 
     /// <returns><c>true</c> nếu foreground bị exclude-list và chu kỳ này không có candidate nào — caller nên park vô hạn (mục 3.3/3.6).</returns>
-    private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames, IReadOnlySet<ulong> coveredWindowHandles)
+    private bool ProcessCycle(IReadOnlyList<MonitorSelector.OutputInfo> outputs, IReadOnlyList<string> excludeProcessNames, IReadOnlySet<ulong> coveredWindowHandles, float riskThreshold)
     {
         IntPtr fgHwnd = ForegroundWindowTracker.GetForegroundWindowHandle();
         string? fgProcessName = ForegroundWindowTracker.ResolveProcessName(fgHwnd);
@@ -219,7 +219,7 @@ public sealed class CaptureLoopWorker
             usedOutputIndexes.Add(output.Value.OutputIndex);
             usedWindowHandles.Add(hwnd);
             DebugLog($"Trước ProcessOneFrame(hwnd={hwnd}).");
-            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex, output.Value.DesktopBounds, CandidateWindowSelector.OccludersAbove(hwnd, snapshots));
+            ProcessOneFrame(context, hwnd, output.Value.AdapterIndex, output.Value.OutputIndex, output.Value.DesktopBounds, CandidateWindowSelector.OccludersAbove(hwnd, snapshots), riskThreshold);
             DebugLog("ProcessOneFrame xong.");
         }
 
@@ -240,14 +240,14 @@ public sealed class CaptureLoopWorker
     internal static bool ShouldParkInfinitely(bool foregroundInExcludeList, int candidateCount) =>
         foregroundInExcludeList && candidateCount == 0;
 
-    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, IReadOnlyList<WindowRect> occluders)
+    private void ProcessOneFrame(OutputCaptureContext context, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, IReadOnlyList<WindowRect> occluders, float riskThreshold)
     {
         ulong frameId = ++_frameId;
         VisionInferenceResult? result;
         DebugLog($"Trước _pipeline.Process(frameId={frameId}).");
         try
         {
-            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId, occluders);
+            result = _pipeline.Process(context.Capture, context.Cropper, hwnd, adapterIndex, outputIndex, outputBounds, frameId, occluders, riskThreshold);
             DebugLog($"_pipeline.Process OK (frameId={frameId}).");
         }
         catch (CaptureInitializationException)

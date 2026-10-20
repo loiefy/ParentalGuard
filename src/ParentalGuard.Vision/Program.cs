@@ -131,6 +131,31 @@ using INsfwClassifier classifier = new NsfwClassifier(modelBytes, sessionOptions
 Array.Clear(modelBytes);
 DebugLog("NsfwClassifier OK.");
 
+// IMG-016c: NudeNet xác minh vùng Marqo báo vi phạm. File thiếu → chạy chỉ với Marqo (chặn nhiều hơn, không ít hơn — không có lợi
+// cho người muốn vượt qua); file bị sửa → thoát như model chính (MISC-090), vì model giả có thể bác bỏ mọi vi phạm.
+IBodyPartDetector? detector = null;
+if (File.Exists(ModelPaths.DetectorModelPath))
+{
+    byte[] detectorBytes = await File.ReadAllBytesAsync(ModelPaths.DetectorModelPath, cts.Token).ConfigureAwait(false);
+    if (!OnnxChecksumVerifier.Verify(detectorBytes, Convert.FromHexString(ExpectedModelChecksum.DetectorSha256Hex)))
+    {
+        DebugLog("Detector checksum FAILED — thoát ModelIntegrityCheckFailed.");
+        Array.Clear(detectorBytes);
+        return VisionExitCodes.ModelIntegrityCheckFailed;
+    }
+
+    detector = new NudeNetDetector(detectorBytes, sessionOptions);
+    Array.Clear(detectorBytes);
+    DebugLog("NudeNetDetector OK.");
+}
+else
+{
+    client.DiagnosticState += ";detector=missing";
+    DebugLog("Không có " + ModelPaths.DetectorModelPath + " — chạy không xác minh NudeNet.");
+}
+
+using IBodyPartDetector? detectorScope = detector;
+
 // Bug real-hardware 2026-10-12: vừa đăng nhập (màn hình chào/desktop bảo mật) Desktop Duplication tạm thời bị từ chối. Trước đây lỗi
 // ở bước probe → thoát ngay mã 17 → Service hiểu là "thiếu quyền Low IL" và HẠ Vision xuống Medium IL tới lần khởi động Service sau.
 // Giờ thử lại tối đa 60 giây (kết nối IPC + heartbeat vẫn chạy song song) — chỉ thất bại kéo dài mới là lỗi quyền thật (ADR-49).
@@ -182,7 +207,7 @@ DebugLog("Capture probe OK.");
 // Architecture/05 mục 3.5 (ADR-65): context của output (adapter 0, output 0) đã tạo sẵn ở bước probe
 // trên — tái dùng làm OutputCaptureContext đầu tiên thay vì tạo trùng 1 ID3D11Device thứ 2.
 var initialOutputContext = new OutputCaptureContext(capture, new GpuWindowCropper(capture.Device));
-var pipeline = new FrameClassificationPipeline(classifier);
+var pipeline = new FrameClassificationPipeline(classifier, detector: detector);
 
 var captureLoop = new CaptureLoopWorker(configHolder, pipeline, client, initialOutputContext);
 captureLoopRef = captureLoop;

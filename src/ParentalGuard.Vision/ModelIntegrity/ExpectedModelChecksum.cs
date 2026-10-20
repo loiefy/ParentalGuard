@@ -17,4 +17,7 @@ public static class ExpectedModelChecksum
 #else
     public const string Sha256Hex = "0af1e2ff246efba9a761b17e60e5c3b38feab2e545ffcf948e168babea971a84"; // nsfw_model.onnx (GantMan)
 #endif
+
+    /// <summary>`IMG-016c`: <c>nudenet_640m.onnx</c> (NudeNet v3.4-weights, <c>640m.onnx</c>, 103 538 690 byte).</summary>
+    public const string DetectorSha256Hex = "04fe3d77980780c1f8297dc6d7f942fd5b3abe6942a188f742a85241e4f634eb";
 }

@@ -21,4 +21,7 @@ public static class ModelPaths
         ?? Path.Combine(AppContext.BaseDirectory, "models");
 
     public static string OnnxModelPath => Path.Combine(ModelDirectory, _modelFileName);
+
+    /// <summary>`IMG-016c`: NudeNet 640m — tải bằng <c>tools/download_nudenet_model.ps1</c> (không có trong repo, vượt 100 MB).</summary>
+    public static string DetectorModelPath => Path.Combine(ModelDirectory, "nudenet_640m.onnx");
 }

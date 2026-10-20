@@ -82,6 +82,74 @@ public static class FrameResizerNormalizer
         }
     }
 
+    /// <summary>
+    /// `IMG-016c`: tiền xử lý của NudeNet (<c>_read_image</c>) — giữ nguyên tỉ lệ <paramref name="region"/>, đệm đen bên phải/dưới
+    /// thành hình vuông rồi bilinear resize vào <paramref name="destination"/> (NCHW, RGB, [0, 1]). Detector YOLO học trên ảnh
+    /// không bị kéo giãn, nên không dùng <see cref="Resize(ReadOnlySpan{byte}, int, int, WindowRect, DenseTensor{float}, TensorLayout)"/>.
+    /// </summary>
+    public static void ResizeLetterbox(ReadOnlySpan<byte> sourceBgra8, int sourceWidth, int sourceHeight, WindowRect region, DenseTensor<float> destination)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        if (sourceWidth <= 0 || sourceHeight <= 0)
+        {
+            throw new ArgumentException("Source dimensions must be positive.");
+        }
+
+        if (sourceBgra8.Length < sourceWidth * sourceHeight * 4)
+        {
+            throw new ArgumentException("Source buffer smaller than sourceWidth*sourceHeight*4 (BGRA8).", nameof(sourceBgra8));
+        }
+
+        int regionX = Math.Clamp(region.X, 0, sourceWidth - 1);
+        int regionY = Math.Clamp(region.Y, 0, sourceHeight - 1);
+        int regionWidth = Math.Clamp(region.Width, 1, sourceWidth - regionX);
+        int regionHeight = Math.Clamp(region.Height, 1, sourceHeight - regionY);
+
+        (int destHeight, int destWidth) = GetSpatialDimensions(destination.Dimensions, TensorLayout.Nchw);
+        Span<float> destSpan = destination.Buffer.Span;
+        float ratio = Math.Max(regionWidth, regionHeight) / (float)Math.Min(destWidth, destHeight);
+
+        for (int y = 0; y < destHeight; y++)
+        {
+            float srcYf = ((y + 0.5f) * ratio) - 0.5f;
+            bool padRow = srcYf > regionHeight - 0.5f;
+            int y0 = regionY + Math.Clamp((int)MathF.Floor(srcYf), 0, regionHeight - 1);
+            int y1 = Math.Min(y0 + 1, regionY + regionHeight - 1);
+            float fy = Math.Clamp(srcYf - (y0 - regionY), 0f, 1f);
+
+            for (int x = 0; x < destWidth; x++)
+            {
+                float srcXf = ((x + 0.5f) * ratio) - 0.5f;
+                if (padRow || srcXf > regionWidth - 0.5f)
+                {
+                    for (int channel = 0; channel < 3; channel++)
+                    {
+                        destSpan[GetDestinationIndex(TensorLayout.Nchw, destWidth, destHeight, x, y, channel)] = 0f;
+                    }
+
+                    continue;
+                }
+
+                int x0 = regionX + Math.Clamp((int)MathF.Floor(srcXf), 0, regionWidth - 1);
+                int x1 = Math.Min(x0 + 1, regionX + regionWidth - 1);
+                float fx = Math.Clamp(srcXf - (x0 - regionX), 0f, 1f);
+
+                for (int channel = 0; channel < 3; channel++)
+                {
+                    int srcByteOffset = 2 - channel;
+                    float p00 = sourceBgra8[((y0 * sourceWidth) + x0) * 4 + srcByteOffset];
+                    float p10 = sourceBgra8[((y0 * sourceWidth) + x1) * 4 + srcByteOffset];
+                    float p01 = sourceBgra8[((y1 * sourceWidth) + x0) * 4 + srcByteOffset];
+                    float p11 = sourceBgra8[((y1 * sourceWidth) + x1) * 4 + srcByteOffset];
+
+                    float top = p00 + ((p10 - p00) * fx);
+                    float bottom = p01 + ((p11 - p01) * fx);
+                    destSpan[GetDestinationIndex(TensorLayout.Nchw, destWidth, destHeight, x, y, channel)] = (top + ((bottom - top) * fy)) / 255f;
+                }
+            }
+        }
+    }
+
     private static (int Height, int Width) GetSpatialDimensions(ReadOnlySpan<int> dimensions, TensorLayout layout)
     {
         if (dimensions.Length != 4)

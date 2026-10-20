@@ -2,7 +2,7 @@
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
 > **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.22.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.20.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.10.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.5.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Trạng thái spec**: `APPROVED v0.23.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.20.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.11.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.5.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-15
 
 ---
@@ -75,6 +75,7 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
+| v0.23.0 | 2026-10-20 | **MINOR**: `09` v0.11.0 — `IMG-016c` NudeNet 640m xác minh bộ phận cơ thể trên vùng Marqo báo vi phạm, sửa trang Teams vẫn bị che nhầm (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.10.0__2026-10-20.md`, `Outdated/00-INDEX__v0.22.0__2026-10-20.md` |
 | v0.22.0 | 2026-10-15 | **MINOR**: `09` v0.10.0 — `IMG-016b` lọc màu da cho điểm sát ngưỡng, sửa che nhầm trang Teams (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.9.0__2026-10-15.md`, `Outdated/00-INDEX__v0.21.0__2026-10-15.md` |
 | v0.21.0 | 2026-10-15 | **MINOR**: `03` v0.24.0 — `FE-023a` icon ParentalGuard trong khay hệ thống, click mở Dashboard (chủ dự án yêu cầu). Archive: `Outdated/03-frontend-ui-spec__v0.23.0__2026-10-15.md`, `Outdated/00-INDEX__v0.20.0__2026-10-15.md` |
 | v0.20.0 | 2026-10-12 | **MINOR**: `02` v0.20.0 — `BE-073c` Notepad++, menu Start, khay biểu tượng ẩn vào exclude-list; các mục rủi ro chờ chủ dự án quyết. Archive: `Outdated/02-backend-spec__v0.19.0__2026-10-12.md`, `Outdated/00-INDEX__v0.19.0__2026-10-12.md` |

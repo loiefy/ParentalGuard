@@ -35,10 +35,24 @@ public sealed class FrameClassificationPipeline
 
     private readonly bool _detectContentRegion;
 
-    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate, bool detectContentRegion = true)
+    // IMG-016c: null = không có model NudeNet (file thiếu) — giữ kết quả của Marqo, tức chặn nhiều hơn chứ không ít hơn.
+    private readonly IBodyPartDetector? _detector;
+    private readonly DenseTensor<float>? _detectorTensor;
+
+    /// <summary>`IMG-016c`: NudeNet tìm thấy bộ phận nhạy cảm lộ rõ từ độ tin cậy này — đúng mức thấp nhất NudeNet tự báo 1 phát hiện (NMS 0.25).</summary>
+    public const float ExposedConfidenceThreshold = 0.25f;
+
+    /// <summary>`IMG-016c`: số vùng vượt ngưỡng tối đa được xác minh mỗi khung (mỗi lần ~170 ms DirectML, ~0.9 s CPU).</summary>
+    public const int MaxVerifiedRegions = 2;
+
+    /// <summary>`IMG-016c`: không tìm thấy bộ phận nhạy cảm → điểm cửa sổ = ngưỡng chặn × hệ số này (0.49 với ngưỡng 0.7).</summary>
+    public const float RejectedScoreFactor = 0.7f;
+
+    public FrameClassificationPipeline(INsfwClassifier classifier, IFrameBufferAuditor? auditor = null, float subRegionGate = DefaultSubRegionGate, bool detectContentRegion = true, IBodyPartDetector? detector = null)
     {
         _detectContentRegion = detectContentRegion;
         _classifier = classifier;
+        _detector = detector;
         _auditor = auditor ?? NullFrameBufferAuditor.Instance;
         _subRegionGate = subRegionGate;
 
@@ -48,6 +62,12 @@ public sealed class FrameClassificationPipeline
         int[] shape = classifier.InputLayout == TensorLayout.Nhwc ? [1, size, size, 3] : [1, 3, size, size];
         _inputTensor = new DenseTensor<float>(shape);
         _auditor.OnBufferAllocated("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
+
+        if (detector is not null)
+        {
+            _detectorTensor = new DenseTensor<float>([1, 3, detector.InputSize, detector.InputSize]);
+            _auditor.OnBufferAllocated("detector_input_tensor", _detectorTensor.Buffer.Length * sizeof(float));
+        }
     }
 
     /// <summary>
@@ -61,7 +81,8 @@ public sealed class FrameClassificationPipeline
     /// cửa sổ khác đè lên trên, rồi gán điểm (và overlay) nhầm cho cửa sổ bên dưới. Phần bị che được tô đen trước khi
     /// phân loại; còn lộ ra dưới <see cref="MinVisibleFraction"/> thì bỏ qua chu kỳ này.
     /// </param>
-    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, ulong frameId, IReadOnlyList<WindowRect>? occluders = null)
+    /// <param name="riskThreshold">Ngưỡng chặn hiện hành (`BE-090`, từ <c>ControlVisionCommand</c>) — điểm từ đây trở lên mới cần NudeNet xác minh (`IMG-016c`).</param>
+    public VisionInferenceResult? Process(IFrameCapture capture, IWindowCropper cropper, IntPtr hwnd, int adapterIndex, int outputIndex, WindowRect outputBounds, ulong frameId, IReadOnlyList<WindowRect>? occluders = null, float riskThreshold = 0.7f)
     {
         long capturedAtUnixMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -96,7 +117,7 @@ public sealed class FrameClassificationPipeline
             return null;
         }
 
-        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs, cropRect.Value, masks);
+        return ProcessFrame(capture, cropper, rect.Value, fullScreenFrame, hwnd, outputIndex, frameId, capturedAtUnixMs, cropRect.Value, masks, riskThreshold);
     }
 
     /// <summary>Cửa sổ chỉ còn lộ ra ít hơn tỉ lệ này (phần còn lại bị cửa sổ khác che) → không đủ nội dung của chính nó để phân loại.</summary>
@@ -111,7 +132,7 @@ public sealed class FrameClassificationPipeline
     /// <param name="cropRect">Vùng crop trong texture của output (đã trừ offset + cắt biên); mặc định = <paramref name="rect"/> (test 1 màn hình tại gốc).</param>
     /// <param name="occlusionMasks">Vùng (toạ độ trong crop) bị cửa sổ khác che — tô đen trước khi hash/phân loại.</param>
     /// <returns><c>null</c> nếu ảnh crop đen hoàn toàn (khung Desktop Duplication chưa có nội dung — gặp ở khung đầu tiên sau khi tạo duplication): không có dữ liệu thật để phân loại.</returns>
-    internal VisionInferenceResult? ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs, WindowRect? cropRect = null, IReadOnlyList<WindowRect>? occlusionMasks = null)
+    internal VisionInferenceResult? ProcessFrame(IFrameCapture capture, IWindowCropper cropper, WindowRect rect, IDisposable fullScreenFrame, IntPtr hwnd, int outputIndex, ulong frameId, long capturedAtUnixMs, WindowRect? cropRect = null, IReadOnlyList<WindowRect>? occlusionMasks = null, float riskThreshold = 0.7f)
     {
         WindowRect crop = cropRect ?? rect;
         bool contentChanged = false;
@@ -160,11 +181,13 @@ public sealed class FrameClassificationPipeline
                 // IMG-016: max(cả cửa sổ, 5 vùng con) — phải chạy TRƯỚC khi zero buffer pixel bên dưới.
                 var whole = new WindowRect(0, 0, crop.Width, crop.Height);
                 riskScore = ClassifyRegion(crop.Width, crop.Height, whole);
+                var scoredRegions = new List<(WindowRect Region, float Score)>(7) { (whole, riskScore) };
                 if (riskScore >= _subRegionGate)
                 {
                     foreach (WindowRect region in SubRegions(crop.Width, crop.Height))
                     {
                         float regionScore = ClassifyRegion(crop.Width, crop.Height, region);
+                        scoredRegions.Add((region, regionScore));
                         riskScore = Math.Max(riskScore, regionScore);
 #if PARENTALGUARD_DEVELOPER_MODE
                         debugRegions.Add(new DebugRegionScore
@@ -180,6 +203,7 @@ public sealed class FrameClassificationPipeline
                 if (_detectContentRegion && ContentRegionDetector.Detect(_pixelBuffer, crop.Width, crop.Height, hasPreviousHash ? previousHash : [], newHash) is { } content)
                 {
                     float contentScore = ClassifyRegion(crop.Width, crop.Height, content);
+                    scoredRegions.Add((content, contentScore));
                     riskScore = Math.Max(riskScore, contentScore);
 #if PARENTALGUARD_DEVELOPER_MODE
                     debugRegions.Add(new DebugRegionScore
@@ -189,6 +213,12 @@ public sealed class FrameClassificationPipeline
                         IsContentRegion = true,
                     });
 #endif
+                }
+
+                // IMG-016c: Marqo báo vi phạm → NudeNet xác minh trên chính vùng đó; buffer pixel vẫn còn nguyên ở đây.
+                if (riskScore >= riskThreshold && !ConfirmBodyParts(crop.Width, crop.Height, scoredRegions, riskThreshold))
+                {
+                    riskScore = riskThreshold * RejectedScoreFactor;
                 }
 
                 _hashCache.UpdateRiskScore(hwnd, riskScore);
@@ -235,6 +265,38 @@ public sealed class FrameClassificationPipeline
             _inputTensor.Buffer.Span.Clear();
             _auditor.OnZeroed("input_tensor", _inputTensor.Buffer.Length * sizeof(float));
         }
+    }
+
+    /// <summary>
+    /// `IMG-016c`: <c>true</c> nếu NudeNet tìm thấy bộ phận nhạy cảm lộ rõ trong 1 trong các vùng (điểm cao nhất trước) đã vượt
+    /// ngưỡng chặn, hoặc không có detector. Kết quả lưu vào <see cref="WindowHashCache"/> cùng điểm — khung không đổi không chạy lại.
+    /// </summary>
+    private bool ConfirmBodyParts(int width, int height, List<(WindowRect Region, float Score)> scoredRegions, float riskThreshold)
+    {
+        if (_detector is null || _detectorTensor is null)
+        {
+            return true;
+        }
+
+        foreach ((WindowRect region, _) in scoredRegions.Where(r => r.Score >= riskThreshold).OrderByDescending(r => r.Score).Take(MaxVerifiedRegions))
+        {
+            try
+            {
+                FrameResizerNormalizer.ResizeLetterbox(_pixelBuffer, width, height, region, _detectorTensor);
+                if (_detector.MaxExposedConfidence(_detectorTensor) >= ExposedConfidenceThreshold)
+                {
+                    return true;
+                }
+            }
+            finally
+            {
+                // IMG-003: zero tensor đầu vào detector sau MỖI lần chạy, như tensor của classifier.
+                _detectorTensor.Buffer.Span.Clear();
+                _auditor.OnZeroed("detector_input_tensor", _detectorTensor.Buffer.Length * sizeof(float));
+            }
+        }
+
+        return false;
     }
 
     /// <summary>`IMG-016`: 4 vùng góc chồng lấn (60%×60%) + 1 vùng giữa — đúng bộ vùng đã đánh giá trên máy chủ dự án 2026-10-06.</summary>

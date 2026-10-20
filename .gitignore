@@ -39,6 +39,8 @@ Thumbs.db
 
 # Mô hình Falconsai ~343MB vượt giới hạn GitHub — tạo lại bằng tools/export_nsfw_models.py
 models/nsfw_falconsai_224.onnx
+# IMG-016c: NudeNet 640m (103.5 MB) vượt giới hạn GitHub — tải bằng tools/download_nudenet_model.ps1
+models/nudenet_640m.onnx
 
 # Cấu hình chạy/debug cục bộ của Visual Studio và log chẩn đoán tạm — không đưa vào repo
 **/Properties/launchSettings.json

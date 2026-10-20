@@ -1,5 +1,5 @@
 ﻿# Build bản cài đặt phát hành: publish 7 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
-# publish\release\ParentalGuard, chép CHỈ model Marqo, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
+# publish\release\ParentalGuard, chép model Marqo + NudeNet, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
 # Dùng:  powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-Version 0.9.0]
 param(
     [string]$Version = "0.9.0",
@@ -23,9 +23,11 @@ foreach ($proj in "ParentalGuard.Service", "ParentalGuard.Overlay", "ParentalGua
     if ($LASTEXITCODE -ne 0) { throw "Publish $proj thất bại." }
 }
 
-# Bản phát hành chỉ dùng model Marqo (IMG-014a) — không kèm GantMan/Falconsai.
+# Bản phát hành dùng Marqo (IMG-014a) + NudeNet 640m xác minh (IMG-016c) — không kèm GantMan/Falconsai.
+& (Join-Path $root "tools\download_nudenet_model.ps1")
 New-Item -ItemType Directory -Force (Join-Path $out "models") | Out-Null
 Copy-Item (Join-Path $root "models\nsfw_marqo_384.onnx") (Join-Path $out "models") -Force
+Copy-Item (Join-Path $root "models\nudenet_640m.onnx") (Join-Path $out "models") -Force
 
 # Biên dịch ra thư mục tạm rồi chuyển về dist\: Windows Defender quét file .exe mới trong dist\ làm ISCC lỗi
 # "EndUpdateResource failed (110)" (gặp 2026-10-09) — không tắt/không thêm ngoại lệ cho Defender.
