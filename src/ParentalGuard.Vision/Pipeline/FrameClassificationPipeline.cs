@@ -39,8 +39,8 @@ public sealed class FrameClassificationPipeline
     private readonly IBodyPartDetector? _detector;
     private readonly DenseTensor<float>? _detectorTensor;
 
-    /// <summary>`IMG-016c`: NudeNet tìm thấy bộ phận nhạy cảm lộ rõ từ độ tin cậy này — đúng mức thấp nhất NudeNet tự báo 1 phát hiện (NMS 0.25).</summary>
-    public const float ExposedConfidenceThreshold = NudeNetDetector.MinReportedConfidence;
+    /// <summary>`IMG-016d`: NudeNet tìm thấy bộ phận cơ thể (bất kỳ nhãn nào) từ độ tin cậy này — đúng mức thấp nhất NudeNet tự báo 1 phát hiện (NMS 0.25).</summary>
+    public const float BodyPartConfidenceThreshold = NudeNetDetector.MinReportedConfidence;
 
     /// <summary>`IMG-016c`: số vùng vượt ngưỡng tối đa được xác minh mỗi khung (mỗi lần ~170 ms DirectML, ~0.9 s CPU).</summary>
     public const int MaxVerifiedRegions = 2;
@@ -275,8 +275,8 @@ public sealed class FrameClassificationPipeline
     }
 
     /// <summary>
-    /// `IMG-016c`: <c>true</c> nếu NudeNet tìm thấy bộ phận nhạy cảm lộ rõ trong 1 trong các vùng (điểm cao nhất trước) đã vượt
-    /// ngưỡng chặn, hoặc không có detector. Kết quả lưu vào <see cref="WindowHashCache"/> cùng điểm — khung không đổi không chạy lại.
+    /// `IMG-016c`/`IMG-016d`: <c>true</c> nếu NudeNet tìm thấy bộ phận cơ thể người (bất kỳ nhãn nào trong 18 nhãn, không cần nhãn
+    /// "lộ rõ") trong 1 trong các vùng (điểm cao nhất trước) đã vượt ngưỡng chặn, hoặc không có detector. Kết quả lưu vào <see cref="WindowHashCache"/> cùng điểm — khung không đổi không chạy lại.
     /// </summary>
     /// <param name="detections">`DEV-051a`: vật thể nhận ra ở mọi vùng đã chạy, toạ độ tương đối góc trên-trái cửa sổ.</param>
     private bool ConfirmBodyParts(int width, int height, List<(WindowRect Region, float Score)> scoredRegions, float riskThreshold, List<DebugDetection> detections)
@@ -293,7 +293,7 @@ public sealed class FrameClassificationPipeline
                 FrameResizerNormalizer.ResizeLetterbox(_pixelBuffer, width, height, region, _detectorTensor);
                 BodyPartDetectionResult found = _detector.Detect(_detectorTensor);
                 detections.AddRange(found.Detections.Select(d => ToWindowDetection(d, region, _detector.InputSize)));
-                if (found.MaxExposedConfidence >= ExposedConfidenceThreshold)
+                if (found.Detections.Any(d => d.Confidence >= BodyPartConfidenceThreshold))
                 {
                     return true;
                 }

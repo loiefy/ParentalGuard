@@ -66,7 +66,8 @@ public class BodyPartVerificationTests
         }
     }
 
-    private sealed class FakeDetector(float confidence) : IBodyPartDetector
+    /// <summary>Như <see cref="NudeNetDetector.Decode"/>: chỉ trả vật thể từ mức <see cref="NudeNetDetector.MinReportedConfidence"/>.</summary>
+    private sealed class FakeDetector(float confidence, string label = "FEMALE_BREAST_EXPOSED") : IBodyPartDetector
     {
         public int Calls { get; private set; }
 
@@ -78,7 +79,10 @@ public class BodyPartVerificationTests
         {
             Calls++;
             SawNonZeroInput |= input.Buffer.Span.IndexOfAnyExcept(0f) >= 0;
-            return new BodyPartDetectionResult(confidence, [new BodyPartDetection("FEMALE_BREAST_EXPOSED", true, confidence, 8, 4, 16, 8)]);
+            bool exposed = NudeNetDetector.ExposedLabels.Contains(label);
+            return new BodyPartDetectionResult(
+                exposed ? confidence : 0f,
+                confidence >= NudeNetDetector.MinReportedConfidence ? [new BodyPartDetection(label, exposed, confidence, 8, 4, 16, 8)] : []);
         }
 
         public void Dispose()
@@ -127,11 +131,25 @@ public class BodyPartVerificationTests
     [Fact]
     public void ConfidenceJustBelowThreshold_IsNotAConfirmation()
     {
-        var detector = new FakeDetector(FrameClassificationPipeline.ExposedConfidenceThreshold - 0.01f);
+        var detector = new FakeDetector(FrameClassificationPipeline.BodyPartConfidenceThreshold - 0.01f);
 
         float score = Run(new FrameClassificationPipeline(new FixedClassifier(0.94f), detectContentRegion: false, detector: detector));
 
         Assert.True(score < 0.7f);
+    }
+
+    /// <summary>IMG-016d: chỉ cần 1 bộ phận cơ thể người bất kỳ (mặt, bàn chân, ngực có áo…) — không cần nhãn "lộ rõ".</summary>
+    [Theory]
+    [InlineData("FACE_FEMALE")]
+    [InlineData("FEET_COVERED")]
+    [InlineData("FEMALE_BREAST_COVERED")]
+    public void MarqoFlags_AnyBodyPartFound_ScoreKept(string label)
+    {
+        var detector = new FakeDetector(0.6f, label);
+
+        float score = Run(new FrameClassificationPipeline(new FixedClassifier(0.94f), detectContentRegion: false, detector: detector));
+
+        Assert.Equal(0.94f, score, 5);
     }
 
     [Fact]

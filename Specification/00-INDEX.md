@@ -2,7 +2,7 @@
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
 > **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.24.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.21.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.11.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.6.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Trạng thái spec**: `APPROVED v0.25.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.21.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.12.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.6.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-15
 
 ---
@@ -75,6 +75,7 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
+| v0.25.0 | 2026-10-21 | **MINOR**: `09` v0.12.0 — `IMG-016d` Marqo ≥ ngưỡng + NudeNet thấy bất kỳ bộ phận cơ thể người nào → vi phạm (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.11.0__2026-10-21.md`, `Outdated/00-INDEX__v0.24.0__2026-10-21.md` |
 | v0.24.0 | 2026-10-20 | **MINOR**: `02` v0.21.0 — `BE-071d` bỏ qua cửa sổ rộng/cao ≤ 100 px; `12` v0.6.0 — `DEV-051a` chế độ developer hiện nhãn vật thể NudeNet + khoanh nét đứt vật thể vi phạm (chủ dự án yêu cầu). Archive: `Outdated/02-backend-spec__v0.20.0__2026-10-20.md`, `Outdated/12-dev-process-standards__v0.5.0__2026-10-20.md`, `Outdated/00-INDEX__v0.23.0__2026-10-20.md` |
 | v0.23.0 | 2026-10-20 | **MINOR**: `09` v0.11.0 — `IMG-016c` NudeNet 640m xác minh bộ phận cơ thể trên vùng Marqo báo vi phạm, sửa trang Teams vẫn bị che nhầm (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.10.0__2026-10-20.md`, `Outdated/00-INDEX__v0.22.0__2026-10-20.md` |
 | v0.22.0 | 2026-10-15 | **MINOR**: `09` v0.10.0 — `IMG-016b` lọc màu da cho điểm sát ngưỡng, sửa che nhầm trang Teams (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.9.0__2026-10-15.md`, `Outdated/00-INDEX__v0.21.0__2026-10-15.md` |
