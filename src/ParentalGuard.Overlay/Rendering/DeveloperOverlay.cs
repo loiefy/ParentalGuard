@@ -48,6 +48,7 @@ internal sealed class DeveloperOverlay : IDisposable
         {
             // DEV-051a: nội dung đổi → thay bằng kết quả NudeNet của khung này (không chạy = xoá); không đổi → giữ nguyên.
             frame.DetectorRan = score.DetectorRan;
+            frame.MarqoScore = score.MarqoScore; // DEV-051b
             frame.Detections = [.. score.Detections.Select(d => (new Rectangle(d.Rect.X, d.Rect.Y, d.Rect.Width, d.Rect.Height), d.Label, d.Confidence, d.IsExposed))];
         }
 
@@ -178,6 +179,10 @@ internal sealed class DeveloperOverlay : IDisposable
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public IReadOnlyList<(Rectangle Rect, float Score, bool IsContentRegion)> Regions { get; set; } = [];
 
+        /// <summary>DEV-051b: điểm Marqo gốc (trước lọc màu da + NudeNet) của nội dung đang hiển thị.</summary>
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        public float MarqoScore { get; set; }
+
         /// <summary>DEV-051a: NudeNet đã chạy cho nội dung đang hiển thị.</summary>
         [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
         public bool DetectorRan { get; set; }
@@ -242,7 +247,12 @@ internal sealed class DeveloperOverlay : IDisposable
             base.WndProc(ref m);
         }
 
-        private int CircleDiameter => Math.Max(36, (int)Math.Round(44 * DeviceDpi / 96.0));
+        /// <summary>DEV-051b: từ mức này ô tròn hiện thêm điểm Marqo gốc (cùng ngưỡng chặn mặc định `BE-090`).</summary>
+        private const float ShowMarqoScoreFrom = 0.7f;
+
+        private bool ShowsTwoScores => MarqoScore >= ShowMarqoScoreFrom;
+
+        private int CircleDiameter => Math.Max(36, (int)Math.Round((ShowsTwoScores ? 58 : 44) * DeviceDpi / 96.0));
 
         private Rectangle CircleBounds()
         {
@@ -288,9 +298,21 @@ internal sealed class DeveloperOverlay : IDisposable
                 g.FillEllipse(fill, circle);
             }
 
-            string text = $"{Math.Round(Math.Clamp(RiskScore, 0f, 1f) * 100):0}%";
             using var font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            TextRenderer.DrawText(g, text, font, circle, Color.White, _frameColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            const TextFormatFlags centered = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding;
+            if (ShowsTwoScores)
+            {
+                // DEV-051b: dòng trên = điểm Marqo gốc, dòng dưới = điểm cuối sau lọc màu da + NudeNet.
+                using var marqoFont = new Font("Segoe UI", 7.5f, FontStyle.Regular);
+                var top = new Rectangle(circle.X, circle.Y + (circle.Height / 6), circle.Width, circle.Height / 3);
+                var bottom = new Rectangle(circle.X, circle.Y + (circle.Height / 2), circle.Width, circle.Height / 3);
+                TextRenderer.DrawText(g, $"M {Percent(MarqoScore)}", marqoFont, top, Color.White, _frameColor, centered);
+                TextRenderer.DrawText(g, Percent(RiskScore), font, bottom, Color.White, _frameColor, centered);
+            }
+            else
+            {
+                TextRenderer.DrawText(g, Percent(RiskScore), font, circle, Color.White, _frameColor, centered);
+            }
 
             if (DetectorRan)
             {

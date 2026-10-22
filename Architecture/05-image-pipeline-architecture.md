@@ -1,6 +1,6 @@
 # 05 — Image Processing Pipeline Architecture
 
-> Version: v0.9.0 | Trạng thái: Approved | Cập nhật: 2026-10-21
+> Version: v0.9.1 | Trạng thái: Approved | Cập nhật: 2026-10-22
 
 ## 1. Mục đích và phạm vi
 
@@ -490,6 +490,7 @@ Không thiết kế công cụ benchmark ở đây (thuộc Đợt 9/vận hành
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.9.1 | 2026-10-22 | PATCH — `DEV-051b` (Spec 12 v0.7.0): `ClassifyRegion` ghi `_rawMarqoMax` (điểm Marqo trước `SkinToneGate`); bản developer gửi `VisionInferenceResult.debug_marqo_score` (field 22) → `DebugWindowScore.marqo_score` (field 8); `DeveloperOverlay` hiện 2 số trong ô tròn khi điểm gốc ≥ 0.7 |
 | v0.9.0 | 2026-10-21 | MINOR — `IMG-016d` (Spec 09 v0.12.0): NudeNet xác nhận vi phạm khi thấy bất kỳ bộ phận cơ thể nào (18 nhãn), không chỉ 5 nhãn "lộ rõ" (mục 4.3) |
 | v0.8.0 | 2026-10-20 | MINOR — `BE-071d` (Spec 02 v0.21.0): `CandidateWindowChecks.IsLargeEnoughToAnalyze` — cửa sổ rộng hoặc cao ≤ 100 px (pixel vật lý, `WindowRectResolver.Resolve`) có `IsMonitorable = false` trong `CaptureLoopWorker.SnapshotWindowsInZOrder`, nên không chiếm suất quét nhưng vẫn là vật che. `DEV-051a` (Spec 12 v0.6.0): nhãn + khung vật thể NudeNet lên khung developer (mục 4.3) |
 | v0.7.0 | 2026-10-20 | MINOR — `IMG-016c` (Spec 09 v0.11.0): `NudeNetDetector` (NudeNet 640m) xác minh bộ phận cơ thể nhạy cảm lộ rõ trên vùng Marqo báo vi phạm (mục 4.3), resize letterbox, 2 dòng mới ở bảng zero-out (mục 6). Đo trang Teams: 600 cửa sổ cắt, chỉ Marqo che nhầm 60, Marqo + NudeNet che nhầm 0 |

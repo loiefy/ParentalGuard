@@ -37,6 +37,9 @@ public sealed class FrameClassificationPipeline
 
     // IMG-016c: null = không có model NudeNet (file thiếu) — giữ kết quả của Marqo, tức chặn nhiều hơn chứ không ít hơn.
     private readonly IBodyPartDetector? _detector;
+
+    // DEV-051b: điểm Marqo cao nhất của khung đang chấm, trước lọc màu da và NudeNet — chỉ để hiển thị ở chế độ developer.
+    private float _rawMarqoMax;
     private readonly DenseTensor<float>? _detectorTensor;
 
     /// <summary>`IMG-016d`: NudeNet tìm thấy bộ phận cơ thể (bất kỳ nhãn nào) từ độ tin cậy này — đúng mức thấp nhất NudeNet tự báo 1 phát hiện (NMS 0.25).</summary>
@@ -182,6 +185,7 @@ public sealed class FrameClassificationPipeline
             {
                 // IMG-016: max(cả cửa sổ, 5 vùng con) — phải chạy TRƯỚC khi zero buffer pixel bên dưới.
                 var whole = new WindowRect(0, 0, crop.Width, crop.Height);
+                _rawMarqoMax = 0f;
                 riskScore = ClassifyRegion(crop.Width, crop.Height, whole);
                 var scoredRegions = new List<(WindowRect Region, float Score)>(7) { (whole, riskScore) };
                 if (riskScore >= _subRegionGate)
@@ -251,6 +255,7 @@ public sealed class FrameClassificationPipeline
 #if PARENTALGUARD_DEVELOPER_MODE
         result.DebugDetections.AddRange(detections);
         result.DebugDetectorRan = detectorRan;
+        result.DebugMarqoScore = contentChanged ? _rawMarqoMax : 0f; // khung không đổi: Overlay giữ số cũ
 #endif
         return result;
     }
@@ -262,6 +267,7 @@ public sealed class FrameClassificationPipeline
         {
             FrameResizerNormalizer.Resize(_pixelBuffer, width, height, region, _inputTensor, _classifier.InputLayout);
             float score = RiskScoreAggregator.Aggregate(_classifier.Classify(_inputTensor));
+            _rawMarqoMax = Math.Max(_rawMarqoMax, score); // DEV-051b: điểm gốc, trước IMG-016b/016c
 
             // IMG-016b: chạy khi buffer pixel còn nguyên (trước khi zero ở finally của Process).
             return SkinToneGate.Apply(score, _pixelBuffer, width, region);

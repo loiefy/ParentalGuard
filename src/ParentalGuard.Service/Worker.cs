@@ -201,6 +201,7 @@ public sealed class Worker(
                     RiskScore = debugResult.RiskScore,
                     ContentChanged = debugResult.ContentChanged,
                     DetectorRan = debugResult.DebugDetectorRan, // DEV-051a
+                    MarqoScore = debugResult.DebugMarqoScore, // DEV-051b
                 };
                 debug.Regions.AddRange(debugResult.DebugRegions);
                 debug.Detections.AddRange(debugResult.DebugDetections);

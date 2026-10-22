@@ -205,6 +205,7 @@ message VisionInferenceResult {
   // 2026-10-20 (DEV-051a, IMG-016c) — CHỈ điền ở bản build chế độ developer: vật thể NudeNet nhận ra ở khung này.
   repeated DebugDetection debug_detections = 20;
   bool debug_detector_ran = 21; // true = NudeNet đã chạy ở khung này (detections rỗng = không nhận ra gì)
+  float debug_marqo_score = 22; // DEV-051b: điểm Marqo gốc cao nhất (trước IMG-016b/016c) — chỉ ý nghĩa khi content_changed
 }
 
 message OverlayRectListCommand {
@@ -743,6 +744,7 @@ message DebugWindowScore {
   bool content_changed = 5; // false = điểm tái dùng (nội dung không đổi) — Overlay giữ nguyên vùng con đã vẽ
   repeated DebugDetection detections = 6; // DEV-051a: vật thể NudeNet nhận ra (chỉ ý nghĩa khi detector_ran)
   bool detector_ran = 7;
+  float marqo_score = 8; // DEV-051b: điểm Marqo gốc — ô tròn hiện thêm số này khi ≥ 70% (chỉ ý nghĩa khi content_changed)
 }
 
 // DEV-051 (2026-10-06): 1 vùng con của cửa sổ và điểm của nó — rect tính theo toạ độ TƯƠNG ĐỐI góc trên-trái cửa sổ.

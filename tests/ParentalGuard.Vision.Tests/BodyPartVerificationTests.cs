@@ -138,6 +138,18 @@ public class BodyPartVerificationTests
         Assert.True(score < 0.7f);
     }
 
+    /// <summary>DEV-051b: kết quả mang điểm Marqo gốc (0.94) bên cạnh điểm cuối đã bị NudeNet hạ (0.49) — chỉ ở bản developer.</summary>
+    [Fact]
+    public void DeveloperMode_ResultCarriesRawMarqoScore_BesideFinalScore()
+    {
+        VisionInferenceResult result = new FrameClassificationPipeline(new FixedClassifier(0.94f), detectContentRegion: false, detector: new FakeDetector(0f))
+            .ProcessFrame(new NoOpFrameCapture(), new GrayCropper(), new WindowRect(0, 0, W, H), new FakeFrame(), hwnd: 1, outputIndex: 0, frameId: 1, capturedAtUnixMs: 1, riskThreshold: 0.7f)!;
+
+        Assert.True(result.RiskScore < 0.7f);
+        // tests/ không dùng src/Directory.Build.props — chấp nhận cả 2 cấu hình build của Vision: 0 (production) hoặc điểm gốc (developer).
+        Assert.True(result.DebugMarqoScore is 0f || Math.Abs(result.DebugMarqoScore - 0.94f) < 1e-5f, $"marqo={result.DebugMarqoScore}");
+    }
+
     /// <summary>IMG-016d: chỉ cần 1 bộ phận cơ thể người bất kỳ (mặt, bàn chân, ngực có áo…) — không cần nhãn "lộ rõ".</summary>
     [Theory]
     [InlineData("FACE_FEMALE")]
