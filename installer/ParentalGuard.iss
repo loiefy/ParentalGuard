@@ -1,9 +1,9 @@
 ﻿; ParentalGuard — trình cài đặt (Inno Setup 6). Thiết kế: Architecture/11-deployment-release-architecture.md.
-; Build:  ISCC.exe /DAppVersion=0.9.0 installer\ParentalGuard.iss
+; Build:  ISCC.exe /DAppVersion=1.0.0 installer\ParentalGuard.iss
 ; Đầu vào: publish\release\ParentalGuard (bản phát hành ParentalGuardDeveloperMode=false, model Marqo + NudeNet 640m) — xem docs/BUILD-FLAGS.md.
 
 #ifndef AppVersion
-  #define AppVersion "0.9.0"
+  #define AppVersion "1.0.0"
 #endif
 #define SourceDir "..\publish\release\ParentalGuard"
 

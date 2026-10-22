@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.2.0 | Trạng thái: Draft | Cập nhật: 2026-10-15
+> Version: v0.2.1 | Trạng thái: Draft | Cập nhật: 2026-10-23
 
 ## 1. Mục đích
 
@@ -27,7 +27,7 @@ Hành vi `installer\ParentalGuard.iss`:
 |---|---|
 | Quyền | `PrivilegesRequired=admin`, chỉ Windows 10 1809+ x64 |
 | Thư mục | Cố định `%ProgramFiles%\ParentalGuard` (`DisableDirPage`) — Service/Watchdog/Uninstaller dùng đường dẫn này (`InstallPaths`/`UninstallerPaths`) |
-| Cài đè | `stop-services.ps1` (trước khi chép): chuyển `ParentalGuardWatchdog` + `ParentalGuardService` sang Disabled TRƯỚC rồi mới dừng (2 bên canh chừng lẫn nhau, dừng 1 bên thì bên kia bật lại), kill UI/Tray/Vision/Overlay còn giữ file |
+| Cài đè | `stop-services.ps1` (trước khi chép, v0.2.1): bỏ Recovery Options của cả 2 service (`sc failure … actions= ""`) → giết `ParentalGuard.Service.exe` + `ParentalGuard.Watchdog.exe` trong **cùng 1** lệnh `taskkill /F` → chuyển cả 2 sang Disabled khi không còn bên nào canh (Service đang chạy tự đặt lại Start=Auto — `RegistryStartValueWatcher`; 2 bên khởi động lại lẫn nhau) → kill UI/Tray/Vision/Overlay còn giữ file; lặp tối đa 5 lần tới khi không còn tiến trình. `setup-services.ps1` bật lại; Service tự đặt lại Recovery Options khi khởi động |
 | Chép file | Toàn bộ `publish\release\ParentalGuard` |
 | Service | `setup-services.ps1` (sau khi chép): tạo service bằng `New-Service` (gọi thẳng CreateService) nếu chưa có, rồi LUÔN ghi `ImagePath` **trong ngoặc kép** vào registry (tránh lỗ hổng unquoted service path; v0.1.1: truyền chuỗi có ngoặc kép cho `sc.exe` từ PowerShell 5.1 bị mất ngoặc kép — bản Setup đầu tiên dính lỗi này), `start= auto`, LocalSystem, khởi động cả 2; lỗi → thông báo khởi động lại máy |
 | Gỡ cài đặt | `HKLM\…\Uninstall\ParentalGuard`: `UninstallString` = `ParentalGuard.Uninstaller.exe` (bắt mật khẩu `ANTI`), `NoModify`/`NoRepair`; Uninstaller xoá khoá này ở bước dọn dẹp |
@@ -50,6 +50,7 @@ Hành vi `installer\ParentalGuard.iss`:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.2.1 | 2026-10-23 | PATCH — bug cài đè lên bản đang chạy (gặp 2026-10-20 khi cài bản debug): "Disabled rồi `sc stop`" không dừng được vì Service tự khôi phục Start=Auto và 2 service khởi động lại lẫn nhau — `stop-services.ps1` đổi sang trình tự bỏ Recovery Options → `taskkill` cả 2 cùng lúc → Disabled (đã kiểm chứng 4 lần trên máy thật). Phiên bản phát hành 1.0.0 |
 | v0.2.0 | 2026-10-15 | MINOR — thêm executable thứ 7 `ParentalGuard.Tray` (icon khay, `FE-023a`): publish, khoá `Run`, chạy sau khi cài, dừng khi cài đè |
 | v0.1.3 | 2026-10-12 | PATCH — cài lại ngay sau khi gỡ (không cần khởi động lại máy): `stop-services.ps1` huỷ các lệnh "xoá khi khởi động lại" (PendingFileRenameOperations) trỏ vào thư mục cài đặt do trình gỡ bản cũ để lại; `setup-services.ps1` chờ tối đa 60 giây nếu dịch vụ cũ đang "chờ xoá" (DeleteFlag). Trình gỡ (Architecture/09 mục 5.5 bước 13) nay xoá toàn bộ thư mục bằng tiến trình cmd tách rời sau khi tự thoát thay cho hẹn xoá lúc khởi động lại |
 | v0.1.2 | 2026-10-12 | PATCH — trình cài đặt thêm tiếng Trung giản thể |

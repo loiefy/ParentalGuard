@@ -30,10 +30,10 @@ foreach ($proj in "ParentalGuard.Service","ParentalGuard.Overlay","ParentalGuard
 Một lệnh (cần Inno Setup 6: `winget install JRSoftware.InnoSetup --scope user`):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installeruild-installer.ps1 -Version 0.9.0
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 1.0.0
 ```
 
-Script publish đủ 6 executable với `ParentalGuardDeveloperMode=false` (Vision cuối cùng) vào `publishelease\ParentalGuard`,
+Script publish đủ 7 executable với `ParentalGuardDeveloperMode=false` (Vision cuối cùng) vào `publish\release\ParentalGuard`,
 chép model Marqo + NudeNet 640m, biên dịch `installer\ParentalGuard.iss`, ghi `dist\ParentalGuard-Setup-<version>-win-x64.exe` +
 `dist\SHA256SUMS`. Thiết kế: `Architecture/11-deployment-release-architecture.md`.
 

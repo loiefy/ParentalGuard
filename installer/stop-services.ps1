@@ -7,24 +7,32 @@ param([string]$AppDir = (Join-Path $env:ProgramFiles "ParentalGuard"))
 
 $ErrorActionPreference = "Continue"
 $names = "ParentalGuardWatchdog", "ParentalGuardService"
+$processes = "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Vision", "ParentalGuard.Overlay", "ParentalGuard.Service", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller"
 
-foreach ($name in $names) {
-    if (Get-Service -Name $name -ErrorAction SilentlyContinue) {
-        & sc.exe config $name start= disabled | Out-Null
+# Bug 2026-10-20 (cài đè lên bản đang chạy): "chuyển Disabled rồi sc stop lần lượt" KHÔNG dừng được — Service đang chạy tự đặt lại
+# Start=Auto ngay khi bị đổi (ANTI, RegistryStartValueWatcher), dừng bên nào thì bên kia khởi động lại, và tiến trình bị giết thì
+# Windows tự khởi động lại theo Recovery Options. Trình tự đã kiểm chứng trên máy thật: bỏ Recovery Options → giết CẢ 2 tiến trình
+# trong CÙNG 1 lệnh → chuyển Disabled khi không còn bên nào canh. setup-services.ps1 bật lại; Service tự đặt lại Recovery Options
+# mỗi lần khởi động (ScFailureConfigurator).
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+    foreach ($name in $names) {
+        if (Get-Service -Name $name -ErrorAction SilentlyContinue) {
+            & sc.exe failure $name reset= 0 actions= '""' | Out-Null
+        }
     }
-}
 
-foreach ($name in $names) {
-    $svc = Get-Service -Name $name -ErrorAction SilentlyContinue
-    if ($svc -and $svc.Status -ne "Stopped") {
-        & sc.exe stop $name | Out-Null
-        try { $svc.WaitForStatus("Stopped", [TimeSpan]::FromSeconds(30)) } catch { }
+    & taskkill.exe /F /IM ParentalGuard.Service.exe /IM ParentalGuard.Watchdog.exe 2>&1 | Out-Null
+    foreach ($name in $names) {
+        if (Get-Service -Name $name -ErrorAction SilentlyContinue) {
+            & sc.exe config $name start= disabled | Out-Null
+        }
     }
-}
 
-# Tiến trình con (Vision/Overlay chạy trong phiên người dùng), Dashboard và icon khay có thể còn giữ file.
-Get-Process -Name "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Vision", "ParentalGuard.Overlay", "ParentalGuard.Service", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller" -ErrorAction SilentlyContinue |
-    Stop-Process -Force -ErrorAction SilentlyContinue
+    # Tiến trình con (Vision/Overlay chạy trong phiên người dùng), Dashboard và icon khay có thể còn giữ file.
+    Get-Process -Name $processes -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    if (-not (Get-Process -Name $processes -ErrorAction SilentlyContinue)) { break }
+}
 
 # PendingFileRenameOperations: REG_MULTI_SZ theo CẶP (nguồn, đích). Bỏ các cặp có nguồn nằm trong thư mục cài đặt; giữ nguyên mọi cặp khác.
 $smKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
