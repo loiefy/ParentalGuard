@@ -1,11 +1,22 @@
 ﻿; ParentalGuard — trình cài đặt (Inno Setup 6). Thiết kế: Architecture/11-deployment-release-architecture.md.
-; Build:  ISCC.exe /DAppVersion=1.0.0 installer\ParentalGuard.iss
-; Đầu vào: publish\release\ParentalGuard (bản phát hành ParentalGuardDeveloperMode=false, model Marqo + NudeNet 640m) — xem docs/BUILD-FLAGS.md.
+; Build:  ISCC.exe /DAppVersion=1.0.0 /DAppArch=x64 installer\ParentalGuard.iss   (AppArch: x64 | x86 — GEN-001a)
+; Đầu vào: publish\release\<AppArch>\ParentalGuard (bản phát hành ParentalGuardDeveloperMode=false, model Marqo + NudeNet 640m) — xem docs/BUILD-FLAGS.md.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0"
 #endif
-#define SourceDir "..\publish\release\ParentalGuard"
+#ifndef AppArch
+  #define AppArch "x64"
+#endif
+#define SourceDir "..\publish\release\" + AppArch + "\ParentalGuard"
+; GEN-001a: bản x86 chỉ cài trên Windows 32-bit (máy 64-bit dùng bản x64) — không có registry 64-bit/{autopf64} trên Windows 32-bit.
+#if AppArch == "x86"
+  #define RegRoot "HKLM"
+  #define ProgramFilesDir "{autopf}"
+#else
+  #define RegRoot "HKLM64"
+  #define ProgramFilesDir "{autopf64}"
+#endif
 
 [Setup]
 AppId={{6F7C2B1E-4D3A-4F8B-9C21-5A0E7D3B9F42}
@@ -17,19 +28,23 @@ AppPublisherURL=https://github.com/loiefy/ParentalGuard
 AppSupportURL=https://github.com/loiefy/ParentalGuard/issues
 VersionInfoVersion={#AppVersion}
 ; Đường dẫn cố định: Service/Watchdog/Uninstaller dùng đúng %ProgramFiles%\ParentalGuard (InstallPaths/UninstallerPaths).
-DefaultDirName={autopf64}\ParentalGuard
+DefaultDirName={#ProgramFilesDir}\ParentalGuard
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=admin
+#if AppArch == "x86"
+ArchitecturesAllowed=x86os
+#else
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#endif
 MinVersion=10.0.17763
 ; ANTI (chống gỡ trái phép): KHÔNG dùng trình gỡ của Inno (gỡ được mà không cần mật khẩu). Mục gỡ cài đặt trong Settings/
 ; Control Panel trỏ tới ParentalGuard.Uninstaller.exe (bắt mật khẩu phụ huynh) — xem [Registry]; Uninstaller tự xoá mục này.
 Uninstallable=no
 CloseApplications=no
 OutputDir=..\dist
-OutputBaseFilename=ParentalGuard-Setup-{#AppVersion}-win-x64
+OutputBaseFilename=ParentalGuard-Setup-{#AppVersion}-win-{#AppArch}
 SetupIconFile=..\src\ParentalGuard.UI\Assets\ParentalGuard.ico
 WizardStyle=modern
 ; lzma2/ultra64 làm ISCC (32-bit) hết bộ nhớ với ~310 MB đầu vào — dùng mức max, nén trong tiến trình riêng.
@@ -85,16 +100,16 @@ Name: "{autodesktop}\ParentalGuard"; Filename: "{app}\ParentalGuard.UI.exe"; Tas
 
 [Registry]
 ; FE-023a: icon khay (click mở Dashboard) tự chạy mỗi lần đăng nhập, mọi tài khoản. Uninstaller xoá giá trị này.
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ParentalGuardTray"; ValueData: """{app}\ParentalGuard.Tray.exe"""
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayName"; ValueData: "ParentalGuard"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "Publisher"; ValueData: "ParentalGuard (open-source community project)"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\ParentalGuard.UI.exe"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "UninstallString"; ValueData: """{app}\ParentalGuard.Uninstaller.exe"""
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "URLInfoAbout"; ValueData: "https://github.com/loiefy/ParentalGuard"
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: dword; ValueName: "NoModify"; ValueData: 1
-Root: HKLM64; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: dword; ValueName: "NoRepair"; ValueData: 1
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ParentalGuardTray"; ValueData: """{app}\ParentalGuard.Tray.exe"""
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayName"; ValueData: "ParentalGuard"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayVersion"; ValueData: "{#AppVersion}"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "Publisher"; ValueData: "ParentalGuard (open-source community project)"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "DisplayIcon"; ValueData: "{app}\ParentalGuard.UI.exe"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "InstallLocation"; ValueData: "{app}"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "UninstallString"; ValueData: """{app}\ParentalGuard.Uninstaller.exe"""
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: string; ValueName: "URLInfoAbout"; ValueData: "https://github.com/loiefy/ParentalGuard"
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: dword; ValueName: "NoModify"; ValueData: 1
+Root: {#RegRoot}; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ParentalGuard"; ValueType: dword; ValueName: "NoRepair"; ValueData: 1
 
 [Run]
 ; Icon khay hiện ngay sau khi cài (không phải chờ đăng nhập lại), dưới quyền người dùng gốc.

@@ -12,8 +12,16 @@
     <ProjectReference Include="..\ParentalGuard.Ipc\ParentalGuard.Ipc.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- GEN-001a (2026-10-23): ONNX Runtime ngừng phát hành bản 32-bit từ 1.23.0 — bản x86 (-r win-x86) dùng 1.22.1, bản cuối
+       còn runtimes/win-x86; bản x64 giữ bản mới nhất. Cùng API (InferenceSession, AppendExecutionProvider_DML). -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != 'win-x86'">
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.24.4" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'win-x86'">
+    <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.22.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>

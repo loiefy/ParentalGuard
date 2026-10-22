@@ -1,6 +1,6 @@
 # 01 — Tổng quan & Phạm vi
 
-> Version: v0.4.0 | Trạng thái: Approved | Cập nhật: 2026-10-01
+> Version: v0.5.0 | Trạng thái: Approved | Cập nhật: 2026-10-23
 
 ## 1. Bài toán
 
@@ -27,7 +27,10 @@ Các giải pháp chặn nội dung khiêu dâm truyền thống (DNS blocklist,
 
 ## 4. Phạm vi Phase 1 (In-scope)
 
-- Nền tảng: Windows 10 (21H2+) và Windows 11, kiến trúc x64.
+- Nền tảng: Windows 10 (21H2+) và Windows 11, kiến trúc x64. *(v0.5.0: thêm bản x86 cho Windows 10 32-bit — xem `GEN-001a`.)*
+- `GEN-001a` **(ĐÃ CHỐT v0.5.0, 2026-10-23 — chủ dự án yêu cầu trực tiếp; mở rộng `GEN-001`, không bỏ x64)**: Phát hành **2 bản**: **x64** (Windows 10 21H2+ 64-bit và Windows 11) và **x86** (Windows 10 21H2+ **32-bit** — Windows 11 không có bản 32-bit). Hai bản cùng tính năng và cùng mã nguồn, có 2 file cài đặt riêng; file cài đặt x86 chỉ cài được trên Windows 32-bit (máy 64-bit dùng bản x64). Giới hạn đã chấp nhận của bản x86:
+  - ONNX Runtime đã ngừng phát hành bản 32-bit từ 1.23 — bản x86 dùng **ONNX Runtime DirectML 1.22.1** (bản cuối còn 32-bit), bản x64 giữ bản mới nhất; cùng 2 mô hình (`IMG-014a`, `IMG-016c`), cùng checksum.
+  - Tiến trình 32-bit chỉ có tối đa 2 GB bộ nhớ; Vision cần khoảng 0.8 GB khi nạp cả 2 mô hình. Máy 32-bit thường cấu hình thấp → nhận diện chậm hơn.
 - Giám sát nội dung hiển thị trên **mọi cửa sổ ứng dụng đang hiển thị** (cửa sổ foreground được ưu tiên trước — cập nhật v0.4.0 theo `BE-071a`, trước đây chỉ cửa sổ foreground), không giới hạn theo whitelist loại ứng dụng — bao gồm nhưng không giới hạn ở: trình duyệt web (Chrome, Edge, Firefox), video player (VLC, Windows Media Player, PotPlayer, MPC-HC...), ứng dụng xem ảnh, và các ứng dụng khác hiển thị nội dung trực quan. Chi tiết cách tiếp cận "giám sát theo cửa sổ active" thay vì whitelist theo tên ứng dụng ở `02-backend-spec.md` mục `BE-071`.
 - Phát hiện ảnh tĩnh khiêu dâm bằng AI classifier local.
 - Overlay blur khớp kích thước cửa sổ ứng dụng vi phạm, đồng thời chừa vùng nút đóng cửa sổ để người dùng luôn thoát được thủ công (xem `FE-016`).
@@ -84,6 +87,7 @@ Các giải pháp chặn nội dung khiêu dâm truyền thống (DNS blocklist,
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.5.0 | 2026-10-23 | **MINOR — `GEN-001a` (mới, chủ dự án yêu cầu)**: thêm bản x86 cho Windows 10 32-bit bên cạnh x64; x86 dùng ONNX Runtime DirectML 1.22.1. Archive: `Outdated/01-tong-quan-va-pham-vi__v0.4.0__2026-10-23.md` |
 | v0.4.0 | 2026-10-01 | **MINOR — phạm vi giám sát mở rộng** từ "cửa sổ đang active (foreground)" sang "mọi cửa sổ đang hiển thị" theo `BE-071a` (`02` v0.15.0, chủ dự án chốt sau real-hardware test) |
 | v0.3.1 | 2026-09-17 | Chủ dự án approve toàn bộ requirement trong file này — chuyển trạng thái file từ `Draft` sang `Approved` |
 | v0.3.0 | 2026-09-17 | Thêm `GEN-034` — mở rộng nguyên tắc zero-network từ phạm vi pipeline (`GEN-030`) sang **toàn bộ ứng dụng**, không ngoại lệ auto-update. Đồng bộ với việc `MISC-020` bị REJECTED ở `10-additional-mechanisms-spec.md` |

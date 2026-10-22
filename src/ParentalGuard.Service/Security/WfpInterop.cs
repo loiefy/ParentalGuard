@@ -37,12 +37,16 @@ internal struct FwpmSubLayer0
     public ushort Weight;
 }
 
-/// <summary>Đại diện chung cho union giá trị của WFP (FWP_VALUE0/FWP_CONDITION_VALUE0) — 8 byte, đọc theo <see cref="Type"/>.</summary>
+/// <summary>
+/// Đại diện chung cho union giá trị của WFP (FWP_VALUE0/FWP_CONDITION_VALUE0), đọc theo <see cref="Type"/>. Mọi thành viên của union
+/// là con trỏ hoặc số ≤ 32 bit (UINT64 cũng qua con trỏ) — nên union rộng đúng 1 con trỏ: 8 byte trên x64, 4 byte trên x86
+/// (`GEN-001a`; trước đây khai báo <c>ulong</c> chỉ đúng trên x64).
+/// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal struct FwpValue0
 {
     public uint Type;
-    public ulong UnionValue;
+    public IntPtr UnionValue;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -76,7 +80,7 @@ internal struct FwpmFilter0
     public FwpmAction0 Action;
 
     // union { UINT64 rawContext; GUID providerContextKey; } — căn lề 8 byte trong C (vì UINT64). Khai
-    // báo Guid (căn lề 4) làm lệch 4 byte so với header; 2 ulong giữ đúng offset 152 trên x64.
+    // báo Guid (căn lề 4) làm lệch 4 byte so với header; 2 ulong giữ đúng offset 152 trên x64, 112 trên x86.
     public ulong ProviderContextLow;
     public ulong ProviderContextHigh;
     public IntPtr Reserved; // GUID*

@@ -35,8 +35,15 @@ internal static class WindowInterop
         int x, int y, int nWidth, int nHeight,
         IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    internal static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongW", SetLastError = true)]
+    private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    // GEN-001a (bản x86): user32.dll 32-bit KHÔNG có SetWindowLongPtrW (chỉ là macro trỏ tới SetWindowLongW trong header C).
+    internal static IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong) =>
+        IntPtr.Size == 8 ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong) : new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong.ToInt32()));
 
     [DllImport("user32.dll")]
     internal static extern IntPtr CallWindowProcW(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);

@@ -1,14 +1,17 @@
 ﻿# Build bản cài đặt phát hành: publish 7 executable (ParentalGuardDeveloperMode=false, Vision CUỐI CÙNG) vào
-# publish\release\ParentalGuard, chép model Marqo + NudeNet, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
-# Dùng:  powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-Version 1.0.0]
+# publish\release\<Arch>\ParentalGuard, chép model Marqo + NudeNet, biên dịch installer\ParentalGuard.iss bằng Inno Setup 6, ghi SHA256SUMS.
+# Dùng:  powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 [-Version 1.0.0] [-Arch x64|x86]
+# GEN-001a: 2 bản x64 (Windows 10/11 64-bit) và x86 (Windows 10 32-bit) — chạy script 1 lần cho mỗi bản.
 param(
     [string]$Version = "1.0.0",
+    [ValidateSet("x64", "x86")][string]$Arch = "x64",
     [string]$Iscc = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
 )
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
-$out = Join-Path $root "publish\release\ParentalGuard"
+$rid = "win-$Arch"
+$out = Join-Path $root "publish\release\$Arch\ParentalGuard"
 $flags = @("-p:ParentalGuardDeveloperMode=false", "-p:Version=$Version")
 
 if (-not (Test-Path $Iscc)) { $Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
@@ -17,9 +20,9 @@ if (Test-Path $out) { throw "Thư mục $out đã tồn tại — xoá thủ cô
 
 foreach ($proj in "ParentalGuard.Service", "ParentalGuard.Overlay", "ParentalGuard.UI", "ParentalGuard.Tray", "ParentalGuard.Watchdog", "ParentalGuard.Uninstaller", "ParentalGuard.Vision") {
     $csproj = Join-Path $root "src\$proj\$proj.csproj"
-    dotnet build $csproj -c Release -r win-x64 --self-contained true --no-incremental @flags
+    dotnet build $csproj -c Release -r $rid --self-contained true --no-incremental @flags
     if ($LASTEXITCODE -ne 0) { throw "Build $proj thất bại." }
-    dotnet publish $csproj -c Release -r win-x64 --self-contained true --no-build @flags -o $out
+    dotnet publish $csproj -c Release -r $rid --self-contained true --no-build @flags -o $out
     if ($LASTEXITCODE -ne 0) { throw "Publish $proj thất bại." }
 }
 
@@ -33,14 +36,16 @@ Copy-Item (Join-Path $root "models\nudenet_640m.onnx") (Join-Path $out "models")
 # "EndUpdateResource failed (110)" (gặp 2026-10-09) — không tắt/không thêm ngoại lệ cho Defender.
 $tempOut = Join-Path $env:TEMP "ParentalGuard-iss-out"
 New-Item -ItemType Directory -Force $tempOut | Out-Null
-& $Iscc /Q "/DAppVersion=$Version" "/O$tempOut" (Join-Path $PSScriptRoot "ParentalGuard.iss")
+& $Iscc /Q "/DAppVersion=$Version" "/DAppArch=$Arch" "/O$tempOut" (Join-Path $PSScriptRoot "ParentalGuard.iss")
 if ($LASTEXITCODE -ne 0) { throw "Biên dịch installer thất bại." }
 
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
-$setup = Join-Path $dist "ParentalGuard-Setup-$Version-win-x64.exe"
+$setup = Join-Path $dist "ParentalGuard-Setup-$Version-$rid.exe"
 Move-Item (Join-Path $tempOut (Split-Path $setup -Leaf)) $setup -Force
-$hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content -Path (Join-Path $dist "SHA256SUMS") -Value "$hash  $(Split-Path $setup -Leaf)" -Encoding ascii
+# SHA256SUMS liệt kê MỌI bản cài của version này (x64 + x86), không chỉ bản vừa build.
+$sums = Get-ChildItem $dist -Filter "ParentalGuard-Setup-$Version-*.exe" | Sort-Object Name |
+    ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)" }
+Set-Content -Path (Join-Path $dist "SHA256SUMS") -Value $sums -Encoding ascii
 Write-Host "Xong: $setup" -ForegroundColor Green
-Write-Host "SHA-256: $hash"
+Write-Host "SHA-256: $((Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant())"

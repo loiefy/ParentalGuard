@@ -1,8 +1,8 @@
 # ParentalGuard — Bộ Spec Kỹ Thuật (Windows)
 
 > **Codename dự án**: `ParentalGuard` (tạm thời, chưa chốt tên thương hiệu chính thức)
-> **Nền tảng phase 1**: Windows 10/11 x64
-> **Trạng thái spec**: `APPROVED v0.26.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.4.0, `02-backend-spec.md` → v0.21.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.12.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.7.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
+> **Nền tảng phase 1**: Windows 10/11 x64 + Windows 10 x86 (`GEN-001a`)
+> **Trạng thái spec**: `APPROVED v0.27.0` — chủ dự án đã approve toàn bộ 12 file (`01-tong-quan-va-pham-vi.md` → v0.5.0, `02-backend-spec.md` → v0.21.0, `03-frontend-ui-spec.md` → v0.24.0, `04-security-spec.md` → v0.6.2, `05-anti-uninstall-tamper-spec.md` → v0.3.2, `06-password-management-spec.md` → v0.4.0, `07-pause-resume-spec.md` → v0.7.0, `08-performance-cpu-spec.md` → v0.10.0, `09-image-processing-spec.md` → v0.12.0, `10-additional-mechanisms-spec.md` → v0.7.0, `11-testing-qa-process.md` → v0.2.2, `12-dev-process-standards.md` → v0.7.0). Một số câu hỏi mở nhỏ (benchmark/con số cụ thể chưa đo được) vẫn còn treo ở vài file nhưng không chặn việc approve requirement đã có — xem mục "Câu hỏi mở" từng file
 > **Cập nhật lần cuối**: 2026-10-15
 
 ---
@@ -75,6 +75,7 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 | Version | Ngày | Nội dung thay đổi |
 |---|---|---|
+| v0.27.0 | 2026-10-23 | **MINOR**: `01` v0.5.0 — `GEN-001a` phát hành 2 bản x64 + x86 (Windows 10 32-bit), x86 dùng ONNX Runtime DirectML 1.22.1 (chủ dự án yêu cầu). Archive: `Outdated/01-tong-quan-va-pham-vi__v0.4.0__2026-10-23.md`, `Outdated/00-INDEX__v0.26.0__2026-10-23.md` |
 | v0.26.0 | 2026-10-22 | **MINOR**: `12` v0.7.0 — `DEV-051b` ô tròn khung developer hiện 2 số (điểm gốc Marqo + điểm cuối sau kết hợp NudeNet) khi Marqo ≥ 70% (chủ dự án yêu cầu). Archive: `Outdated/12-dev-process-standards__v0.6.0__2026-10-22.md`, `Outdated/00-INDEX__v0.25.0__2026-10-22.md` |
 | v0.25.0 | 2026-10-21 | **MINOR**: `09` v0.12.0 — `IMG-016d` Marqo ≥ ngưỡng + NudeNet thấy bất kỳ bộ phận cơ thể người nào → vi phạm (chủ dự án yêu cầu). Archive: `Outdated/09-image-processing-spec__v0.11.0__2026-10-21.md`, `Outdated/00-INDEX__v0.24.0__2026-10-21.md` |
 | v0.24.0 | 2026-10-20 | **MINOR**: `02` v0.21.0 — `BE-071d` bỏ qua cửa sổ rộng/cao ≤ 100 px; `12` v0.6.0 — `DEV-051a` chế độ developer hiện nhãn vật thể NudeNet + khoanh nét đứt vật thể vi phạm (chủ dự án yêu cầu). Archive: `Outdated/02-backend-spec__v0.20.0__2026-10-20.md`, `Outdated/12-dev-process-standards__v0.5.0__2026-10-20.md`, `Outdated/00-INDEX__v0.23.0__2026-10-20.md` |
@@ -153,7 +154,7 @@ Mỗi requirement có trạng thái: `PROPOSED` → `APPROVED` → `IMPLEMENTED`
 
 Các mục dưới đây được coi là **input cố định** cho toàn bộ spec, trừ khi có quyết định thay đổi rõ ràng:
 
-- `GEN-001`: Nền tảng đầu tiên là Windows 10/11 x64. iOS/Android/macOS là phase sau, không nằm trong scope spec này.
+- `GEN-001`: Nền tảng đầu tiên là Windows 10/11 x64. iOS/Android/macOS là phase sau, không nằm trong scope spec này. *(2026-10-23: mở rộng thêm bản x86 cho Windows 10 32-bit — `GEN-001a` ở `01-tong-quan-va-pham-vi.md`.)*
 - `GEN-002`: Toàn bộ xử lý ảnh/AI chạy **local**, không có bất kỳ network call nào trong pipeline capture→classify.
 - ~~`GEN-003`: Stack kỹ thuật: C# / .NET 8, UI dùng WinUI 3 (Windows App SDK), AI inference dùng ONNX Runtime, capture dùng Desktop Duplication API (DXGI).~~ — **DEPRECATED, superseded by `GEN-003a`**.
 - `GEN-003a` (ĐÃ CHỐT 2026-09-17, supersedes `GEN-003`): Stack kỹ thuật: **C# / .NET 10** (đổi từ .NET 8 — lý do: .NET 8 hết hạn hỗ trợ 10/11/2026, chỉ còn ~2 tháng tính đến lúc bắt đầu code; .NET 10 là LTS mới nhất, hỗ trợ đến 11/2028, máy dev cũng đã sẵn .NET 10 runtime), UI dùng WinUI 3 (Windows App SDK), AI inference dùng ONNX Runtime, capture dùng Desktop Duplication API (DXGI).

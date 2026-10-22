@@ -5,11 +5,15 @@ namespace ParentalGuard.Service.Tests;
 
 /// <summary>
 /// Bug real-hardware 2026-10-01 — cờ persistent sai làm WFP từ chối provider (FWP_E_INVALID_FLAGS),
-/// Vision không bao giờ bị chặn mạng. Khoá giá trị cờ + layout struct x64 theo đúng fwpmtypes.h, vì
-/// sandbox/CI không có quyền admin để gọi WFP thật.
+/// Vision không bao giờ bị chặn mạng. Khoá giá trị cờ + layout struct theo đúng fwpmtypes.h, vì
+/// sandbox/CI không có quyền admin để gọi WFP thật. `GEN-001a` (2026-10-23): cả x64 lẫn x86 — offset
+/// x86 theo quy tắc căn lề MSVC 32-bit (con trỏ 4 byte, UINT64 căn lề 8); chạy bộ test này bằng
+/// <c>dotnet test -a x86</c> để kiểm bản 32-bit.
 /// </summary>
 public class WfpInteropLayoutTests
 {
+    private static bool Is64 => IntPtr.Size == 8;
+
     [Fact]
     public void PersistentFlag_MatchesFwpmTypesHeader() => Assert.Equal(0x00000001u, WfpInterop.FwpmPersistent);
 
@@ -23,28 +27,27 @@ public class WfpInteropLayoutTests
     }
 
     [Fact]
-    public void FwpmFilter0_X64Layout_MatchesNativeHeader()
+    public void FwpmFilter0_Layout_MatchesNativeHeader()
     {
-        Assert.Equal(8, IntPtr.Size); // dự án chỉ build x64
-        Assert.Equal(40, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.ProviderKey)));
-        Assert.Equal(64, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.LayerKey)));
-        Assert.Equal(96, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Weight)));
-        Assert.Equal(120, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.FilterCondition)));
-        Assert.Equal(128, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Action)));
-        Assert.Equal(152, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.ProviderContextLow)));
-        Assert.Equal(168, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Reserved)));
-        Assert.Equal(176, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.FilterId)));
-        Assert.Equal(200, Marshal.SizeOf<FwpmFilter0>());
+        Assert.Equal(Is64 ? 40 : 28, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.ProviderKey)));
+        Assert.Equal(Is64 ? 64 : 40, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.LayerKey)));
+        Assert.Equal(Is64 ? 96 : 72, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Weight)));
+        Assert.Equal(Is64 ? 120 : 84, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.FilterCondition)));
+        Assert.Equal(Is64 ? 128 : 88, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Action)));
+        Assert.Equal(Is64 ? 152 : 112, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.ProviderContextLow)));
+        Assert.Equal(Is64 ? 168 : 128, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.Reserved)));
+        Assert.Equal(Is64 ? 176 : 136, (int)Marshal.OffsetOf<FwpmFilter0>(nameof(FwpmFilter0.FilterId)));
+        Assert.Equal(Is64 ? 200 : 152, Marshal.SizeOf<FwpmFilter0>());
     }
 
     [Fact]
-    public void FwpmProviderAndSubLayer_X64Layout_MatchesNativeHeader()
+    public void FwpmProviderAndSubLayer_Layout_MatchesNativeHeader()
     {
-        Assert.Equal(32, (int)Marshal.OffsetOf<FwpmProvider0>(nameof(FwpmProvider0.Flags)));
-        Assert.Equal(64, Marshal.SizeOf<FwpmProvider0>());
-        Assert.Equal(40, (int)Marshal.OffsetOf<FwpmSubLayer0>(nameof(FwpmSubLayer0.ProviderKey)));
-        Assert.Equal(64, (int)Marshal.OffsetOf<FwpmSubLayer0>(nameof(FwpmSubLayer0.Weight)));
-        Assert.Equal(72, Marshal.SizeOf<FwpmSubLayer0>());
-        Assert.Equal(40, Marshal.SizeOf<FwpmFilterCondition0>());
+        Assert.Equal(Is64 ? 32 : 24, (int)Marshal.OffsetOf<FwpmProvider0>(nameof(FwpmProvider0.Flags)));
+        Assert.Equal(Is64 ? 64 : 40, Marshal.SizeOf<FwpmProvider0>());
+        Assert.Equal(Is64 ? 40 : 28, (int)Marshal.OffsetOf<FwpmSubLayer0>(nameof(FwpmSubLayer0.ProviderKey)));
+        Assert.Equal(Is64 ? 64 : 40, (int)Marshal.OffsetOf<FwpmSubLayer0>(nameof(FwpmSubLayer0.Weight)));
+        Assert.Equal(Is64 ? 72 : 44, Marshal.SizeOf<FwpmSubLayer0>());
+        Assert.Equal(Is64 ? 40 : 28, Marshal.SizeOf<FwpmFilterCondition0>());
     }
 }

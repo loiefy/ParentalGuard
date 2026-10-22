@@ -43,7 +43,15 @@ public static class ZOrderSync
 
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
-    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+    // GEN-001a (bản x86): user32.dll 32-bit KHÔNG có GetWindowLongPtrW (chỉ là macro trỏ tới GetWindowLongW trong header C).
+    private static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex) =>
+        IntPtr.Size == 8 ? GetWindowLongPtr64(hWnd, nIndex) : new IntPtr(GetWindowLong32(hWnd, nIndex));
 
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [DllImport("user32.dll")]

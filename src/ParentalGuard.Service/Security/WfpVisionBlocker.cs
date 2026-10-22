@@ -202,7 +202,7 @@ public sealed class WfpVisionBlocker(ILogger<WfpVisionBlocker> logger)
             {
                 FieldKey = WfpInterop.ConditionAleAppId,
                 MatchType = WfpInterop.FwpMatchEqual,
-                ConditionValue = new FwpValue0 { Type = WfpInterop.FwpByteBlobType, UnionValue = (ulong)appIdBlob.ToInt64() },
+                ConditionValue = new FwpValue0 { Type = WfpInterop.FwpByteBlobType, UnionValue = appIdBlob },
             };
             Marshal.StructureToPtr(condition, conditions, fDeleteOld: false);
 
@@ -214,7 +214,7 @@ public sealed class WfpVisionBlocker(ILogger<WfpVisionBlocker> logger)
                 ProviderKey = providerKeyPtr,
                 LayerKey = layerKey,
                 SubLayerKey = WfpInterop.SubLayerKey,
-                Weight = new FwpValue0 { Type = WfpInterop.FwpUint8, UnionValue = 15 }, // mức cao nhất thang 0-15 (mục 3.1)
+                Weight = new FwpValue0 { Type = WfpInterop.FwpUint8, UnionValue = new IntPtr(15) }, // mức cao nhất thang 0-15 (mục 3.1); UINT8 nằm ở byte thấp của union
                 NumFilterConditions = 1,
                 FilterCondition = conditions,
                 Action = new FwpmAction0 { Type = WfpInterop.FwpActionBlock },

@@ -30,8 +30,14 @@ foreach ($proj in "ParentalGuard.Service","ParentalGuard.Overlay","ParentalGuard
 Một lệnh (cần Inno Setup 6: `winget install JRSoftware.InnoSetup --scope user`):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 1.0.0 -Arch x64
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 1.0.0 -Arch x86
 ```
+
+`GEN-001a`: 2 bản — **x64** (Windows 10/11 64-bit) và **x86** (Windows 10 32-bit; file cài x86 từ chối chạy trên Windows 64-bit).
+Mỗi bản publish vào `publish\release\<Arch>\ParentalGuard`; `dist\SHA256SUMS` liệt kê cả 2 file cài. Bản x86 dùng ONNX Runtime
+DirectML **1.22.1** (bản cuối còn 32-bit — `ParentalGuard.Vision.csproj` tự chọn theo `-r win-x86`). Chạy test ở chế độ 32-bit:
+`dotnet test -a x86` (cần .NET 10 runtime x86; đặt `DOTNET_ROOT_X86` nếu cài ngoài `C:\Program Files (x86)\dotnet`).
 
 Script publish đủ 7 executable với `ParentalGuardDeveloperMode=false` (Vision cuối cùng) vào `publish\release\ParentalGuard`,
 chép model Marqo + NudeNet 640m, biên dịch `installer\ParentalGuard.iss`, ghi `dist\ParentalGuard-Setup-<version>-win-x64.exe` +

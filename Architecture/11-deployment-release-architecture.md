@@ -1,6 +1,6 @@
 # 11 — Deployment & Release Architecture
 
-> Version: v0.2.1 | Trạng thái: Draft | Cập nhật: 2026-10-23
+> Version: v0.3.0 | Trạng thái: Draft | Cập nhật: 2026-10-23
 
 ## 1. Mục đích
 
@@ -50,6 +50,7 @@ Hành vi `installer\ParentalGuard.iss`:
 
 | Version | Ngày | Thay đổi |
 |---|---|---|
+| v0.3.0 | 2026-10-23 | MINOR — `GEN-001a` (Spec 01 v0.5.0): 2 bản cài x64 + x86. `build-installer.ps1 -Arch x64\|x86` → `publish\release\<Arch>\`, `ParentalGuard-Setup-<ver>-win-<Arch>.exe`, `SHA256SUMS` liệt kê cả 2. `ParentalGuard.iss` nhận `/DAppArch`: x86 → `ArchitecturesAllowed=x86os` (chỉ Windows 32-bit, tránh chuyển hướng WOW64), `{autopf}` + registry `HKLM` thay `{autopf64}` + `HKLM64` (không tồn tại trên Windows 32-bit). Vision x86 dùng ONNX Runtime DirectML 1.22.1. Interop sửa cho 32-bit: `Get/SetWindowLongPtrW` (không có trong user32 32-bit) và `FwpValue0` union rộng bằng con trỏ; toàn bộ test chạy đạt bằng `dotnet test -a x86` |
 | v0.2.1 | 2026-10-23 | PATCH — bug cài đè lên bản đang chạy (gặp 2026-10-20 khi cài bản debug): "Disabled rồi `sc stop`" không dừng được vì Service tự khôi phục Start=Auto và 2 service khởi động lại lẫn nhau — `stop-services.ps1` đổi sang trình tự bỏ Recovery Options → `taskkill` cả 2 cùng lúc → Disabled (đã kiểm chứng 4 lần trên máy thật). Phiên bản phát hành 1.0.0 |
 | v0.2.0 | 2026-10-15 | MINOR — thêm executable thứ 7 `ParentalGuard.Tray` (icon khay, `FE-023a`): publish, khoá `Run`, chạy sau khi cài, dừng khi cài đè |
 | v0.1.3 | 2026-10-12 | PATCH — cài lại ngay sau khi gỡ (không cần khởi động lại máy): `stop-services.ps1` huỷ các lệnh "xoá khi khởi động lại" (PendingFileRenameOperations) trỏ vào thư mục cài đặt do trình gỡ bản cũ để lại; `setup-services.ps1` chờ tối đa 60 giây nếu dịch vụ cũ đang "chờ xoá" (DeleteFlag). Trình gỡ (Architecture/09 mục 5.5 bước 13) nay xoá toàn bộ thư mục bằng tiến trình cmd tách rời sau khi tự thoát thay cho hẹn xoá lúc khởi động lại |
